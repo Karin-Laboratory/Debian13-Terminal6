@@ -38,3 +38,38 @@ root=/dev/mmcblk0p44, ext4 support, initramfs selection, and systemd need a
 separate verified path. Neither the private P25 template nor the bare DTB
 should be copied to this public repository without an explicit license and
 provenance review.
+
+## 2026-11-12 GitHub-only implementation run
+
+New source files:
+- `scripts/stage-experimental-dtb.sh`, `scripts/prepare-experimental-dts.py`:
+  fetch SHA-pinned independently authored Air6 board DTS and GPL-identified SoC
+  source, change only MMC0 status to okay as an **experimental hypothesis**,
+  compile and round-trip a DTB. This does not prove clock, power, pinmux, DMA,
+  reserved-memory or the eMMC controller.
+- `initramfs/init`, `scripts/make-initramfs.sh`: embed minimal static BusyBox
+  handoff which attempts P44 ext4 then switches to Debian /sbin/init. Failure
+  stays in UART emergency shell. P26 remains untouched.
+- `scripts/assemble-template-p25.py`: preserve owner-provided, SHA-pinned,
+  known-good **unsigned** LK boot-v2 template header/vendor64 and replace gzip
+  kernel/DTB. Ensure the new kernel Image actually embeds the P44 initramfs.
+- `scripts/verify-template-p25.py`: independent section, boot-ID, gzip, DTB
+  and zero-padded unsigned-tail readback checks.
+- `.github/workflows/kernel-integrated.yml`: build Linux 6.18.63 ARM64
+  Image with embedded P44 cpio and compiled experimental DTB, ephemerally.
+- Unit/source tests run in `source-tests.yml`, DTB compile tests in
+  `dtb-test.yml`.
+
+**Do not claim completion solely from CI success.** The public source baseline
+does not contain a rights-cleared, boot-verified hardware DTB with correctly
+proven MMC power/clock routing. Private RC16 templates and vendor64 bytes are
+not automatically redistributable. Public hosted CI has no approved private
+boot template and cannot build the target-specific signed-header-compatible P25
+bytes from these inputs alone. Reuse of existing unsigned template requires
+owner-private, exact-SHA input plus independent readback after manufacture.
+
+Completion requires (a) finished integrated kernel CI; (b) source/hardware
+provenance of DTB and required drivers; (c) concrete private template supplied
+to controlled offline assembler; (d) actual 32MiB unsigned output with
+independent receipt; (e) separately, device boot verification before declaring
+the image bootable. No signing, flashing or P44 writes are performed in this work.
