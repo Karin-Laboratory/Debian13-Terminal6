@@ -42,7 +42,7 @@ def verify(image, kernel_gz, dtb, initramfs, template):
     if image[576:608]!=computed.digest().ljust(32,b"\0"):
         raise ValueError("boot image SHA-1 id mismatch")
     raw=gzip.decompress(kernel_gz)
-    if raw[:4]!=b"MZ\x00\x00" or len(raw)>=35*1024*1024 or raw.count(initramfs)!=1:
+    if raw[56:60]!=b"ARM\x64" or len(raw)>=35*1024*1024 or raw.count(initramfs)!=1:
         raise ValueError("kernel decompression or linked initramfs invalid")
     if b"/dev/mmcblk0p44" not in gzip.decompress(initramfs):
         raise ValueError("initramfs does not select P44")
