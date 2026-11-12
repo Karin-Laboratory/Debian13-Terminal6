@@ -11,7 +11,7 @@ spec.loader.exec_module(packer)
 
 class PackerTest(unittest.TestCase):
     def valid(self):
-        image = b"MZ\x00\x00"+bytes(4096)
+        image = b"MZ\x00\x91"+bytes(52)+b"ARM\x64"+bytes(4040)
         image_gz=gzip.compress(image,mtime=0)
         dtb=bytearray(40)
         dtb[:4]=packer.FDT
