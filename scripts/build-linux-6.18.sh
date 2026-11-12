@@ -14,7 +14,7 @@ test "$(make -s kernelversion)" = "$VERSION"
 if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
   make ARCH=arm64 tinyconfig
   scripts/config --enable ARM64 --enable MMU --enable SMP \
-    --enable BLOCK --enable MULTIUSER --enable TTY \
+    --enable BLOCK --enable MULTIUSER --enable TTY --enable SHMEM \
     --enable OF --enable ARCH_MEDIATEK \
     --enable COMMON_CLK --enable COMMON_CLK_MEDIATEK \
     --enable MFD_SYSCON --enable PINCTRL --enable PINCTRL_MTK \
