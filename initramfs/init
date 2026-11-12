@@ -1,0 +1,29 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Debian Terminal 6: early P44 ext4 handoff, no repartitioning or writes outside root mount.
+set -eu
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+mkdir -p /proc /sys /dev /newroot
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+echo "DEBIAN13_T6_INITRAMFS_STARTED" >/dev/console
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  [ -b /dev/mmcblk0p44 ] && break
+  sleep 1
+done
+if [ ! -b /dev/mmcblk0p44 ]; then
+  echo "DEBIAN13_T6_P44_MISSING" >/dev/console
+  exec sh </dev/console >/dev/console 2>&1
+fi
+if ! mount -t ext4 -o rw,noatime /dev/mmcblk0p44 /newroot; then
+  echo "DEBIAN13_T6_P44_MOUNT_FAILED" >/dev/console
+  exec sh </dev/console >/dev/console 2>&1
+fi
+if [ ! -x /newroot/sbin/init ]; then
+  echo "DEBIAN13_T6_DEBIAN_INIT_MISSING" >/dev/console
+  umount /newroot
+  exec sh </dev/console >/dev/console 2>&1
+fi
+echo "DEBIAN13_T6_SWITCH_ROOT_P44" >/dev/console
+exec switch_root /newroot /sbin/init </dev/console >/dev/console 2>&1
