@@ -10,6 +10,16 @@ test -s drivers/phy/mediatek/phy-mtk-mt6990-sgmii.c
 python3 "$root/scripts/port-mt6990-pll.py" "$PWD"
 python3 "$root/scripts/repair-uart-stable-merge.py" "$PWD"
 python3 "$root/scripts/port-vendor-syscore.py" "$PWD"
+# Stable moved upstream Motorcomm properties to fwnode, but the retained
+# board extension still reads an OF property and needs its explicit declaration.
+python3 - <<'PY'
+from pathlib import Path
+p = Path('drivers/net/phy/motorcomm.c')
+s = p.read_text()
+if 'of_property_read_bool(' in s and '#include <linux/of.h>' not in s:
+    assert s.count('#include <linux/phy.h>') == 1
+    p.write_text(s.replace('#include <linux/phy.h>', '#include <linux/phy.h>\n#include <linux/of.h>'))
+PY
 cp "$1" .config
 for option in PRINTK PRINTK_TIME BINFMT_ELF BINFMT_SCRIPT ARM_GIC ARM_GIC_V3 \
  ARM_ARCH_TIMER SERIAL_EARLYCON SERIAL_8250 SERIAL_8250_CONSOLE SERIAL_8250_MT6577 \
