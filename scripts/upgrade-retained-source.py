@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Three-way stable upgrade preserving board changes; never accept conflict markers."""
 import argparse
+import importlib.util
 import json
 import pathlib
 import subprocess
@@ -17,6 +18,13 @@ def upgrade(gitdir, tree, proof):
         return p.stdout if p.returncode == 0 else None
     changes = git('diff', '--no-renames', '--name-status', '-z', 'v6.18.44', 'v6.18.63').split(b'\0')
     conflicts = []
+    reviewed = []
+    resolver = None
+    resolver_path = pathlib.Path(__file__).with_name('resolve-stable-conflicts.py')
+    if resolver_path.is_file():
+        spec = importlib.util.spec_from_file_location('reviewed_stable_resolutions', resolver_path)
+        resolver = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(resolver)
     merged = []
     for i in range(0, len(changes) - 1, 2):
         status, name = changes[i].decode(), changes[i+1].decode()
@@ -44,6 +52,12 @@ def upgrade(gitdir, tree, proof):
         else:
             result = ours
             conflict = True
+        if conflict and resolver is not None:
+            accepted, resolution = resolver.resolve(name, base, ours, newer, result)
+            if accepted:
+                result = resolution
+                conflict = False
+                reviewed.append(name)
         if conflict:
             conflicts.append(name)
             for suffix, data in (('.board', ours), ('.base', base), ('.stable', newer), ('.merge', result)):
@@ -60,7 +74,7 @@ def upgrade(gitdir, tree, proof):
             mode = git('ls-tree', 'v6.18.63', '--', name).split(b' ', 1)[0]
             path.chmod(0o755 if mode == b'100755' else 0o644)
         merged.append(name)
-    report = {'base': '6.18.44', 'target': '6.18.63', 'merged': merged, 'conflicts': conflicts}
+    report = {'base': '6.18.44', 'target': '6.18.63', 'merged': merged, 'conflicts': conflicts, 'reviewed_resolutions': reviewed}
     (proof / 'stable-merge.json').write_text(json.dumps(report, indent=2) + '\n')
     print('STABLE_THREE_WAY_MERGED', len(merged), 'CONFLICTS', conflicts)
     if conflicts:
