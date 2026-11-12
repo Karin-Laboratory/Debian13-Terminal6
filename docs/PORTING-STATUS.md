@@ -2,6 +2,41 @@
 
 As of 2026-11-12 the latest published 6.18.y stable patch release is **6.18.63** (published 2026-11-10, kernel.org).
 
+## Current state: prototype 1 failed physical boot; prototype 2 repair in progress
+
+The C-unit test in private PR #153 (commit `8b32f8d6d000d0c0e0692e73d6070f565cc32d18`)
+confirmed full P25 readback, LK certificate verification/decompression and ATF handoff,
+followed by watchdog reset before any Linux/initramfs output. Debian and SSH were
+not reached. Stock slot B recovered and SSH was confirmed. P26 was unchanged.
+
+The first candidate combined a historically booted RC16 DTB with a vanilla
+`tinyconfig` kernel, rather than the retained MT6990 board source/configuration.
+The old verifier checked neither printk, ELF/script execution, GIC/timer,
+GPT parsing nor MT6990 management LAN driver closure. These are confirmed
+manufacturing/verification omissions; the UART silence does not by itself
+identify the exact instruction or runtime cause of the watchdog reset.
+
+Prototype 2 source repairs:
+
+- Require early logging, ELF and script execution, GICv3/timer, GPT/eMMC,
+  Debian system interfaces and embedded IKCONFIG after Kconfig resolution.
+- Preserve the known board configuration and MT6990 drivers during a three-way
+  6.18.44-to-6.18.63 stable source upgrade. Conflicts stop the build and are retained.
+- Resolve P44 by the unique GPT `PARTNAME=rootfs_data`, independent of MMC numbering.
+- Rebuild the C-unit NETSYS/MT7531/path-probe modules against the new kernel,
+  embed them with their startup sequence and a BusyBox runtime, and stage a
+  transient systemd unit before networkd/SSH. This is experimental, not a LAN PASS.
+- Keep exact RC16 template/DTB inputs private. Do not re-sign or flash a new SHA
+  without separate owner approval.
+
+Public source tests pass. The new board build is running in the private
+`debian13/proto2-boot-fix-20261112` branch. No new image is declared complete
+until actual manufacture and independent readback succeed. No physical retest
+or root-cause confirmation is claimed.
+
+The older sections below are historical records of what was known at each stage,
+including statements predating signing and the failed physical test.
+
 ## Known inputs
 
 - Public source: [openwrt-terminal-6](https://github.com/Karin-Laboratory/openwrt-terminal-6) provides an upstream Linux v6.18 ARM64 image build workflow and partial MT6990 research drivers.
