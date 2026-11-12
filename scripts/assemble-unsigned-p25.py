@@ -28,7 +28,7 @@ def produce(image_gz, dtb, vendor64, kernel_addr, tags_addr, cmdline):
     if dtb_size < 40 or dtb_size > len(dtb):
         raise ValueError("FDT totalsize invalid")
     image = gzip.decompress(image_gz)
-    if len(image) < 64 or image[:4] != b"MZ\x00\x00" or len(image) >= LIMIT:
+    if len(image) < 64 or image[56:60] != b"ARM\x64" or len(image) >= LIMIT:
         raise ValueError("invalid ARM64 Image or LK output >35MiB")
     if not cmdline.isascii() or len(cmdline.encode()) > 511:
         raise ValueError("cmdline must fit boot-v2 header")
