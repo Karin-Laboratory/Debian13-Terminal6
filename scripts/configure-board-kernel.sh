@@ -9,6 +9,7 @@ test -s drivers/clk/mediatek/clk-mt6990.c
 test -s drivers/phy/mediatek/phy-mtk-mt6990-sgmii.c
 python3 "$root/scripts/port-mt6990-pll.py" "$PWD"
 python3 "$root/scripts/repair-uart-stable-merge.py" "$PWD"
+python3 "$root/scripts/port-vendor-syscore.py" "$PWD"
 cp "$1" .config
 for option in PRINTK PRINTK_TIME BINFMT_ELF BINFMT_SCRIPT ARM_GIC ARM_GIC_V3 \
  ARM_ARCH_TIMER SERIAL_EARLYCON SERIAL_8250 SERIAL_8250_CONSOLE SERIAL_8250_MT6577 \
