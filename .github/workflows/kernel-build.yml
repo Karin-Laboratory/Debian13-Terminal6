@@ -1,0 +1,31 @@
+name: ARM64 Linux 6.18.63 compile (no firmware distribution)
+on:
+  push:
+    paths:
+      - scripts/build-linux-6.18.sh
+      - scripts/verify-kconfig.py
+      - .github/workflows/kernel-build.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile-kernel:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build ephemeral unsigned ARM64 Image (no DTB, no p25)
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq flex bison libssl-dev libelf-dev bc
+          export WORKDIR="$RUNNER_TEMP/linux-6.18.63"
+          export JOBS=4
+          bash scripts/build-linux-6.18.sh
+          cat "$WORKDIR/output/STATUS.txt"
+          cat "$WORKDIR/output/SHA256SUMS"
+          wc -c "$WORKDIR/output/Image"
+          echo 'GENERIC_IMAGE_ONLY__NOT_TERMINAL6_P25'
