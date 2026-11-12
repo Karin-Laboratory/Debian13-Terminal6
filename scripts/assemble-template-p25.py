@@ -47,7 +47,7 @@ def produce(template, image_gz, dtb, cpio_gz, cmdline):
     if not dtb.startswith(FDT) or len(dtb)<40 or struct.unpack_from(">I",dtb,4)[0] not in range(40,len(dtb)+1):
         raise ValueError("invalid bare FDT")
     image=gzip.decompress(image_gz)
-    if len(image)<64 or image[:4]!=b"MZ\x00\x00" or len(image)>=CAP:
+    if len(image)<64 or image[56:60]!=b"ARM\x64" or len(image)>=CAP:
         raise ValueError("ARM64 Image invalid or LK cap exceeded")
     if image.count(cpio_gz)!=1:
         raise ValueError("built Image must embed exactly one Debian P44 initramfs")
