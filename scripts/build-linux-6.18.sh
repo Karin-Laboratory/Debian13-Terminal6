@@ -11,7 +11,19 @@ for tool in git make python3 sha256sum; do command -v "$tool" >/dev/null; done
 git clone --depth 1 --branch "v$VERSION" https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git "$WORKDIR"
 cd "$WORKDIR"
 test "$(make -s kernelversion)" = "$VERSION"
-make ARCH=arm64 defconfig
+if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
+  make ARCH=arm64 tinyconfig
+  scripts/config --enable ARM64 --enable MMU --enable SMP \
+    --enable BLOCK --enable MULTIUSER --enable TTY \
+    --enable OF --enable ARCH_MEDIATEK \
+    --enable COMMON_CLK --enable COMMON_CLK_MEDIATEK \
+    --enable MFD_SYSCON --enable PINCTRL --enable PINCTRL_MTK \
+    --enable REGULATOR --enable GPIOLIB \
+    --enable SERIAL_8250_MT6577 --enable MMC_MTK \
+    --enable MODULES --enable MODULE_UNLOAD
+else
+  make ARCH=arm64 defconfig
+fi
 scripts/config --enable DEVTMPFS --enable DEVTMPFS_MOUNT --enable BLK_DEV_INITRD \
   --enable EXT4_FS --enable MMC --enable MMC_BLOCK \
   --enable SERIAL_8250 --enable SERIAL_8250_CONSOLE \
