@@ -51,7 +51,7 @@ def produce(template, image_gz, dtb, cpio_gz, cmdline):
         raise ValueError("ARM64 Image invalid or LK cap exceeded")
     if image.count(cpio_gz)!=1:
         raise ValueError("built Image must embed exactly one Debian P44 initramfs")
-    if b"/dev/mmcblk0p44" not in gzip.decompress(cpio_gz):
+    if not all(x in gzip.decompress(cpio_gz) for x in (b"PARTNAME", b"rootfs_data")):
         raise ValueError("initramfs does not reference expected P44")
     cmd=cmdline.encode("ascii")
     if len(cmd)>511:
@@ -87,7 +87,7 @@ def main():
     for p in ("template","kernel-gz","dtb","initramfs-cpio-gz","output"):
         ap.add_argument("--"+p,required=True,type=Path)
     ap.add_argument("--template-sha256",required=True)
-    ap.add_argument("--cmdline",default="console=ttyS0,115200n8 root=/dev/mmcblk0p44 rootfstype=ext4 rootwait rw")
+    ap.add_argument("--cmdline",default="console=ttyS0,115200n8 earlycon keep_bootcon ignore_loglevel loglevel=8 root=PARTLABEL=rootfs_data rootfstype=ext4 rootwait rw")
     a=ap.parse_args()
     for p in (a.template,a.kernel_gz,a.dtb,a.initramfs_cpio_gz):
         if not p.is_absolute() or not p.is_file() or p.is_symlink():

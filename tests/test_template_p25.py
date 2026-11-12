@@ -23,7 +23,7 @@ class TemplateTest(unittest.TestCase):
         dtb=bytearray(40)
         dtb[:4]=m.FDT
         struct.pack_into(">I",dtb,4,40)
-        cpio=gzip.compress(b"/dev/mmcblk0p44",mtime=0)
+        cpio=gzip.compress(b"PARTNAME=rootfs_data",mtime=0)
         image=gzip.compress(b"MZ\x00\x91"+bytes(52)+b"ARM\x64"+bytes(44)+cpio+bytes(1024),mtime=0)
         return bytes(template),image,bytes(dtb),cpio
     def test_built_template(self):

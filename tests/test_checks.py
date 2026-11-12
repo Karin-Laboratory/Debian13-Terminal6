@@ -29,3 +29,13 @@ class CheckTests(unittest.TestCase):
         struct.pack_into("<I", data, 36, 4096)
         struct.pack_into("<I", data, 40, 2)
         self.assertEqual(p25.inspect(data)["header_version"], 2)
+
+class BootRegressionTests(unittest.TestCase):
+    def test_silent_or_non_executable_kernel_rejected(self):
+        complete = "".join(f"{k}=y\n" for k in config.REQUIRED)
+        for key in ("CONFIG_PRINTK", "CONFIG_BINFMT_ELF", "CONFIG_ARM_GIC_V3", "CONFIG_ARM_ARCH_TIMER"):
+            self.assertIn(key, config.missing(complete.replace(f"{key}=y\n", "")))
+
+    def test_generic_network_does_not_establish_board_support(self):
+        generic = "".join(f"{k}=y\n" for k in config.REQUIRED)
+        self.assertIn("CONFIG_NET_MEDIATEK_SOC", config.missing(generic, board=True))

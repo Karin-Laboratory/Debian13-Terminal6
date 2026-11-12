@@ -44,7 +44,7 @@ def verify(image, kernel_gz, dtb, initramfs, template):
     raw=gzip.decompress(kernel_gz)
     if raw[56:60]!=b"ARM\x64" or len(raw)>=35*1024*1024 or raw.count(initramfs)!=1:
         raise ValueError("kernel decompression or linked initramfs invalid")
-    if b"/dev/mmcblk0p44" not in gzip.decompress(initramfs):
+    if not all(x in gzip.decompress(initramfs) for x in (b"PARTNAME", b"rootfs_data")):
         raise ValueError("initramfs does not select P44")
     return {"status":"UNSIGNED_P25_INDEPENDENT_STRUCTURAL_PASS",
             "p25_bytes":len(image),"p25_sha256":hashlib.sha256(image).hexdigest(),

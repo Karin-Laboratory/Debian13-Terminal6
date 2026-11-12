@@ -1,0 +1,13 @@
+[Unit]
+Description=Terminal 6 NETSYS MT7531 SGMII1 management hardware
+DefaultDependencies=no
+After=systemd-udevd.service
+Before=systemd-networkd.service ssh.service
+
+[Service]
+Type=oneshot
+ExecStart=/run/terminal6/start-management.sh
+RemainAfterExit=yes
+TimeoutStartSec=60
+StandardOutput=journal+console
+StandardError=journal+console

@@ -23,7 +23,7 @@ class VerifyTest(unittest.TestCase):
         template[old+64:old+68]=producer.FDT
         struct.pack_into(">I",template,old+68,40)
         dtb=bytearray(40);dtb[:4]=producer.FDT;struct.pack_into(">I",dtb,4,40)
-        init=gzip.compress(b"/dev/mmcblk0p44",mtime=0)
+        init=gzip.compress(b"PARTNAME=rootfs_data",mtime=0)
         kernel=gzip.compress(b"MZ\x00\x91"+bytes(52)+b"ARM\x64"+bytes(44)+init+bytes(1024),mtime=0)
         image,_=producer.produce(bytes(template),kernel,bytes(dtb),init,"root=/dev/mmcblk0p44")
         receipt=verifier.verify(image,kernel,bytes(dtb),init,bytes(template))

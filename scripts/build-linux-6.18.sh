@@ -24,6 +24,13 @@ if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
 else
   make ARCH=arm64 defconfig
 fi
+scripts/config --enable PRINTK --enable PRINTK_TIME --enable BINFMT_ELF \
+  --enable BINFMT_SCRIPT --enable ARM_GIC --enable ARM_GIC_V3 \
+  --enable ARM_ARCH_TIMER --enable SERIAL_EARLYCON --enable SERIAL_8250_MT6577 \
+  --enable RD_GZIP --enable EFI_PARTITION --enable MMC_MTK \
+  --enable PROC_FS --enable SYSFS --enable FUTEX --enable EPOLL \
+  --enable SIGNALFD --enable TIMERFD --enable INOTIFY_USER \
+  --enable IKCONFIG --enable IKCONFIG_PROC
 scripts/config --enable DEVTMPFS --enable DEVTMPFS_MOUNT --enable BLK_DEV_INITRD \
   --enable EXT4_FS --enable MMC --enable MMC_BLOCK \
   --enable SERIAL_8250 --enable SERIAL_8250_CONSOLE \

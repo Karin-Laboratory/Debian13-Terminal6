@@ -1,29 +1,57 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# Debian Terminal 6: early P44 ext4 handoff, no repartitioning or writes outside root mount.
+# Resolve Debian's GPT rootfs_data partition, independently of MMC numbering.
 set -eu
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 mkdir -p /proc /sys /dev /newroot
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
-echo "DEBIAN13_T6_INITRAMFS_STARTED" >/dev/console
-for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
-  [ -b /dev/mmcblk0p44 ] && break
-  sleep 1
+exec </dev/console >/dev/console 2>&1
+echo DEBIAN13_T6_INITRAMFS_STARTED
+fail() {
+    echo "DEBIAN13_T6_HANDOFF_FAILED:$1"
+    # Keep the bootloader watchdog policy; this shell is not SSH recovery.
+    exec sh
+}
+rootdev=
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    rootdev=
+    for event in /sys/class/block/*/uevent; do
+        [ -f "$event" ] || continue
+        partname= devtype=
+        while IFS='=' read -r key value; do
+            case "$key" in
+                PARTNAME) partname=$value ;;
+                DEVTYPE) devtype=$value ;;
+            esac
+        done < "$event"
+        [ "$devtype" = partition ] && [ "$partname" = rootfs_data ] || continue
+        block=${event%/uevent}
+        candidate=/dev/${block##*/}
+        [ -b "$candidate" ] || continue
+        [ -z "$rootdev" ] || fail AMBIGUOUS_ROOTFS_DATA
+        rootdev=$candidate
+    done
+    [ -z "$rootdev" ] || break
+    sleep 1
 done
-if [ ! -b /dev/mmcblk0p44 ]; then
-  echo "DEBIAN13_T6_P44_MISSING" >/dev/console
-  exec sh </dev/console >/dev/console 2>&1
+[ -n "$rootdev" ] || fail ROOTFS_DATA_MISSING
+echo "DEBIAN13_T6_ROOT_DEVICE=$rootdev"
+mount -t ext4 -o rw,noatime "$rootdev" /newroot || fail ROOTFS_DATA_MOUNT
+[ -x /newroot/sbin/init ] || fail DEBIAN_INIT_MISSING
+mkdir -p /newroot/dev /newroot/proc /newroot/sys
+if [ -d /terminal6 ]; then
+    mkdir -p /newroot/run
+    mount -t tmpfs -o mode=0755 tmpfs /newroot/run || fail MOUNT_RUNTIME
+    cp -a /terminal6 /newroot/run/terminal6 || fail STAGE_MANAGEMENT
+    mkdir -p /newroot/run/systemd/system/multi-user.target.wants
+    cp /terminal6/terminal6-management.service /newroot/run/systemd/system/
+    ln -s ../terminal6-management.service /newroot/run/systemd/system/multi-user.target.wants/terminal6-management.service
+    echo DEBIAN13_T6_MANAGEMENT_SERVICE_STAGED
 fi
-if ! mount -t ext4 -o rw,noatime /dev/mmcblk0p44 /newroot; then
-  echo "DEBIAN13_T6_P44_MOUNT_FAILED" >/dev/console
-  exec sh </dev/console >/dev/console 2>&1
-fi
-if [ ! -x /newroot/sbin/init ]; then
-  echo "DEBIAN13_T6_DEBIAN_INIT_MISSING" >/dev/console
-  umount /newroot
-  exec sh </dev/console >/dev/console 2>&1
-fi
-echo "DEBIAN13_T6_SWITCH_ROOT_P44" >/dev/console
-exec switch_root /newroot /sbin/init </dev/console >/dev/console 2>&1
+echo DEBIAN13_T6_SWITCH_ROOT_P44
+mount --move /proc /newroot/proc || fail MOVE_PROC
+mount --move /sys /newroot/sys || fail MOVE_SYS
+mount --move /dev /newroot/dev || fail MOVE_DEV
+exec switch_root /newroot /sbin/init
