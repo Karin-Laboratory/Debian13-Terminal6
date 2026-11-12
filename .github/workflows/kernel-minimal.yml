@@ -1,0 +1,32 @@
+name: Linux 6.18.63 minimal ARM64 LK size gate
+on:
+  push:
+    paths:
+      - scripts/build-linux-6.18.sh
+      - scripts/verify-kconfig.py
+      - .github/workflows/kernel-minimal.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq flex bison libssl-dev libelf-dev bc
+      - run: |
+          set -euo pipefail
+          export WORKDIR="$RUNNER_TEMP/linux-minimal"
+          export KERNEL_PROFILE=minimal
+          export JOBS=4
+          bash scripts/build-linux-6.18.sh
+          test "$(wc -c < "$WORKDIR/output/Image")" -lt $((35*1024*1024))
+          sha256sum "$WORKDIR/output/Image"
+          wc -c "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz"
+          echo 'LK_UNCOMPRESSED_IMAGE_SIZE_GATE_PASS_ONLY'
