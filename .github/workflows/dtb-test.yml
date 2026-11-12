@@ -1,0 +1,26 @@
+name: Experimental DTB compile
+on:
+  push:
+    paths:
+      - scripts/stage-experimental-dtb.sh
+      - scripts/prepare-experimental-dts.py
+      - .github/workflows/dtb-test.yml
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dtb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq device-tree-compiler
+          bash scripts/stage-experimental-dtb.sh "$RUNNER_TEMP/debian-t6-dtb"
+          test -s "$RUNNER_TEMP/debian-t6-dtb/board/terminal6-debian-experimental.dtb"
+          echo 'DTB_SYNTAX_ONLY__NO_HARDWARE_VALIDATION'
