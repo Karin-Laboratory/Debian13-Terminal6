@@ -1,0 +1,52 @@
+name: Integrated Debian P44 kernel and DTB research build
+on:
+  push:
+    paths:
+      - scripts/build-linux-6.18.sh
+      - scripts/make-initramfs.sh
+      - scripts/prepare-experimental-dts.py
+      - scripts/stage-experimental-dtb.sh
+      - initramfs/init
+      - .github/workflows/kernel-integrated.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: integrated-kernel-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  research:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq flex bison libssl-dev libelf-dev bc \
+            device-tree-compiler busybox-static cpio
+      - name: Assemble Debian rootfs handoff initramfs
+        run: |
+          set -euo pipefail
+          bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-initramfs.cpio.gz"
+          gzip -t "$RUNNER_TEMP/p44-initramfs.cpio.gz"
+      - name: Compile pinned source experimental DTB (unvalidated hardware)
+        run: |
+          set -euo pipefail
+          bash scripts/stage-experimental-dtb.sh "$RUNNER_TEMP/dtb"
+      - name: Compile stable ARM64 Image with embedded P44 initramfs
+        run: |
+          set -euo pipefail
+          export WORKDIR="$RUNNER_TEMP/debian-t6-linux"
+          export INITRAMFS_ARCHIVE="$RUNNER_TEMP/p44-initramfs.cpio.gz"
+          export DTB_PATH="$RUNNER_TEMP/dtb/board/terminal6-debian-experimental.dtb"
+          export JOBS=4
+          bash scripts/build-linux-6.18.sh
+          cat "$WORKDIR/output/SHA256SUMS"
+          cat "$WORKDIR/output/STATUS.txt"
+          wc -c "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/terminal6-debian-experimental.dtb"
+          echo 'INTEGRATED_BUILD_ONLY_P25_NOT_ASSEMBLED_LK_UNPROVEN'
+      # No binary artifacts/caches/release: unsigned image redistribution rights not cleared.
