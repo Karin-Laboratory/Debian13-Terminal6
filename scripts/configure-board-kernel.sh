@@ -17,6 +17,11 @@ for option in PRINTK PRINTK_TIME BINFMT_ELF BINFMT_SCRIPT ARM_GIC ARM_GIC_V3 \
  COMMON_CLK_MT6990; do scripts/config --enable "$option"; done
 scripts/config --disable CMDLINE_FORCE --disable LOCALVERSION_AUTO --disable DEBUG_INFO_BTF \
  --set-str CMDLINE '' --set-str LOCALVERSION '-debian-t6-proto2' --set-str INITRAMFS_SOURCE "$2"
+# MT7987 is a different SoC. Its donor-only clock driver still targets the
+# older PLL registration API and is not a dependency of MT6990.
+for option in $(sed -n 's/^config \(COMMON_CLK_MT7987[^ ]*\).*/\1/p' drivers/clk/mediatek/Kconfig); do
+  scripts/config --disable "$option"
+done
 make ARCH=arm64 olddefconfig
 python3 "$root/scripts/verify-kconfig.py" --terminal6 .config
 grep -qx CONFIG_COMMON_CLK_MT6990=y .config
