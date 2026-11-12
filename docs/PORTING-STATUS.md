@@ -23,3 +23,18 @@ As of 2026-11-12 the latest published 6.18.y stable patch release is **6.18.63**
 5. Test Debian P44 rootfs and stage recovery independently before flashing. Slot B must remain undisturbed.
 
 The provided script **does not** produce a runnable Terminal 6 P25. It is the generic upstream kernel build stage only. No signing or hardware writes are authorized.
+
+## Private RC16 manufacturing facts inspected (not copied into public source)
+
+The existing private RC16 manufacturing code at PR #142 uses a boot-v2 producer
+inherited from RC13 and requires **a private P25 template, compressed kernel,
+bare DTB, initramfs, and an SHA-bound P26**. The actual successful RC16 Image
+was reported as 16,543,752 bytes and its gzip payload as 7,440,264 bytes;
+the separate bare DTB was 148,765 bytes. These are **historical RC16
+measurements**, not build targets or proof that 6.18.63 will work.
+
+For Debian the old P26-SHA-bound initramfs handoff is not directly usable:
+root=/dev/mmcblk0p44, ext4 support, initramfs selection, and systemd need a
+separate verified path. Neither the private P25 template nor the bare DTB
+should be copied to this public repository without an explicit license and
+provenance review.
