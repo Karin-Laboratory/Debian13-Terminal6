@@ -91,3 +91,24 @@ the image bootable. No signing, flashing or P44 writes are performed in this wor
 - The public experimental DTS was built and syntax-tested separately; the actual manufactured candidate uses the exact private RC16 DTB with historical boot success. Linux 6.18.63 runtime compatibility remains unproven.
 
 This closes the **unsigned image manufacture + independent static readback** gate only.
+
+## 2026-11-12 completed owner-private unsigned engineering candidate
+
+An actual **33,554,432-byte** unsigned P25 was assembled in the owner-private
+GitHub Actions run `43137288343` from Linux 6.18.63, an embedded P44 Debian
+rootfs handoff initramfs, and the SHA-verified historically RC16-used bare DTB
+sourced from a private unsigned template.
+
+- Result SHA-256: `3858454916d6f9089d56518110f7331bf0ec4567185389571b7fa885dcc99382`.
+- Compiled Image size: 7,528,456 bytes; compressed kernel 3,657,791 bytes.
+- Independent unsigned boot-v2 section/header/DTB/kernel/CPIO/zero-tail readback: PASS.
+- MediaTek MMC and UART built-in config checks: PASS.
+- Private preservation run `43138238641`: PASS; private draft release stores the image and three validation/manifest documents.
+- No signing, flashing, hardware boot or Debian rootfs boot test has occurred.
+
+**Important distinction:** the proven RC16 bare DTB bytes remain in the
+owner-private pipeline; the published independently drafted DTS/experimental
+DTB have not been demonstrated to reproduce those exact bytes or be safe
+on hardware. Runtime driver equivalence with the RC16 kernel and the
+P44 Debian filesystem are not yet established. This is a finished unsigned
+*static engineering candidate*, not a release-ready installable firmware.
