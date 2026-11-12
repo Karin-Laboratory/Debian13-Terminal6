@@ -38,6 +38,15 @@ if [[ -n "${INITRAMFS_ARCHIVE:-}" ]]; then
 fi
 make ARCH=arm64 olddefconfig
 python3 "$ROOT/scripts/verify-kconfig.py" .config
+if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
+  for option in ARCH_MEDIATEK MMC_MTK SERIAL_8250_MT6577; do
+    grep -qx "CONFIG_${option}=y" .config || {
+      echo "Terminal 6 built-in driver missing: CONFIG_${option}=y" >&2
+      exit 1
+    }
+  done
+  echo MEDIATEK_MMC_UART_BUILTIN_KCONFIG_PASS
+fi
 export KBUILD_BUILD_USER=terminal6 KBUILD_BUILD_HOST=source-build
 export KBUILD_BUILD_TIMESTAMP='Thu Jan  1 00:00:00 UTC 1970'
 export SOURCE_DATE_EPOCH=0
