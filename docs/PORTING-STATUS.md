@@ -73,3 +73,21 @@ provenance of DTB and required drivers; (c) concrete private template supplied
 to controlled offline assembler; (d) actual 32MiB unsigned output with
 independent receipt; (e) separately, device boot verification before declaring
 the image bootable. No signing, flashing or P44 writes are performed in this work.
+
+## 2026-11-12 actual unsigned P25 built and independently audited
+
+**Private GitHub Actions run:** https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/43137288343
+
+- Status: SUCCESS, including assembly, independent static readback and private artifact upload.
+- Source: this repository at commit `b4d72d3fe9196aa5d3b61e8b4ca1589f233577b9`.
+- Input: RC16 owner-private unsigned P25, full SHA-256 `75b723801d99aa43e844c63ab4d4fd2a9415263aa0a33644631bcd2fba928af1`.
+- Reused RC16 boot-tested bare DTB: 148,765 bytes, SHA-256 `f9f24ba152d6714626b6c79c205cf190b3875629ef60d73357c769d2d2ea10e3`.
+- Debian P44 initramfs SHA-256 `d7da5d14f01524aa0e8f103f3f44fa3cc04e95f9cb3c6c834bb95a657a975518`.
+- Linux 6.18.63 uncompressed ARM64 Image 7,528,456 bytes; gzip 3,657,791 bytes.
+- **Manufactured unsigned P25:** exactly **33,554,432 bytes**; SHA-256 `3858454916d6f9089d56518110f7331bf0ec4567185389571b7fa885dcc99382`.
+- Independent verifier: `UNSIGNED_P25_INDEPENDENT_STRUCTURAL_PASS`.
+- Artifact name: `debian13-6.18.63-owner-private-unsigned-p25`, artifact ID `13907489800`; retained owner-private (Actions 7-day retention until 2026-11-19).
+- Neither signing nor hardware boot was run. **This is a complete unsigned engineering candidate, not confirmed working or safe-to-flash firmware.**
+- The public experimental DTS was built and syntax-tested separately; the actual manufactured candidate uses the exact private RC16 DTB with historical boot success. Linux 6.18.63 runtime compatibility remains unproven.
+
+This closes the **unsigned image manufacture + independent static readback** gate only.
