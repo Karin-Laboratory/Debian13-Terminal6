@@ -20,6 +20,10 @@ scripts/config --enable DEVTMPFS --enable DEVTMPFS_MOUNT --enable BLK_DEV_INITRD
   --enable USB_SUPPORT --enable USB --enable USB_SERIAL \
   --module USB_SERIAL_CH341 --enable OVERLAY_FS \
   --enable NFS_FS --enable NFS_V4
+if [[ -n "${INITRAMFS_ARCHIVE:-}" ]]; then
+  test -s "$INITRAMFS_ARCHIVE"
+  scripts/config --set-str INITRAMFS_SOURCE "$INITRAMFS_ARCHIVE"
+fi
 make ARCH=arm64 olddefconfig
 python3 "$ROOT/scripts/verify-kconfig.py" .config
 export KBUILD_BUILD_USER=terminal6 KBUILD_BUILD_HOST=source-build
@@ -29,7 +33,15 @@ make ARCH=arm64 -j"${JOBS:-4}" Image modules
 test -s arch/arm64/boot/Image
 mkdir -p "$WORKDIR/output"
 cp arch/arm64/boot/Image "$WORKDIR/output/Image"
+gzip -n -9 -c "$WORKDIR/output/Image" > "$WORKDIR/output/Image.gz"
+if [[ -n "${DTB_PATH:-}" ]]; then
+  test -s "$DTB_PATH"
+  cp "$DTB_PATH" "$WORKDIR/output/terminal6-debian-experimental.dtb"
+fi
 cp .config "$WORKDIR/output/kernel.config"
-sha256sum "$WORKDIR/output/Image" "$WORKDIR/output/kernel.config" > "$WORKDIR/output/SHA256SUMS"
+sha256sum "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/kernel.config" > "$WORKDIR/output/SHA256SUMS"
+if [[ -n "${DTB_PATH:-}" ]]; then
+  (cd "$WORKDIR/output" && sha256sum terminal6-debian-experimental.dtb) >> "$WORKDIR/output/SHA256SUMS"
+fi
 printf '%s\n' LINUX_IMAGE_BUILT_ONLY NOT_A_TERMINAL6_BOOT_IMAGE BOARD_DTB_UNVERIFIED P25_PACKAGING_UNVERIFIED > "$WORKDIR/output/STATUS.txt"
-echo "GENERIC_ARM64_IMAGE_BUILT; board DTB and P25 packer are unresolved"
+echo "ARM64_IMAGE_BUILT_WITH_OPTIONAL_P44_INITRAMFS; LK/DTB hardware compatibility not established"
