@@ -2,7 +2,7 @@
 
 As of 2026-11-12 the latest published 6.18.y stable patch release is **6.18.63** (published 2026-11-10, kernel.org).
 
-## Current state: prototype 1 failed physical boot; prototype 2 repair in progress
+## Current state: prototype 1 failed physical boot; prototype 2 unsigned candidate built
 
 The C-unit test in private PR #153 (commit `8b32f8d6d000d0c0e0692e73d6070f565cc32d18`)
 confirmed full P25 readback, LK certificate verification/decompression and ATF handoff,
@@ -29,10 +29,26 @@ Prototype 2 source repairs:
 - Keep exact RC16 template/DTB inputs private. Do not re-sign or flash a new SHA
   without separate owner approval.
 
-Public source tests pass. The new board build is running in the private
-`debian13/proto2-boot-fix-20261112` branch. No new image is declared complete
-until actual manufacture and independent readback succeed. No physical retest
-or root-cause confirmation is claimed.
+Prototype 2 manufacture completed on 2026-11-12 in private build run 43157680253,
+using public source commit `56b85307ef8b4b826c1c0172af490e2550a565cf`.
+The 32MiB unsigned P25 embeds a 18,962,440-byte ARM64 Image and the 148,765-byte
+RC16 DTB. Kernel/module build, required Kconfig checks, board object presence,
+module vermagic, independent P25 structure/payload checks and embedded-config
+comparison passed. Independent archive inspection confirmed ARM64 BusyBox/modules,
+module hashes and service ordering. All 17 source tests and experimental DTS
+compilation passed. Private inputs and candidate stay in the owner-private archive.
+
+Stable integration also required the MT6990 PLL device API port, preservation of
+stable UART accessor ownership after an auto-merge duplicated UPIO_AU, static
+modem/MCU syscore registrations adapted to the data API, and an explicit OF header
+for the retained Motorcomm extension. No compiler warning was suppressed to bypass
+these errors. Source snapshots initially excluded two required upstream files;
+the chosen snapshot plus hash-checked upstream assembler restoration is recorded
+in the private manufacturing receipt.
+
+The initial runtime cause remains unconfirmed. The new candidate has not been
+signed, flashed or physically booted. Debian, management LAN and SSH are still
+unverified on this candidate.
 
 The older sections below are historical records of what was known at each stage,
 including statements predating signing and the failed physical test.

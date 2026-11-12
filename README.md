@@ -12,7 +12,9 @@ Experimental, community-maintained project to run **Debian 13 (arm64)** on SoftB
 
 ## Status
 
-**Planning / early development.** No Debian boot or hardware support is claimed to be verified yet. Writing P44 can destroy existing OpenWrt overlay data; back up the device and confirm the recovery path before any flashing or repartitioning.
+**Prototype 1 failed its C-unit boot test.** LK verification/decompression and ATF handoff passed, followed by a watchdog reset before Linux output. Debian and SSH have not booted successfully.
+
+Prototype 2 now builds a retained MT6990 board kernel upgraded to Linux 6.18.63, with early UART logging, GPT-name P44 handoff, and same-build management LAN modules. The owner-private unsigned 32MiB P25 passed structural/payload verification and embedded-config comparison. Source tests (17) and experimental DTS compilation pass. Signing and physical retest are pending; static checks do not establish hardware operation. See [porting status](docs/PORTING-STATUS.md).
 
 ## Publication policy
 
