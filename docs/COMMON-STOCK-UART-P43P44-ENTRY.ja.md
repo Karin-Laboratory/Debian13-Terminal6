@@ -2,10 +2,10 @@
 
 Debian on Air Terminal 6 の導入前に必要になる、**純正slot B側のUART・Linux shell・eMMC・分割準備に関する公開可能な実機知見**は、OpenWrt側の共通資料を正本とする。
 
-- [日本語の実測知見と注意点](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/docs/stock-uart-evidence-handoff-20261113/docs/STOCK-UART-EMERGENCY-P43P44-EVIDENCE-20261113.ja.md)
-- [AIエージェント向け機械可読の観測情報](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/docs/stock-uart-evidence-handoff-20261113/docs/STOCK-UART-P43P44-EVIDENCE-20261113.json)
+- [日本語の実測知見と注意点](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/STOCK-UART-EMERGENCY-P43P44-EVIDENCE-20261113.ja.md)
+- [AIエージェント向け機械可読の観測情報](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/STOCK-UART-P43P44-EVIDENCE-20261113.json)
 
-**2026-11-13現在、上記は公開PR候補ブランチ**。mainへ採用されたらリンクのブランチ名をmainへ切り替えること。
+**正本はOpenWrt公開リポジトリのmainを参照。**
 
 ## 一般化できることと、できないこと
 
