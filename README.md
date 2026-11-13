@@ -18,6 +18,10 @@ Experimental, community-maintained project to run **Debian 13 (arm64)** on SoftB
 
 Only publish independently redistributable code and documentation. Do not commit signing secrets, device-specific credentials or calibration data, or proprietary firmware dumps.
 
+## Stock UART / P43-P44 onboarding evidence
+
+Before working on partitions or stock SSH, read [the shared, sanitized stock UART / LK / Emergency Shell field guide](docs/COMMON-STOCK-UART-P43P44-ENTRY.ja.md). It distinguishes demonstrated observations from unverified generic installation steps; it is **not** a completed installer.
+
 ## Related work
 
 [OpenWrt port for Terminal 6](https://github.com/Karin-Laboratory/openwrt-terminal-6)
