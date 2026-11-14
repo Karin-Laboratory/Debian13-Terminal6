@@ -1,0 +1,63 @@
+# C号機 Wi-Fi 7 / 6GHz / MLO 状況 (2026-11-14)
+
+## 結論
+
+| 機能 | 現在の判定 | 根拠 |
+|---|---|---|
+| 2.4/5GHz AP | `PARTIAL` | Debian 13上での今回の実通信・再起動復帰は未確認。RC14 OpenWrtの過去成功は別環境の結果。 |
+| 6GHz PHY | `RECOGNIZED / BLOCKED` | 今回の実測でphy0が2.4/5/6GHz帯と24チャネル(1..93)を列挙。ただし5925–6415MHzの全24chがdisabled、regulatory `00`。送信不可。 |
+| 6GHz AP | `NOT_TESTED` | 電波送信・AP起動は未実施。対象個体の認証・運用条件も未確認。 |
+| 802.11be/EHT実通信 | `NOT_TESTED` | PHY能力表示だけでは接続モードや実データ通信を証明しない。 |
+| MLO実通信 | `NOT_TESTED` | 1 PHYのドライバ能力表示は、複数リンクを持つMLD接続・各リンクの通信実績ではない。 |
+
+## 既存実機記録の基準
+
+リポジトリのC号機記録では、Debian 13 / Linux 6.18.63でMT7990系PCI機能が列挙され、`mt7996e`系ドライバがPHYを登録している。Wi-Fi記録には2.4/5/6GHz bandとEHT能力の表示がある一方、6GHzの規制状態は`00`、チャネルは利用不可、`regulatory.db`欠落、EEPROM default-bin fallback、MCU timeoutが記録されている。Debian上のAP起動・端末通信は未試験である。
+
+PCI ID `14c3:7990` と `14c3:7991` は、監査したLinux 6.18.63ソースのMT7996 driver内で同じ無線デバイスの本体/HIF側IDとして扱われる。2つのPCI機能は2台の独立無線機や2つの動作中PHYを意味しない。今回のC号機は単一の`phy0`を観測。A号機の純正`iw phy`は`phy2`に6GHz、`phy1`に5GHz、`phy0`に2.4GHzを表示し、`iw dev`では`phy2`上のAP interfacesが6075MHz/320MHzで設定中だった。A号機の`iw reg get`もglobal `00`だが5925–7125MHz規則を表示する。これは稼働状態の比較記録で、法令適合やC号機送信許可の根拠にはしない。
+
+同じカーネルソースの`mt7996/init.c`は`WIPHY_FLAG_SUPPORTS_MLO`とEMLSR能力を広告し、MLOリンク情報の管理領域を持つ。Linux Wirelessの[MediaTek driver情報](https://wireless.docs.kernel.org/en/latest/en/users/drivers/mediatek.html)も一般的なmt76機能を説明するが、この特定個体の動作証拠ではない。能力表示はC号機上でAP/STAのMLDが成立した証拠ではない。MLO PASSには、接続相手側のMLD、複数のactive link ID、各リンク上のpacket/byte増加、およびIPの双方向通信を確認する必要がある。
+
+## 6GHzの規制ゲート
+
+ARIB STD-T71の[公開情報](https://www.arib.or.jp/kikaku/kikaku_tushin/desc/std-t71.html)では、版8.1 (2026-10-09) が802.11be/Wi-Fi 7対応を含む。版7.0の説明は日本の6GHz帯を5925–6425 MHz、最大160 MHz幅としている。これは本機の型式認証、アンテナ構成、出力条件、設置条件、運用可能チャネルを個別に証明しない。320 MHzを許可すると解釈しない。
+
+従って、規制ドメインを強制したり、チャネルや出力を推測設定したりしてRF送信を試すことはできない。試験前に本機の認証・許可された周波数/幅/出力と必要なregulatory databaseを確認する必要がある。
+
+## EEPROM・firmware
+
+既存記録では初回のEEPROM取得失敗とdriver fallbackが見られる。起動スクリプトが複数候補のファイル名を配置することだけでは、driverが選択したEEPROMが正しいことを証明できない。今回の調査では秘密・校正データを読み出したり、公開領域へコピーしたりしていない。C号機には`mt7996_eeprom*.bin`候補が複数存在するが、起動ログは`eeprom load fail, use default bin`。候補ファイルの存在は選択・適用成功を証明しない。実機の既存oneshot `terminal6-wifi-phy.service`はC号機自身のP26 firmwareとP38/P39側のstock rootfs_bからOEM EEPROMを読み取り専用で取得し、/runへ展開して`/lib/firmware/mediatek/mt7996`へtmpfs bind後にmt76 modulesをロードする。serviceはSUCCESS、両PCI endpointとphy0は結合済みだが、その直後のkernel logでもdefault-bin fallbackが出ている。つまり単純なDebian側ファイル配置漏れでは説明できず、stock EEPROMとdriver parser/variant/formatの互換性、または読み込み名を次に比較する。原EEPROM内容は読出し・記録・公開していない。`regulatory.db`もrootfs上には存在しDebian alternativesから`regulatory.db-debian`へ解決する一方、起動直後の要求失敗ログがある。カーネルは`CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y`で、C rootfsのDebian alternatives先には署名付きDBがある。起動直後の失敗ログは無署名fallbackではなく早期initramfs側の探索時点が原因候補。組み込みinitramfs (`CONFIG_INITRAMFS_SOURCE` はビルド時パスを記録) へファイルが含まれているか未確認。rootfs上のDBを見つけたことだけでdriver起動時に適用されたとは言えず、global `00`も維持。規制ドメイン変更は行わない。正しいC号機OEM校正データの読取経路、選択ファイル名、適用成功ログを非公開の証拠で確認する必要がある。default-bin状態での6GHz送信は進めない。
+
+## 2026-11-14 追加実機サイクル
+
+MT7996 module binaryのfirmware名文字列に `mediatek/mt7996/mt7990_eeprom.bin` と `mt7990_eeprom_2i5i.bin` があることを確認。既存のC号機起動scriptはC号機stock rootfs_b由来の7680-byte OEM EEPROMを `mt7996_eeprom*.bin` としてRAM配置していたため、同じ個体データを上記2名でもRAM stagingする2行を追加した。変更前scriptをCのP44上にbackupし、 `sh -n` PASS。通常再起動後、SSH/networkd/UART gettyとserviceが復帰し、RAM上の2名が配置され、phy0が登録された。EEPROM fallback warningは継続した。driverソースではuse_default時にdefault-binを要求・読み込み、modeをDEFAULT_BINにする経路で同warningを出すため、このメッセージだけでは読込失敗とは断定できない。実効EEPROM bytesは取得・公開せず、機器固有校正がband別に適用された独立検証は未完了。
+
+同一build-proofのkernel configは `CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y` と `CONFIG_INITRAMFS_SOURCE` をgzip CPIOに設定。対応initramfs archiveの読み取り一覧に `regulatory.db` / `.p7s` は存在しない。ログは起動0.52秒でrequest failure、4.48秒でcfg80211 load failure、MT7996 service/driverは9秒台に開始。rootfs上にはDebian signed regulatory.dbが存在し、後からalternativesが解決するが早期要求時には間に合わない。修正には署名付きDBと対応署名をkernel組み込みinitramfsへ含めたkernel rebuildが必要。P25の既存署名/復旧チェーンに対する候補再製造は未着手。
+
+このサイクルで実施したのはRAM staging名の追加と通常再起動。6GHz規制設定、RF送信、校正原本読出し、driver/module交換はしていない。再起動後MMC/ext4エラー増加はdmesg検索で検出なし。MMC番号変化により以前の固定sysfs pathはなくCQE値は再取得できず、確認済みとは記録しない。
+
+## 追加の読み取り・再起動結果
+
+C号機起動時のdriverは要求名に応じたEEPROM default fileを読み込みます。module binaryのstringsにはMT7990要求名が含まれ、serviceへC号機stock rootfs_b由来の同一EEPROMをその名でも一時配置する処理を追加しました。再起動後にservice成功、2つのRAM file存在、phy0登録を確認。fallback警告は残りましたが、upstream mt76 eeprom.cのuse_default経路ではこの警告の後にdefault fileをrequestしコピーするため、警告だけから失敗とは判定できません。実効内容の読取りはせず、FEM variant/校正適用は未確認。参考: https://github.com/openwrt/mt76/blob/master/mt7996/eeprom.c
+
+initramfs source archiveはbuild-proof上にあり、gzip CPIO一覧でregulatory.dbと署名ファイルがないことを確認。kernel configは署名済みregdbを要求。rootfsファイルは起動後に存在するため早期要求を満たしません。kernel rebuild/deployは未実施。既存署名pipelineは別製品/別P25の固定digest/approval gatesを持つため流用せず、Terminal6に合う署名・復旧手順とsource/build inputsの特定が必要です。
+
+## hostapd候補
+
+公式hostapd 2.12ソース (SHA-256 `f43502561c28ba47ab77e18e1a973d07361c68cc8b14178e619bd5796b70eabd`) を一時作業領域で取得し、Debian arm64用に`nl80211`、802.11ax/be、SAEを有効にしてクロスビルドした。成果物はARM64 ELFで、QEMU-user上の`hostapd -v`はv2.12を返した。これはビルドと起動表示の確認のみで、C号機への配置、nl80211 AP起動、6GHz、EHT接続、MLOは試していない。バイナリと一時sysrootはgitに含めない。
+
+## regdb組込みP25候補（host only）
+
+C号機rootfsからDebian wireless-regdbのDBとdetached signatureを取得し、OpenSSL signature verification PASS。両ファイルを既存P44 initramfsへ追加し、署名必須/Kernel RegDB Keys設定を維持したARM64 6.18.63 kernelを再ビルド。新CPIO hash `9e149a1e7deb3ff859f494bda801335f463962bc16349988f0046459298d55ca`、kernel Image.gz hash `a9c230d06ca2bbd99f4d8bda708dfcd7788b60eaef29f206f465910d6f256f45`。Image内のCPIOは1回含まれ、ARM64 header/size PASS。32MiB P25候補 hash `9686d1b27276c62ad4308d926c2a3667b19b58bac3dc5100686e00aef691a1e9`は独立structural verifierで`UNSIGNED_P25_INDEPENDENT_STRUCTURAL_PASS`。署名・flash・bootは未実施。
+
+既存Private signing workflowは別P25 SHAを条件、承認文字列、download assetで固定しており、この新digestへ転用できない。新digest用署名経路と物理bootを完了するまでは候補を書き込まない。kernel/P25/校正データは公開Gitへ含めない。
+
+## 次の実測段階
+
+1. 新unsigned P25 hash専用の署名workflowと復旧制御を確立し、RSA-PSS署名・独立検証後に物理bootとregdb load logを確認する。
+2. LAN/UART管理の維持を前提に、秘密情報を出さない読み取りsnapshotをDebian上で採取する。
+3. regulatory database、実機の適法な運用条件、EEPROM選択とfirmware起動、MCU応答を確認する。
+4. 認証/運用条件と電波試験環境が確認できてから、許可された帯域だけを低リスク段階で試験する。
+5. 2.4/5GHz AP、6GHz AP、EHT接続、MLOを別々の受入項目にし、それぞれ端末接続・アドレス取得・実データ通信まで確認する。
+
+今回のサイクルではRAM staging scriptの変更とC号機通常再起動を実施した。RF送信はしていない。

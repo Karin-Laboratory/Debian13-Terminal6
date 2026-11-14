@@ -1,0 +1,206 @@
+{
+  "associated_stations": [],
+  "collected_at_utc": "2026-11-14T10:08:51+00:00",
+  "diagnostic_markers": {
+    "eeprom_fallback_seen": true,
+    "mcu_timeout_seen": false,
+    "pcie_correctable_aer_seen": false,
+    "regulatory_database_missing_seen": true
+  },
+  "interfaces": [
+    {
+      "channel_mhz": null,
+      "name": "wlp1s0",
+      "ssid_present": false,
+      "type": "managed"
+    }
+  ],
+  "kernel_release": "6.18.63-debian-t6-proto2",
+  "limitations": [
+    "read-only snapshot; this tool does not authorize RF transmission",
+    "EHT fields are capability/rate observations, not throughput proof",
+    "MLO success requires one MLD session with multiple active links and IP traffic",
+    "6GHz operation additionally requires verified equipment certification and operating conditions"
+  ],
+  "pci_wifi_endpoints": [
+    {
+      "device": "0x7990",
+      "driver": "mt7996e",
+      "vendor": "0x14c3"
+    },
+    {
+      "device": "0x7991",
+      "driver": "mt7996e_hif",
+      "vendor": "0x14c3"
+    }
+  ],
+  "regulatory": {
+    "country_codes": [
+      "00"
+    ],
+    "global_country_code": "00",
+    "rf_authorization_established": false,
+    "rules_overlapping_japan_6ghz_mhz": []
+  },
+  "schema": 1,
+  "wiphys": [
+    {
+      "bands_advertised": [
+        "2.4GHz",
+        "5GHz",
+        "6GHz"
+      ],
+      "eht_capability_advertised": true,
+      "mlo_keyword_observed": false,
+      "name": "phy0",
+      "six_ghz_channels": [
+        {
+          "channel": 1,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 5955,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 5,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 5975,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 9,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 5995,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 13,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6015,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 17,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6035,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 21,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6055,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 25,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6075,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 29,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6095,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 33,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6115,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 37,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6135,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 41,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6155,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 45,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6175,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 49,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6195,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 53,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6215,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 57,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6235,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 61,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6255,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 65,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6275,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 69,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6295,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 73,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6315,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 77,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6335,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 81,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6355,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 85,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6375,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 89,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6395,
+          "within_current_regulatory_rule": false
+        },
+        {
+          "channel": 93,
+          "disabled_or_no_ir_or_radar": true,
+          "frequency_mhz": 6415,
+          "within_current_regulatory_rule": false
+        }
+      ],
+      "six_ghz_linux_rule_candidate_count": 0,
+      "six_ghz_rf_start_permitted": false
+    }
+  ]
+}
