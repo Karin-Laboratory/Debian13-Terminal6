@@ -1,0 +1,307 @@
+Sanitized actual command excerpts, Debian 13 C-unit, 2026-11-14.
+No inference from physical absence is intended.
+
+### lscpu
+Architecture:                            aarch64
+CPU op-mode(s):                          32-bit, 64-bit
+Byte Order:                              Little Endian
+CPU(s):                                  4
+On-line CPU(s) list:                     0-3
+Vendor ID:                               ARM
+Model name:                              Cortex-A55
+Model:                                   0
+Thread(s) per core:                      1
+Core(s) per cluster:                     4
+Socket(s):                               -
+Cluster(s):                              1
+Stepping:                                r2p0
+BogoMIPS:                                26.00
+Flags:                                   fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Ghostwrite:                Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Old microcode:             Not affected
+Vulnerability Reg file data sampling:    Not affected
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Not affected
+Vulnerability Spectre v1:                Mitigation; __user pointer sanitization
+Vulnerability Spectre v2:                Not affected
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Not affected
+RC=0
+
+
+### lspci -nnk
+lspci: Unable to load libkmod resources: error -2
+0000:00:00.0 PCI bridge [0604]: MEDIATEK Corp. Device [14c3:0800] (rev 01)
+	Kernel driver in use: pcieport
+0000:01:00.0 Network controller [0280]: MEDIATEK Corp. MT7996 802.11be PCI Express Wireless Network Adapter (Port 0) [14c3:7990]
+	Subsystem: MEDIATEK Corp. Device [14c3:6639]
+	Kernel driver in use: mt7996e
+0001:00:00.0 PCI bridge [0604]: MEDIATEK Corp. Device [14c3:0800] (rev 01)
+	Kernel driver in use: pcieport
+0001:01:00.0 Network controller [0280]: MEDIATEK Corp. MT7996 802.11be PCI Express Wireless Network Adapter (Port 1) [14c3:7991]
+	Subsystem: MEDIATEK Corp. Device [14c3:6639]
+	Kernel driver in use: mt7996e_hif
+RC=0
+
+
+### lsusb -t
+/sys/bus/usb/devices: No such file or directory
+RC=1
+
+
+### iw reg get
+global
+country 00: DFS-UNSET
+	(2402 - 2472 @ 40), (6, 20), (N/A)
+	(2457 - 2482 @ 20), (6, 20), (N/A), AUTO-BW, PASSIVE-SCAN
+	(2474 - 2494 @ 20), (6, 20), (N/A), NO-OFDM, PASSIVE-SCAN
+	(5170 - 5250 @ 80), (6, 20), (N/A), AUTO-BW, PASSIVE-SCAN
+	(5250 - 5330 @ 80), (6, 20), (0 ms), DFS, AUTO-BW, PASSIVE-SCAN
+	(5490 - 5730 @ 160), (6, 20), (0 ms), DFS, PASSIVE-SCAN
+	(5735 - 5835 @ 80), (6, 20), (N/A), PASSIVE-SCAN
+	(57240 - 63720 @ 2160), (N/A, 0), (N/A)
+
+RC=0
+
+
+### rfkill list
+RC=1
+
+
+### btmgmt info
+rfkill: cannot open /dev/rfkill: No such file or directory
+Unable to open mgmt_socket
+Unable to open mgmt_socket
+RC=1
+
+
+### i2cdetect -l
+RC=0
+
+
+### gpiodetect
+gpiochip0 [pinctrl_paris] (236 lines)
+RC=0
+
+
+### ethtool lan2
+Settings for lan2:
+	Supported ports: [ TP	 MII ]
+	Supported link modes:   10baseT/Half 10baseT/Full
+	                        100baseT/Half 100baseT/Full
+	                        1000baseT/Full
+	Supported pause frame use: Symmetric Receive-only
+	Supports auto-negotiation: Yes
+	Supported FEC modes: Not reported
+	Advertised link modes:  10baseT/Half 10baseT/Full
+	                        100baseT/Half 100baseT/Full
+	                        1000baseT/Full
+	Advertised pause frame use: Symmetric Receive-only
+	Advertised auto-negotiation: Yes
+	Advertised FEC modes: Not reported
+	Link partner advertised link modes:  10baseT/Half 10baseT/Full
+	                                     100baseT/Half 100baseT/Full
+	                                     1000baseT/Half 1000baseT/Full
+	Link partner advertised pause frame use: Symmetric Receive-only
+	Link partner advertised auto-negotiation: Yes
+	Link partner advertised FEC modes: Not reported
+	Speed: 1000Mb/s
+	Duplex: Full
+	Auto-negotiation: on
+	master-slave cfg: preferred slave
+	master-slave status: master
+	Port: Twisted Pair
+	PHYAD: 1
+	Transceiver: external
+	MDI-X: Unknown
+	Supports Wake-on: d
+	Wake-on: d
+	Link detected: yes
+RC=0
+
+
+### ethtool -i lan2
+driver: dsa
+version: 6.18.63-debian-t6-proto2
+firmware-version: N/A
+expansion-rom-version: 
+bus-info: platform
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: no
+supports-register-dump: no
+supports-priv-flags: no
+RC=0
+
+
+### ethtool -S lan2
+NIC statistics:
+     tx_packets: 310
+     tx_bytes: 497061
+     rx_packets: 300
+     rx_bytes: 51662
+     TxDrop: 0
+     TxCrcErr: 0
+     TxCollision: 0
+     RxDrop: 0
+     RxFiltering: 0
+     RxCrcErr: 0
+     RxCtrlDrop: 0
+     RxIngressDrop: 0
+     RxArlDrop: 0
+RC=0
+
+
+### ethtool -i eth1
+driver: mtk_soc_eth
+version: 6.18.63-debian-t6-proto2
+firmware-version: 
+expansion-rom-version: 
+bus-info: test23-eth-fixedlink
+supports-statistics: yes
+supports-test: no
+supports-eeprom-access: no
+supports-register-dump: yes
+supports-priv-flags: no
+RC=0
+
+
+### ethtool -S eth1
+NIC statistics:
+     tx_bytes: 520099
+     tx_packets: 575
+     tx_skip: 0
+     tx_collisions: 0
+     rx_bytes: 53142
+     rx_packets: 304
+     rx_overflow: 0
+     rx_fcs_errors: 0
+     rx_short_errors: 0
+     rx_long_errors: 0
+     rx_checksum_errors: 0
+     rx_flow_control_packets: 0
+     rx_xdp_redirect: 0
+     rx_xdp_pass: 0
+     rx_xdp_drop: 0
+     rx_xdp_tx: 0
+     rx_xdp_tx_errors: 0
+     tx_xdp_xmit: 0
+     tx_xdp_xmit_errors: 0
+     s00_p05_TxDrop: 0
+     s00_p05_TxCrcErr: 0
+     s00_p05_TxCollision: 0
+     s00_p05_RxDrop: 0
+     s00_p05_RxFiltering: 9
+     s00_p05_RxCrcErr: 0
+     s00_p05_RxCtrlDrop: 0
+     s00_p05_RxIngressDrop: 0
+     s00_p05_RxArlDrop: 0
+RC=0
+
+
+### ethtool lan3
+Settings for lan3:
+	Supported ports: [ TP	 MII ]
+	Supported link modes:   10baseT/Half 10baseT/Full
+	                        100baseT/Half 100baseT/Full
+	                        1000baseT/Full
+	Supported pause frame use: Symmetric Receive-only
+	Supports auto-negotiation: Yes
+	Supported FEC modes: Not reported
+	Advertised link modes:  10baseT/Half 10baseT/Full
+	                        100baseT/Half 100baseT/Full
+	                        1000baseT/Full
+	Advertised pause frame use: Symmetric Receive-only
+	Advertised auto-negotiation: Yes
+	Advertised FEC modes: Not reported
+	Speed: Unknown!
+	Duplex: Unknown! (255)
+	Auto-negotiation: on
+	Port: Twisted Pair
+	PHYAD: 2
+	Transceiver: external
+	MDI-X: Unknown
+	Supports Wake-on: d
+	Wake-on: d
+	Link detected: no
+RC=0
+
+
+### modinfo bluetooth
+modinfo: ERROR: Module bluetooth not found.
+RC=1
+
+
+### modinfo btmtkuart
+modinfo: ERROR: Module btmtkuart not found.
+RC=1
+
+
+### bounded memory Ethernet test
+bytes 4194304 seconds 0.08132 Mbps 412.621 digest_match True
+
+
+### ESP32 allowlisted query responses
+{"drained_bytes": 0}
+{"command": "AT", "seconds": 0.003, "complete": true, "limit_reached": false, "response": "AT\r\n\r\nOK\r\n"}
+{"command": "AT+GMR", "seconds": 0.018, "complete": true, "limit_reached": false, "response": "AT+GMR\r\nAT version:3.1.0.0-dev(799ebf3 - ESP32C3 - Mar 16 2023 12:58:57)\r\nSDK version:v5.0-541-g885e501d99\r\ncompile time(e9388b3):Mar 29 2023 11:52:15\r\nBin version:2.5.0(MINI-1)\r\n\r\nOK\r\n"}
+{"command": "AT+CWMODE?", "seconds": 0.005, "complete": true, "limit_reached": false, "response": "AT+CWMODE?\r\n+CWMODE:2\r\n\r\nOK\r\n"}
+{"command": "AT+BLEINIT?", "seconds": 0.005, "complete": true, "limit_reached": false, "response": "AT+BLEINIT?\r\n+BLEINIT:0\r\n\r\nOK\r\n"}
+
+
+### failed/new-package integrity observations before repair
+
+??5??????   /usr/bin/mbimcli
+??5??????   /usr/lib/python3.13/lib-dynload/_codecs_tw.cpython-313-aarch64-linux-gnu.so
+
+
+
+### recovery storage error excerpts
+Nov 14 01:13:29 terminal6-debian kernel: mtk-msdc 11230000.mmc: msdc_cmdq_irq: DATA TIMEOUT ERR
+Nov 14 01:13:29 terminal6-debian kernel: mtk-msdc 11230000.mmc: cmd_err = 0, dat_err = -110, intsts = 0x10004108
+Nov 14 01:13:29 terminal6-debian kernel: mmc0: running CQE recovery
+Nov 14 01:13:29 terminal6-debian kernel: mtk-msdc 11230000.mmc: msdc_cmdq_irq: DATA TIMEOUT ERR
+Nov 14 01:13:29 terminal6-debian kernel: mtk-msdc 11230000.mmc: cmd_err = 0, dat_err = -110, intsts = 0x10004108
+Nov 14 01:13:29 terminal6-debian kernel: mmc0: running CQE recovery
+Nov 14 01:13:29 terminal6-debian kernel: mtk-msdc 11230000.mmc: msdc_cmdq_irq: DATA TIMEOUT ERR
+Nov 14 01:13:29 terminal6-debian kernel: mtk-msdc 11230000.mmc: cmd_err = 0, dat_err = -110, intsts = 0x10004108
+Nov 14 01:13:29 terminal6-debian kernel: mmc0: running CQE recovery
+Nov 14 01:13:29 terminal6-debian kernel: EXT4-fs (mmcblk0p44): failed to convert unwritten extents to written extents -- potential data loss!  (inode 9888, error -5)
+Nov 14 01:14:03 terminal6-debian kernel: mtk-msdc 11230000.mmc: msdc_cmdq_irq: DATA TIMEOUT ERR
+Nov 14 01:14:03 terminal6-debian kernel: mtk-msdc 11230000.mmc: cmd_err = 0, dat_err = -110, intsts = 0x10004000
+Nov 14 01:14:03 terminal6-debian kernel: mmc0: running CQE recovery
+Nov 14 01:14:03 terminal6-debian kernel: mtk-msdc 11230000.mmc: msdc_cmdq_irq: DATA TIMEOUT ERR
+Nov 14 01:14:03 terminal6-debian kernel: mtk-msdc 11230000.mmc: cmd_err = 0, dat_err = -110, intsts = 0x10004108
+Nov 14 01:14:03 terminal6-debian kernel: mmc0: running CQE recovery
+Nov 14 01:14:03 terminal6-debian kernel: mtk-msdc 11230000.mmc: msdc_cmdq_irq: DATA TIMEOUT ERR
+Nov 14 01:14:03 terminal6-debian kernel: mtk-msdc 11230000.mmc: cmd_err = 0, dat_err = -110, intsts = 0x10004108
+Nov 14 01:14:03 terminal6-debian kernel: mmc0: running CQE recovery
+Nov 14 01:14:03 terminal6-debian kernel: EXT4-fs (mmcblk0p44): failed to convert unwritten extents to written extents -- potential data loss!  (inode 13704, error -5)
+
+### post-repair caveat
+Post-repair md5sum/dpkg -V readback passed but file sync failed with I/O error; on-media persistence NOT VERIFIED.
+
+
+### EXT_CSD selected fields
+Current card sysfs cmdq_en: 1
+Sector Count [SEC_COUNT: 0x00748000]
+Card Type [CARD_TYPE: 0x57]
+High-speed interface timing [HS_TIMING: 0x03]
+Control to turn the Cache ON/OFF [CACHE_CTRL]: 0x01
+eMMC Life Time Estimation A [EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_A]: 0x01
+eMMC Life Time Estimation B [EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_B]: 0x01
+eMMC Pre EOL information [EXT_CSD_PRE_EOL_INFO]: 0x01
+Command Queue Support [CMDQ_SUPPORT]: 0x01
+Command Queue Depth [CMDQ_DEPTH]: 16
+Command Enabled [CMDQ_MODE_EN]: 0x00
+Note: CMDQ_MODE_EN may not indicate the runtime CMDQ ON or OFF.

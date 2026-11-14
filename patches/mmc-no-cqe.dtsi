@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Independently authored policy fragment, 2026-11-14.
+// Include AFTER the owner-private base DTS. Not a runtime overlay.
+// UNTESTED ON HARDWARE: do not install into the running device.
+&{/mmc@11230000} {
+	/delete-property/ supports-cqe;
+};

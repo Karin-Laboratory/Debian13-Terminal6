@@ -1,0 +1,22 @@
+{
+  "scripts/collect-terminal6-hardware.py": "816e2f98b0a49efd4c51db88e927e3bd98a3890b8b0b85d0f9d050dbcb1a232a",
+  "scripts/esp32-readonly-at.py": "7675a497802bdec0a3ba216f42e26045dbf6e8248764bd621bbe228d71f7374a",
+  "scripts/export-terminal6-dt.py": "6250a2212d1dcd472fbec529814e647bc8322d30244bf60ba97f8fade9d07801",
+  "scripts/fdt_mmc_policy.py": "8ed2a1a8dd066538264e99aa237f263722af78034a312c45e62e13c0d13f2d23",
+  "scripts/test_hardware_tools.py": "fbe7ba5e6d6762436f1892d69c1a91e1662925e14e0cdd58277a00b98d35a802",
+  "scripts/probe-terminal6-readonly.sh": "b543b0fb5e4395ee158b32fd4d300618e524cc8e816d5b6c96b8938dd5a01983",
+  "patches/mmc-no-cqe.dtsi": "7f1783535b9488e0adbbc14fb897c393981d92f1854d41a569d456c60a347d58",
+  "docs/hardware/CUNIT-RADIOS-20261114.ja.md": "12613cf45feb76a3698de941a4d2291bc6565bfaed978a6464edcf1bc79980ec",
+  "docs/hardware/CUNIT-INVENTORY-API-20261114.ja.md": "7fafe43433781f0ff1abb166af9f540202a412ef32ed20c6c436411c205c9e49",
+  "docs/hardware/CUNIT-DEVICE-DETAILS-20261114.ja.md": "e9200482f1b8dac1bb312bd94542f3afdc35ee4da78e4c0485689639a0fd8ee7",
+  "docs/hardware/CUNIT-EMMC-MITIGATION-20261114.ja.md": "64c789b882ae3d65be032ab5101ae5020c93cc3b570b521e5944d54bca041582",
+  "docs/hardware/CUNIT-DT-UNKNOWN-20261114.ja.md": "69dc2a2fbbaedc2ab6a3ab180adef963576c49687f90c0ea92b7d6e331b3bff5",
+  "docs/hardware/CUNIT-OPENWRT-DELTA-20261114.ja.md": "3b5bddc773d7ce73ccc53070de00b24366bc995a9989e796d51c56bb6d78b550",
+  "docs/hardware/README.md": "f8cdcea7411a42854720099fad8a35681d939c0a08dbf34bcbb3b44a995d1525",
+  "docs/hardware/CUNIT-ESP32-C3-20261114.ja.md": "213cc7e1af47ed6c818b3858f60d6bab1d37099d1b2d33839d863eeb19125512",
+  "docs/hardware/CUNIT-STORAGE-INCIDENT-20261114.ja.md": "0962571aab74bb7f0158d35b4b73602f3ef63ca10089e3ab940d0617b12a6f6a",
+  "docs/hardware/evidence/CUNIT-API-EXCERPTS-20261114.txt": "d37dd233dec7299cdaeecc89f926711072de4006c7096f77f202e8cf4d35c40a",
+  "docs/hardware/evidence/CUNIT-DT-INVENTORY-20261114.json": "8450b644eb70e79fa74ff49acf935f25f95627c18fa4d0ab791051514b2d065e",
+  "docs/hardware/evidence/CUNIT-TOOLS-20261114.txt": "4d8314c442bb44e01ae87464cafa924e3046b265a12021a1b56a840e0fa9373c",
+  "docs/hardware/evidence/CUNIT-KCONFIG-20261114.txt": "7078d8e0ad6123b0fc53d52ec252b6d7b2b8caaeca4de50c32e1ce3d9285c83d"
+}

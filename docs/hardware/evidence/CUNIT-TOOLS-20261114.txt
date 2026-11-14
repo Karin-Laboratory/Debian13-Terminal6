@@ -1,0 +1,18 @@
+Debian arm64 APT, --no-upgrade --no-install-recommends
+binutils	2.44-3
+bluez	5.82-1.1
+device-tree-compiler	1.7.2-2+b1
+ethtool	1:6.14.2-1
+gpiod	2.2.1-2+deb13u1
+i2c-tools	4.4-2
+iw	6.9-1+b1
+libmbim-utils	1.32.0-1
+libqmi-utils	1.36.0-1
+lm-sensors	1:3.6.2-2
+mmc-utils	0+git20240329.f757f413-1+b1
+pciutils	1:3.13.0-2
+python3	3.13.5-1
+rfkill	2.41.5-0+deb13u1
+strace	6.13+ds-1
+usbutils	1:018-2
+wireless-regdb	2026.05.30-1~deb13u1

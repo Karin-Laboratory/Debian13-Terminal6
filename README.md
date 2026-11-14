@@ -12,7 +12,7 @@ Experimental, community-maintained project to run **Debian 13 (arm64)** on SoftB
 
 ## Status
 
-**Planning / early development.** No Debian boot or hardware support is claimed to be verified yet. Writing P44 can destroy existing OpenWrt overlay data; back up the device and confirm the recovery path before any flashing or repartitioning.
+**Live hardware research on one development unit.** Debian 13 with kernel `6.18.63-debian-t6-proto2` runs from P44 on the C-unit; Ethernet/SSH and ESP32-C3 UART queries have been measured. **eMMC CQE/write I/O errors and rootfs integrity remain unresolved.** This is not a validated general installer or complete hardware-support claim. See the [2026-11-14 hardware report, limitations and mitigation candidates](docs/hardware/README.md). Writing P44 can destroy existing data; preserve recovery before any separate firmware or filesystem work.
 
 ## Publication policy
 
