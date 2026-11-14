@@ -36,16 +36,22 @@ MT7996 module binaryのfirmware名文字列に `mediatek/mt7996/mt7990_eeprom.bi
 
 このサイクルで実施したのはRAM staging名の追加と通常再起動。6GHz規制設定、RF送信、校正原本読出し、driver/module交換はしていない。再起動後MMC/ext4エラー増加はdmesg検索で検出なし。MMC番号変化により以前の固定sysfs pathはなくCQE値は再取得できず、確認済みとは記録しない。
 
+## 追加の読み取り・再起動結果
+
+C号機起動時のdriverは要求名に応じたEEPROM default fileを読み込みます。module binaryのstringsにはMT7990要求名が含まれ、serviceへC号機stock rootfs_b由来の同一EEPROMをその名でも一時配置する処理を追加しました。再起動後にservice成功、2つのRAM file存在、phy0登録を確認。fallback警告は残りましたが、upstream mt76 eeprom.cのuse_default経路ではこの警告の後にdefault fileをrequestしコピーするため、警告だけから失敗とは判定できません。実効内容の読取りはせず、FEM variant/校正適用は未確認。参考: https://github.com/openwrt/mt76/blob/master/mt7996/eeprom.c
+
+initramfs source archiveはbuild-proof上にあり、gzip CPIO一覧でregulatory.dbと署名ファイルがないことを確認。kernel configは署名済みregdbを要求。rootfsファイルは起動後に存在するため早期要求を満たしません。kernel rebuild/deployは未実施。既存署名pipelineは別製品/別P25の固定digest/approval gatesを持つため流用せず、Terminal6に合う署名・復旧手順とsource/build inputsの特定が必要です。
+
 ## hostapd候補
 
 公式hostapd 2.12ソース (SHA-256 `f43502561c28ba47ab77e18e1a973d07361c68cc8b14178e619bd5796b70eabd`) を一時作業領域で取得し、Debian arm64用に`nl80211`、802.11ax/be、SAEを有効にしてクロスビルドした。成果物はARM64 ELFで、QEMU-user上の`hostapd -v`はv2.12を返した。これはビルドと起動表示の確認のみで、C号機への配置、nl80211 AP起動、6GHz、EHT接続、MLOは試していない。バイナリと一時sysrootはgitに含めない。
 
 ## 次の実測段階
 
-1. Storage/CQEエラーのためP44への書込み・パッケージ導入を再開する前に、担当者間でストレージ復旧と変更排他を確認する。
+1. C号機向けkernel source/build pathと適合署名・復旧手順を確立し、regdb入りinitramfs候補をhost側で検証する。
 2. LAN/UART管理の維持を前提に、秘密情報を出さない読み取りsnapshotをDebian上で採取する。
 3. regulatory database、実機の適法な運用条件、EEPROM選択とfirmware起動、MCU応答を確認する。
 4. 認証/運用条件と電波試験環境が確認できてから、許可された帯域だけを低リスク段階で試験する。
 5. 2.4/5GHz AP、6GHz AP、EHT接続、MLOを別々の受入項目にし、それぞれ端末接続・アドレス取得・実データ通信まで確認する。
 
-今回の実機への変更・再起動・RF送信は実施していない。
+今回のサイクルではRAM staging scriptの変更とC号機通常再起動を実施した。RF送信はしていない。
