@@ -52,3 +52,37 @@ NR能力は純正実験機の断続的観測と製品構成からの候補にと
 ### 判定
 
 `CCCI_KERNEL_ENUMERATION=PASS`、`MEDMCU_PLATFORM_BIND=PASS`、`MODEM_READY=NOT_OBSERVED`、`POVO_SIM_RECOGNITION=NOT_TESTED`、`LTE_DATA=NOT_TESTED`、`NR_5G=NOT_TESTED`。次の最小証拠は、安全な実機起動工程での`ccci_mdinit`前提充足とFSM READY遷移の観測である。本工程の作業終了時点で管理SSHは継続していた。
+
+## LTE実通信作業の追記（2026-11-14）
+
+所有者の追加許可を受け、読み取り専用段階から復旧可能性を含む実装準備へ進めた。Cの現起動はslot A、Debian 13、kernel `6.18.63-debian-t6-proto2`、管理SSH到達可能、MD1は引き続き`INVALID (0)`。CCCI daemon起動・MD START・SIM照会・APN変更・PDN・再起動はまだ行っていない。
+
+PARTNAMEとセクタ数から、稼働中のデバイスを次のように特定した。ここに示す番号は今回の観測時だけの値であり、手順ではPARTNAMEで再解決する。
+
+| PARTNAME | 容量 | 保全状況 |
+| --- | ---: | --- |
+| `nvram` | 40 MiB | owner-private raspi4へraw退避。全サイズと退避SHAを照合 |
+| `nvdata` | 64 MiB | owner-private raspi4へraw退避。全サイズと退避SHAを照合 |
+| `protect1` | 8 MiB | owner-private raspi4へraw退避。全サイズと退避SHAを照合 |
+| `protect2` | 8 MiB | owner-private raspi4へraw退避。全サイズと退避SHAを照合 |
+| `md1img_a` | 80 MiB | 存在を確認。読み出し・変更なし |
+| `md1dsp_a` | 10 MiB | 存在を確認。読み出し・変更なし |
+
+private保全先はraspi4の`/home/masataka/private/cunit-lte-bootstrap-20261114/`。パーティション内容とハッシュは機微情報を含む可能性があるため公開していない。退避後の追加確認でもMD1はINVALID、ccmniはDOWNのまま。MMC/CQE/EXT4の該当エラーは追加観測されず、管理SSHは維持された。
+
+### 起動API適合性の判明点
+
+C純正rootfsの起動順はNVRAM daemon（START 00）→ CCCI FSD（START 00）→ MD init（START 00）→ RPC/MIPCである。Stage9/10の成功資料もNVRAM準備、FSD/RPC、MD起動、READY後にMIPC/PDNを行っている。一方、Stage9用スクリプトはB号機・Linux 6.18.44・特定P25 SHA・固定PART番号のガードを持つため、そのままCへ流用できない。
+
+C純正rootfsのdaemonはmusl AArch64バイナリで、NVRAM daemonは`libnvram`/`libfile_op`等を依存し、bin-region restoreやNVRAM同期に関する処理を含む。FSDはCCCI FS経由のfirmware/NVファイル書込み処理を持つ。各生バイナリはGitHubに追加していない。C DebianカーネルソースではMD START ioctlの呼出し名が`ccci_mdinit`であることを要求し、`/sys/kernel/ccci/boot`のstoreは`-EACCES`。これらから、汎用MBIM/QMIや単純なsysfs書込みでは起動できない。
+
+C Debianの既存ノードには`/dev/ccci_fs`、`/dev/ccci_rpc`、`/dev/ccci_md1_sta`、`/dev/ccci_it`、`ttyCMIPC*`があるが、純正`ccci_mdinit`が要求する`/dev/ccci_ipc_2`、`/dev/ccci_ipc_5`、`/dev/devmap`は見つからなかった。現行kernel source内で`devmap`互換実装も確認できていない。これらを推測のmajor/minorで作成したり`/dev/null`へ偽装したりすれば、必要な初期化を飛ばしたり誤ったdriver ioctlを発行するため行っていない。
+
+### 次の実装ゲート
+
+1. Cカーネルのport source・実行中sysfs・devtmpfs実装を突き合わせ、`ccci_ipc_*`と`devmap`の正確なABIまたは現行代替を特定する。既存nodeの別名に過ぎないかも確認する。
+2. stock C純正起動バイナリの対象ビルドとC Debian kernel ABIの適合を確認する。Stage9/10のB専用固定ハッシュを使わない。
+3. NVRAM/FSDの副作用隔離を作り、上記退避から戻せる範囲を先に試験する。試験用RAM copyと実NVRAMを明示的に区別し、rootfs/P44への恒久配置を先行させない。
+4. その後に限り、非同期MD STARTを1回ずつ行い、FSM INVALID→STARTING/HS1/HS2/READYの最初の失敗を記録する。READYまではSIM照会やAPN操作を行わない。
+
+ここまでの成果はLTE実通信の実装完了ではない。今回の準備では全4領域のprivate保全を完了したが、C kernelの`devmap`/IPC ABI差が未解決のため、MD START要求に進む前の互換ゲートで止めている。`LTE_IPV4=NOT_ESTABLISHED`。
