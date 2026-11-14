@@ -10,7 +10,7 @@
 | EEPROM/OTP初期化 | PARTIAL | C号機自身のOTP由来46 bytesをRAM EEPROM bufferへ統合、8/8ページACK。30秒timeout版で通常再起動後もPHY/SSH復帰 | 実通信時のfirmware・校正動作を検証 |
 | 2.4GHz AP | PARTIAL | WPA2/CCMPのhostapd 2.12がstart rc=0。live iwでAP / 2412 MHz ch1 / 20 MHz / 20 dBm。TX packet counterは8秒で0から12へ増加 | clientでBeaconを受信し、association・認証・DHCP・双方向IP通信・再起動復帰を確認 |
 | 2.4GHz STA | PARTIAL | owner-managed APに2412 MHz ch1でSTA association、WPA2-PSK handshake完了。RX 68,565 bytes / 423 packets、TX 1,880 bytes / 10 packets | DHCPDISCOVERを確認したがOFFERなし。AP/DHCP経路を切り分け、IPv4通信・双方向データ・再接続を確認 |
-| 5GHz AP/STA | PARTIAL | 有効な受動beacon後にchannel 36 / 5180 MHzのNO_IRなしを確認し、owner-managed APへWPA2-PSK STA association完了。RX 60,404 bytes / 454 packets、TX 1,598 bytes / 17 packets | IPv4 DHCP offerなし。APモード未試験。国別規則を強制せず、DHCP応答・IPv4通信を確認 |
+| 5GHz AP/STA | PARTIAL | 有効な受動beacon後にchannel 36 / 5180 MHzのNO_IRなしを確認し、owner-managed APへWPA2-PSK STA association完了。RX 60,404 bytes / 454 packets、TX 1,598 bytes / 17 packets | IPv4 lease未取得（5GHz側のDHCP packet capture未実施）。APモード未試験。国別規則を強制せず、DHCP交換・IPv4通信を確認 |
 | WPA2/WPA3-SAE / PMF | PARTIAL | hostapd 2.12の2.4GHz AP start、および2.4/5GHz STAのWPA2-PSK handshakeを確認。SAE/PMF交渉は未試験 | 独立clientを使うAP認証/IP試験後、SAE/PMFを別途実測 |
 | HE/EHT / Wi-Fi 7 | PARTIAL | C号機iw phyがAP/managed EHT iftype capabilityを表示。実association・EHT data frameなし | EHT対応client接続後、実PHY mode・双方向通信を測定 |
 | 6GHz AP/STA | BLOCKED | 起動時regulatory.db要求失敗、実効country 00。6GHzチャネルはdisabled | 署名済みregdbを早期起動時に読み込み、個体の認証・条件と利用可能チャネルを確認後に試験 |
@@ -43,6 +43,6 @@ BLOCKEDは確認済みのチャネル制約や試験条件を示し、未搭載�
 ## 2026-11-15 STA association / DHCP follow-up
 
 - C 2.4GHz STA completed WPA2-PSK association at 2412 MHz. 5GHz STA completed WPA2-PSK association at 5180 MHz after passive beacon discovery; effective country stayed 00 and no regulatory override was applied.
-- Neither band received IPv4 DHCP. A short C-side capture observed two DHCPDISCOVER packets and no DHCPOFFER. A temporary networkd file explicitly disabled DHCP routes and DNS; no IPv4 address or Wi-Fi route was installed, so wired management/default route stayed unchanged.
+- Neither band received an IPv4 lease. During the 2.4 GHz attempt, a short C-side capture observed two DHCPDISCOVER packets and no DHCPOFFER; the 5 GHz DHCP exchange was not packet-captured. A temporary networkd file explicitly disabled DHCP routes and DNS; no IPv4 address or Wi-Fi route was installed, so wired management/default route stayed unchanged.
 - No IP communication, ping, DNS, or package transfer is claimed. C wlp1s0 was returned to DOWN and all temporary credentials, supplicant files, runtime network config, and extracted package files were removed.
 - Possible AP-side DHCP/client policy or a C driver/data-path issue remains unresolved. Because the AP /22 overlaps C's wired 192.168.3.0/24, no arbitrary static address was assigned.
