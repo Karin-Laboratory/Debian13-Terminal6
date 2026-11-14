@@ -45,3 +45,15 @@ raspi4のowner-private領域へP44 rootfsをtar転送。主アーカイブ583,07
 ## OpenWrtへの還元
 
 Linux 6.18系MediaTek MMC/MT6990の同じDT propertyとCQE経路を使用する場合、`supports-cqe`を外した比較候補を作り、HS400条件を固定して独立検証する。今回のDebian実測だけでOpenWrtへ恒久反映しない。
+
+## 2026-11-14追試：CQE無効化P25の実機投入
+
+上の「未署名・未フラッシュ」は候補作成時点の記録である。所有者はunsigned P25 SHA-256 `765f48ebe06bd69adb63a1ad83bdabe8edf16f15a6dc461f379fa5708a62d1f0`の署名とC号機試験を個別承認した。既存の保護署名器と別プロセスのRSA-PSS検証を実行し、signed P25は33,554,432 bytes、SHA-256 `4262e452bba1e1e159e1e8402ad2d3c3ebbd299b767490bbd6170256521ad4da`。署名runは[43546816859](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/43546816859)。署名と独立検証のstepは成功したが、Actions artifactの容量上限でrun全体はfailure。署名は繰り返さず、保護runner上の検証済み実物を非公開Draft Releaseへ保存し、全量再取得SHAを照合した。保存runは[43547276319](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/43547276319)でsuccess。
+
+C号機の既知bootctrl状態 `0f000100000e00010000`から、純正rootfs Bをread-only mountしたchroot内の純正`quec_bootctrl -F`でBを選択。readback `0e000100000f00010000`。再起動後、純正BのLinux 5.4.238、`bootslot=b`、管理SSHを実測した。B起動中に`PARTNAME=boot_a`の32MiBと旧signed P25全量SHA `7e2bf08e2aeaa84a70d2d8c30490ebc5628fb89aba803d8fec5bb4481259531b`を確認。新signed P25を搬入先でも全量SHA照合し、boot_aだけを書込み、全量readbackが `4262e452bba1e1e159e1e8402ad2d3c3ebbd299b767490bbd6170256521ad4da` と一致した。P26/P44/純正B/GPTは書き換えていない。
+
+純正Bの`quec_bootctrl -s`でA試験状態 `0f030000000e00010000`を設定し、readback後に単回起動。Debian 13、Linux 6.18.63、`bootslot=a`、P44 ext4 RW、raspi4からのstrict SSHを実測した。実行時DTの`supports-cqe`は存在せず、eMMC sysfsの`cmdq_en=0`。一方、MMC debugfsは**HS400、要求200MHz・実約190MHz**を示し、転送モード・クロックは従来と同じ。boot-successはA retry=0/success=1へ復帰した。
+
+CQE無効の状態でP44専用領域へ4KiB、1MiB、8MiB、16MiBをそれぞれ書込み、fsync・sync・SHA読戻しを実施。4件すべて一致し、当該bootの`DATA TIMEOUT`/`CQE recovery`/I/O error/ext4 extent error件数は0→0。`apt-get update`、`jq`・`libjq1`・`libonig5`の新規導入、`dpkg -V jq libjq1`、実行、syncも成功し、エラー件数0→0。再起動後もDebian slot A、P44 ext4 RW、管理LAN ping、strict SSH、Wi-Fi `phy0`、A retry=0/success=1が復帰。4テストファイルのSHA、APTパッケージ、`cmdq_en=0`を再確認し、新bootのMMC関連エラーは0件。
+
+**判定：限定的な実機安定化試験はPASS、CQEが元の障害の唯一の根本原因かは未確定。** CQE有効時にも小規模書込みとAPT `hello`導入は成功しており、今回の負荷だけでは再現性を持つA/B差を示せない。HS400タイミング、DMA、電源等も排除されない。より長い使用期間または元の失敗条件に近い負荷での観測が必要。試験ログとrootfsバックアップはowner-privateに保存し、機器固有データや生UARTログは公開していない。
