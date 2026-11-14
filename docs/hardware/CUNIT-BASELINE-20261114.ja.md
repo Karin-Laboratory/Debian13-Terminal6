@@ -9,6 +9,7 @@
 - cfg80211のphy0は登録済み。AP/STAを広告するが、DebianでAP接続は未試験。6GHzはチャネルdisabled。MCU timeoutがありWi-Fi通信成功とはしない。
 - CONFIG_BT未設定、AF_BLUETOOTHでerrno 97、HCI未登録。CONFIG_GNSS未設定、GNSS標準デバイス未登録。
 - 21個のccmniとCCCI制御ノードは列挙。WWANのデータ通信・SIM状態は未検証。
+- [内蔵モデム読み取り専用調査](CUNIT-MODEM-READONLY-20261114.ja.md)でMD1 FSM `INVALID`、ユーザー空間起動経路未移植を確認。povo SIMは挿入済みだが認識・網登録は未検証。
 - 13個のthermal zoneは温度値を返した。ただし校正データのnvmem取得警告があり、絶対温度精度は未検証。
 
 ## 重大な制約
