@@ -5,7 +5,8 @@
 | 機能 | 現在の判定 | 根拠 |
 |---|---|---|
 | 2.4/5GHz AP | `PARTIAL` | Debian 13上での今回の実通信・再起動復帰は未確認。RC14 OpenWrtの過去成功は別環境の結果。 |
-| 6GHz AP | `BLOCKED` | 既存Debian実測ではregulatory domain `00`、6GHzチャネルは無効。対象個体の認証・運用条件も未確認。 |
+| 6GHz PHY | `RECOGNIZED / BLOCKED` | 今回の実測でphy0が2.4/5/6GHz帯と24チャネル(1..93)を列挙。ただし5925–6415MHzの全24chがdisabled、regulatory `00`。送信不可。 |
+| 6GHz AP | `NOT_TESTED` | 電波送信・AP起動は未実施。対象個体の認証・運用条件も未確認。 |
 | 802.11be/EHT実通信 | `NOT_TESTED` | PHY能力表示だけでは接続モードや実データ通信を証明しない。 |
 | MLO実通信 | `NOT_TESTED` | 1 PHYのドライバ能力表示は、複数リンクを持つMLD接続・各リンクの通信実績ではない。 |
 
@@ -13,7 +14,7 @@
 
 リポジトリのC号機記録では、Debian 13 / Linux 6.18.63でMT7990系PCI機能が列挙され、`mt7996e`系ドライバがPHYを登録している。Wi-Fi記録には2.4/5/6GHz bandとEHT能力の表示がある一方、6GHzの規制状態は`00`、チャネルは利用不可、`regulatory.db`欠落、EEPROM default-bin fallback、MCU timeoutが記録されている。Debian上のAP起動・端末通信は未試験である。
 
-PCI ID `14c3:7990` と `14c3:7991` は、監査したLinux 6.18.63ソースのMT7996 driver内で同じ無線デバイスの本体/HIF側IDとして扱われる。2つのPCI機能は2台の独立無線機や2つの動作中PHYを意味しない。既存実機記録は単一の`phy0`を観測している。
+PCI ID `14c3:7990` と `14c3:7991` は、監査したLinux 6.18.63ソースのMT7996 driver内で同じ無線デバイスの本体/HIF側IDとして扱われる。2つのPCI機能は2台の独立無線機や2つの動作中PHYを意味しない。既存今回C号機は単一の`phy0`を観測。A号機の純正`iw phy`は`phy2`に6GHz、`phy1`に5GHz、`phy0`に2.4GHzを表示し、`iw dev`では`phy2`上のAP interfacesが6075MHz/320MHzで設定中だった。A号機の`iw reg get`もglobal `00`だが5925–7125MHz規則を表示する。これは稼働状態の比較記録で、法令適合やC号機送信許可の根拠にはしない。
 
 同じカーネルソースの`mt7996/init.c`は`WIPHY_FLAG_SUPPORTS_MLO`とEMLSR能力を広告し、MLOリンク情報の管理領域を持つ。Linux Wirelessの[MediaTek driver情報](https://wireless.docs.kernel.org/en/latest/en/users/drivers/mediatek.html)も一般的なmt76機能を説明するが、この特定個体の動作証拠ではない。能力表示はC号機上でAP/STAのMLDが成立した証拠ではない。MLO PASSには、接続相手側のMLD、複数のactive link ID、各リンク上のpacket/byte増加、およびIPの双方向通信を確認する必要がある。
 
@@ -25,7 +26,7 @@ ARIB STD-T71の[公開情報](https://www.arib.or.jp/kikaku/kikaku_tushin/desc/s
 
 ## EEPROM・firmware
 
-既存記録では初回のEEPROM取得失敗とdriver fallbackが見られる。起動スクリプトが複数候補のファイル名を配置することだけでは、driverが選択したEEPROMが正しいことを証明できない。今回の調査では秘密・校正データを読み出したり、公開領域へコピーしたりしていない。正しいC号機OEM校正データの読取経路、選択ファイル名、適用成功ログを非公開の証拠で確認する必要がある。default-bin状態での6GHz送信は進めない。
+既存記録では初回のEEPROM取得失敗とdriver fallbackが見られる。起動スクリプトが複数候補のファイル名を配置することだけでは、driverが選択したEEPROMが正しいことを証明できない。今回の調査では秘密・校正データを読み出したり、公開領域へコピーしたりしていない。C号機には`mt7996_eeprom*.bin`候補が複数存在するが、起動ログは`eeprom load fail, use default bin`。候補ファイルの存在は選択・適用成功を証明しない。`regulatory.db`もrootfs上には存在しDebian alternativesから`regulatory.db-debian`へ解決する一方、起動直後の要求失敗ログがある。initramfs内の有無は未確認。したがって単純なパッケージ欠落とは断定できず、早期firmware探索経路とdb適用状態を次に追う。正しいC号機OEM校正データの読取経路、選択ファイル名、適用成功ログを非公開の証拠で確認する必要がある。default-bin状態での6GHz送信は進めない。
 
 ## hostapd候補
 

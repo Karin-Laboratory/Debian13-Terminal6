@@ -19,7 +19,7 @@ class RuntimeAuditTests(unittest.TestCase):
 \tBand 2:
 \t\t* 5180 MHz [36] (20.0 dBm)
 \tBand 3:
-\t\t* 5955 MHz [1]""" + reg_flag + "\n\t\tEHT Iftypes: AP\n\t\tEHT MAC Capabilities (0x0000)\n"),
+\t\t* 5955.0 MHz [1]""" + reg_flag + "\n\t\tEHT Iftypes: AP\n\t\tEHT MAC Capabilities (0x0000)\n"),
             ("iw", "dev"): (0, """phy#0
 \tInterface wlan0
 \t\tifindex 8
@@ -48,6 +48,7 @@ class RuntimeAuditTests(unittest.TestCase):
         phy = report["wiphys"][0]
         self.assertTrue(phy["eht_capability_advertised"])
         self.assertEqual(phy["six_ghz_linux_rule_candidate_count"], 1)
+        self.assertEqual(phy["six_ghz_channels"][0]["frequency_mhz"], 5955)
         self.assertFalse(phy["six_ghz_rf_start_permitted"])
         self.assertFalse(report["regulatory"]["rf_authorization_established"])
         self.assertEqual(report["associated_stations"][0]["rate_modes_observed"], ["EHT"])

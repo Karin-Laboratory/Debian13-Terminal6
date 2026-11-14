@@ -117,7 +117,7 @@ def _phy_records(iw_phy: str, regulatory: dict[str, object]) -> list[dict[str, o
         m = re.search(r"(\d{4,5})\s+MHz\s+\[(\d+)\](.*)$", line)
         if not m:
             continue
-        freq = int(m.group(1))
+        freq = int(float(m.group(1)))
         flags = m.group(3).lower()
         band = ("2.4GHz" if 2400 <= freq < 2500 else
                 "5GHz" if 4900 <= freq < 5925 else

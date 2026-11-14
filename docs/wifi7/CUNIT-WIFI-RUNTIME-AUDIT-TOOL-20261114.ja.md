@@ -18,4 +18,4 @@ JSON内の`*_advertised`と`*_observed`は能力・観測値であり、法的�
 python3 -m unittest discover -s tests -v
 ```
 
-7テストは秘密値の抑制、許可コマンドの読み取り専用性、regulatory候補の慎重な分類（globalとPHY self-managedの区別を含む）、出力の排他的作成と0600を確認する。C号機での実行結果ではない。
+7テストは小数表記の周波数も含め、秘密値の抑制、許可コマンドの読み取り専用性、regulatory候補の慎重な分類（globalとPHY self-managedの区別を含む）、出力の排他的作成と0600を確認する。C号機での実行結果ではない。
