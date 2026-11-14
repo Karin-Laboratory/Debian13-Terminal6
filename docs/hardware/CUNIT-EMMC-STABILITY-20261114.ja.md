@@ -28,6 +28,8 @@ raspi4のowner-private領域へP44 rootfsをtar転送。主アーカイブ583,07
 
 単回再起動後、Debian slot A、P44 ext4 RW、管理LAN ping 2/2、strict SSH、Wi-Fi `phy0`が復帰。試験ファイル4件の全SHAと`hello`の実行・dpkg検証を再確認。新bootのMMC/ext4関連log件数0。UARTは単一picocomで記録後に解放した。**今回の約25MiBの順次書込みと小さなAPT導入で再発しなかった**という範囲の結果であり、前回の複数パッケージ導入と同一負荷での長期安定性は未実証。
 
+再起動後にNAT側のDNS解決とAPT updateも再実行して成功。`sync`後も新bootのMMC/ext4関連log件数0、SSH・boot-success・Wi-Fi PHY unitはactive。runtime CQEは依然有効なので、これはCQE無効化候補の検証結果ではない。
+
 試験SHAのprivate receiptをraspi4に保存後、専用テストファイル4件とディレクトリを削除し、再度`sync`。新bootのMMC/ext4関連log件数は0のまま。RAM上の元データとESP32 probeも再起動により消失したことを確認。
 
 ## CQE無効化候補（未署名・未フラッシュ）
