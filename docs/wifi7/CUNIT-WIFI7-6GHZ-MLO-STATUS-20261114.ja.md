@@ -26,7 +26,7 @@ ARIB STD-T71の[公開情報](https://www.arib.or.jp/kikaku/kikaku_tushin/desc/s
 
 ## EEPROM・firmware
 
-既存記録では初回のEEPROM取得失敗とdriver fallbackが見られる。起動スクリプトが複数候補のファイル名を配置することだけでは、driverが選択したEEPROMが正しいことを証明できない。今回の調査では秘密・校正データを読み出したり、公開領域へコピーしたりしていない。C号機には`mt7996_eeprom*.bin`候補が複数存在するが、起動ログは`eeprom load fail, use default bin`。候補ファイルの存在は選択・適用成功を証明しない。`regulatory.db`もrootfs上には存在しDebian alternativesから`regulatory.db-debian`へ解決する一方、起動直後の要求失敗ログがある。initramfs内の有無は未確認。したがって単純なパッケージ欠落とは断定できず、早期firmware探索経路とdb適用状態を次に追う。正しいC号機OEM校正データの読取経路、選択ファイル名、適用成功ログを非公開の証拠で確認する必要がある。default-bin状態での6GHz送信は進めない。
+既存記録では初回のEEPROM取得失敗とdriver fallbackが見られる。起動スクリプトが複数候補のファイル名を配置することだけでは、driverが選択したEEPROMが正しいことを証明できない。今回の調査では秘密・校正データを読み出したり、公開領域へコピーしたりしていない。C号機には`mt7996_eeprom*.bin`候補が複数存在するが、起動ログは`eeprom load fail, use default bin`。候補ファイルの存在は選択・適用成功を証明しない。実機の既存oneshot `terminal6-wifi-phy.service`はC号機自身のP26 firmwareとP38/P39側のstock rootfs_bからOEM EEPROMを読み取り専用で取得し、/runへ展開して`/lib/firmware/mediatek/mt7996`へtmpfs bind後にmt76 modulesをロードする。serviceはSUCCESS、両PCI endpointとphy0は結合済みだが、その直後のkernel logでもdefault-bin fallbackが出ている。つまり単純なDebian側ファイル配置漏れでは説明できず、stock EEPROMとdriver parser/variant/formatの互換性、または読み込み名を次に比較する。原EEPROM内容は読出し・記録・公開していない。`regulatory.db`もrootfs上には存在しDebian alternativesから`regulatory.db-debian`へ解決する一方、起動直後の要求失敗ログがある。カーネルは`CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y`で、C rootfsのDebian alternatives先には署名付きDBがある。起動直後の失敗ログは無署名fallbackではなく早期initramfs側の探索時点が原因候補。組み込みinitramfs (`CONFIG_INITRAMFS_SOURCE` はビルド時パスを記録) へファイルが含まれているか未確認。rootfs上のDBを見つけたことだけでdriver起動時に適用されたとは言えず、global `00`も維持。規制ドメイン変更は行わない。正しいC号機OEM校正データの読取経路、選択ファイル名、適用成功ログを非公開の証拠で確認する必要がある。default-bin状態での6GHz送信は進めない。
 
 ## hostapd候補
 
@@ -40,4 +40,4 @@ ARIB STD-T71の[公開情報](https://www.arib.or.jp/kikaku/kikaku_tushin/desc/s
 4. 認証/運用条件と電波試験環境が確認できてから、許可された帯域だけを低リスク段階で試験する。
 5. 2.4/5GHz AP、6GHz AP、EHT接続、MLOを別々の受入項目にし、それぞれ端末接続・アドレス取得・実データ通信まで確認する。
 
-実機への変更・再起動・RF送信は今回実施していない。
+今回の実機への変更・再起動・RF送信は実施していない。
