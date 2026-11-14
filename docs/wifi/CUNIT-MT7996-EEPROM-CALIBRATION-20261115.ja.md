@@ -56,6 +56,7 @@ C号機のWi-Fi初期化を止めていた原因は、EFUSE_CTRL MCUコマンド
 ## 次段階のno-RF確認
 
 - `iw phy phy0 interface add t6ap0 type __ap` が成功し、`iw dev t6ap0 info` はtype APを返した。仮想AP interfaceはDOWNのまま確認後に削除し、`wlp1s0` はDOWNのまま、TX packet counter 0を維持した。
+- `iw phy` は2.4/5/6GHz各bandでHE/EHT AP iftypeを広告する。これはdriver capability表示であり、AP動作やEHT通信を実証したものではない。
 - [upstream hostapd 2.12](https://w1.fi/releases/hostapd-2.12.tar.gz) をaarch64向けにビルドし、バイナリをC号機の `/run` に一時転送して `hostapd v2.12` の起動確認を行った。P44へは保存せず、daemon・AP・beaconは起動していない。
 - `iw reg set JP` は終了コード0だったが、`iw reg get` はcountry `00`のままで、チャネル規則は変化しなかった。これはJP規制データが適用された証拠ではない。
 - upstream tarball SHA256: `f43502561c28ba47ab77e18e1a973d07361c68cc8b14178e619bd5796b70eabd`。C号機で実行したhostapd binary SHA256: `5917eb7229ca397107cbe41e047c01f6d27c5dd2575eb3a6a9f4783e789d64f8`。
