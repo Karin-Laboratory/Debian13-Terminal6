@@ -1,0 +1,104 @@
+exact_command_masked,terminal_result,reply_masked,scenario
+AT,OK,,full-gatt-client3
+AT+GMR,OK,AT version:3.1.0.0-dev(799ebf3 - ESP32C3 - Mar 16 2023 12:58:57) | SDK version:v5.0-541-g885e501d99 | compile time(e9388b3):Mar 29 2023 11:52:15 | Bin version:2.5.0(MINI-1),full-gatt-client3
+AT+CWMODE?,OK,+CWMODE:2,full-gatt-client3
+AT+BLEINIT?,OK,+BLEINIT:0,full-gatt-client3
+AT+SYSRAM?,OK,"+SYSRAM:155132,76960",full-gatt-client3
+AT+SYSSTORE?,OK,+SYSSTORE:1,full-gatt-client3
+AT+BLEINIT?,OK,+BLEINIT:0,full-gatt-client3
+AT+BLEINIT=1,OK,,full-gatt-client3
+AT+BLEINIT?,OK,+BLEINIT:1,full-gatt-client3
+AT+SYSSTORE?,OK,+SYSSTORE:1,full-gatt-client3
+AT+SYSSTORE=0,OK,,full-gatt-client3
+AT+BLESECPARAM?,OK,+BLESECPARAM:<private>,full-gatt-client3
+AT+BLEENCDEV?,OK,,full-gatt-client3
+"AT+BLECONN=0,""<address>""",OK,,full-gatt-client3
+"AT+BLECFGMTU=0,64",OK,,full-gatt-client3
+AT+BLECFGMTU?,OK,"+BLECFGMTU:0,23",full-gatt-client3
+AT+BLECONNPARAM?,OK,"+BLECONNPARAM:0,10,12,11,0,600",full-gatt-client3
+AT+BLEGATTCPRIMSRV=0,OK,"+BLECONNPARAM:0,24,40,40,0,400 | +BLEGATTCPRIMSRV:0,1,0x1800,1 | +BLEGATTCPRIMSRV:0,2,0x1801,1 | +BLEGATTCPRIMSRV:0,3,0x180A,1 | +BLEGATTCPRIMSRV:0,4,0xFA1C7E107BEA4A8EA9F05F476D6A0001,1",full-gatt-client3
+"AT+BLEGATTCCHAR=0,4",OK,"+BLEGATTCCHAR:""char"",0,4,1,0xFA1C7E117BEA4A8EA9F05F476D6A0001,0x1a | +BLEGATTCCHAR:""desc"",0,4,1,1,0x2902 | +BLEGATTCCHAR:""char"",0,4,2,0xFA1C7E127BEA4A8EA9F05F476D6A0001,0x2a | +BLEGATTCCHAR:""desc"",0,4,2,1,0x2902 | +BLEGATTCCHAR:""char"",0,4,3,0xFA1C7E137BEA4A8EA9F05F476D6A0001,0x0a",full-gatt-client3
+"AT+BLEGATTCRD=0,4,1",OK,,full-gatt-client3
+"AT+BLEGATTCWR=0,4,1,,16",OK,,full-gatt-client3
+"AT+BLEGATTCRD=0,4,1",OK,,full-gatt-client3
+"AT+BLEGATTCWR=0,4,1,1,2",OK,,full-gatt-client3
+"AT+BLEGATTCWR=0,4,1,1,2",OK,,full-gatt-client3
+"AT+BLEGATTCWR=0,4,2,1,2",OK,,full-gatt-client3
+"AT+BLEGATTCWR=0,4,2,1,2",OK,,full-gatt-client3
+"AT+BLESECPARAM=8,3,16,3,3,1",OK,,full-gatt-client3
+"AT+BLEENC=0,1",OK,+BLESECKEYTYPE:<private> | +BLESECKEYTYPE:<private> | +BLEAUTHCMPL:<private>,full-gatt-client3
+"AT+BLEGATTCRD=0,4,3",OK,,full-gatt-client3
+AT+BLEENCDEV?,OK,,full-gatt-client3
+AT+BLEDISCONN=0,OK,,full-gatt-client3
+"AT+BLECONN=0,""<address>""",OK,,full-gatt-client3
+AT+BLEGATTCPRIMSRV=0,OK,"+BLECONNPARAM:0,24,40,40,0,400 | +BLEGATTCPRIMSRV:0,1,0x1800,1 | +BLEGATTCPRIMSRV:0,2,0x1801,1 | +BLEGATTCPRIMSRV:0,3,0x180A,1 | +BLEGATTCPRIMSRV:0,4,0xFA1C7E107BEA4A8EA9F05F476D6A0001,1",full-gatt-client3
+"AT+BLEGATTCRD=0,4,1",OK,,full-gatt-client3
+AT+BLEDISCONN=0,OK,,full-gatt-client3
+"AT+BLECONN=0,""<address>""",OK,,full-gatt-client3
+AT+BLEGATTCPRIMSRV=0,OK,"+BLECONNPARAM:0,24,40,40,0,400 | +BLEGATTCPRIMSRV:0,1,0x1800,1 | +BLEGATTCPRIMSRV:0,2,0x1801,1 | +BLEGATTCPRIMSRV:0,3,0x180A,1 | +BLEGATTCPRIMSRV:0,4,0xFA1C7E107BEA4A8EA9F05F476D6A0001,1",full-gatt-client3
+"AT+BLEGATTCRD=0,4,1",OK,,full-gatt-client3
+AT+BLEDISCONN=0,OK,,full-gatt-client3
+AT+BLEINIT=0,OK,,full-gatt-client3
+AT+BLEINIT?,OK,+BLEINIT:0,full-gatt-client3
+AT+SYSSTORE=1,OK,,full-gatt-client3
+AT,OK,,reverse-gatt-client
+AT+GMR,OK,AT version:3.1.0.0-dev(799ebf3 - ESP32C3 - Mar 16 2023 12:58:57) | SDK version:v5.0-541-g885e501d99 | compile time(e9388b3):Mar 29 2023 11:52:15 | Bin version:2.5.0(MINI-1),reverse-gatt-client
+AT+CWMODE?,OK,+CWMODE:2,reverse-gatt-client
+AT+BLEINIT?,OK,+BLEINIT:0,reverse-gatt-client
+AT+SYSRAM?,OK,"+SYSRAM:155488,79676",reverse-gatt-client
+AT+SYSSTORE?,OK,+SYSSTORE:1,reverse-gatt-client
+AT+BLEINIT?,OK,+BLEINIT:0,reverse-gatt-client
+AT+BLEINIT=2,OK,,reverse-gatt-client
+AT+BLEINIT?,OK,+BLEINIT:2,reverse-gatt-client
+AT+BLESECPARAM?,OK,+BLESECPARAM:<private>,reverse-gatt-client
+"AT+BLEADVPARAM=160,160,0,0,7,0",OK,,reverse-gatt-client
+"AT+BLEADVDATA=""0201060b0954362d474154542d4c4142""",OK,,reverse-gatt-client
+AT+BLEADVSTART,OK,,reverse-gatt-client
+AT+BLECONN?,OK,,reverse-gatt-client
+AT+BLECFGMTU?,OK,"+BLECFGMTU:0,517",reverse-gatt-client
+AT+BLEADVSTOP,OK,,reverse-gatt-client
+AT+BLEDISCONN=0,OK,,reverse-gatt-client
+AT+BLEINIT=0,OK,,reverse-gatt-client
+AT+BLEINIT?,OK,+BLEINIT:0,reverse-gatt-client
+AT,OK,,advertise1
+AT+GMR,OK,AT version:3.1.0.0-dev(799ebf3 - ESP32C3 - Mar 16 2023 12:58:57) | SDK version:v5.0-541-g885e501d99 | compile time(e9388b3):Mar 29 2023 11:52:15 | Bin version:2.5.0(MINI-1),advertise1
+AT+CWMODE?,OK,+CWMODE:2,advertise1
+AT+BLEINIT?,OK,+BLEINIT:0,advertise1
+AT+SYSRAM?,OK,"+SYSRAM:155620,80380",advertise1
+AT+SYSSTORE?,OK,+SYSSTORE:1,advertise1
+AT+BLEINIT?,OK,+BLEINIT:0,advertise1
+AT+BLEINIT=2,OK,,advertise1
+AT+BLEINIT?,OK,+BLEINIT:2,advertise1
+"AT+BLEADVPARAM=160,160,3,0,7,0",OK,,advertise1
+"AT+BLEADVDATA=""0201060b0954362d424c452d4c4142""",OK,,advertise1
+AT+BLEADVSTART,OK,,advertise1
+AT+BLEADVSTOP,OK,,advertise1
+AT+BLEINIT=0,OK,,advertise1
+AT+BLEINIT?,OK,+BLEINIT:0,advertise1
+AT,OK,,scan2
+AT+GMR,OK,AT version:3.1.0.0-dev(799ebf3 - ESP32C3 - Mar 16 2023 12:58:57) | SDK version:v5.0-541-g885e501d99 | compile time(e9388b3):Mar 29 2023 11:52:15 | Bin version:2.5.0(MINI-1),scan2
+AT+CWMODE?,OK,+CWMODE:2,scan2
+AT+BLEINIT?,OK,+BLEINIT:0,scan2
+AT+SYSRAM?,OK,"+SYSRAM:155668,80380",scan2
+AT+SYSSTORE?,OK,+SYSSTORE:1,scan2
+AT+BLEINIT?,OK,+BLEINIT:0,scan2
+AT+BLEINIT=1,OK,,scan2
+AT+BLEINIT?,OK,+BLEINIT:1,scan2
+"AT+BLESCANPARAM=0,0,0,100,50",OK,,scan2
+"AT+BLESCAN=1,2",OK,,scan2
+AT+BLESCAN=0,OK,+BLESCANDONE,scan2
+AT+BLEINIT=0,OK,,scan2
+AT+BLEINIT?,OK,+BLEINIT:0,scan2
+AT+BLEINIT?,OK,+BLEINIT:0,volatile-reset-restore
+AT+RST,OK,,volatile-reset-restore
+AT+GMR,OK,AT version:3.1.0.0-dev(799ebf3 - ESP32C3 - Mar 16 2023 12:58:57) | SDK version:v5.0-541-g885e501d99 | compile time(e9388b3):Mar 29 2023 11:52:15 | Bin version:2.5.0(MINI-1),volatile-reset-restore
+AT+CWMODE?,OK,+CWMODE:2,volatile-reset-restore
+AT+SYSSTORE?,OK,+SYSSTORE:1,volatile-reset-restore
+AT+BLEINIT?,OK,+BLEINIT:0,volatile-reset-restore
+AT+BLEINIT?,OK,+BLEINIT:0,volatile-reset-restore
+AT+BLEINIT=1,OK,,volatile-reset-restore
+AT+BLEINIT?,OK,+BLEINIT:1,volatile-reset-restore
+AT+BLESECPARAM?,OK,+BLESECPARAM:<private>,volatile-reset-restore
+AT+BLEENCDEV?,OK,,volatile-reset-restore
+AT+BLEINIT=0,OK,,volatile-reset-restore
+AT+BLEINIT?,OK,+BLEINIT:0,volatile-reset-restore

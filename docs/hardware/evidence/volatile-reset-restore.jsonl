@@ -1,0 +1,52 @@
+{"command": "AT+BLEINIT?", "payload_bytes": 0}
+{"reply": "+BLEINIT:0"}
+{"result": "OK", "seconds": 0.006}
+{"command": "AT+RST", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.004}
+{"event": "line", "line": "ESP-ROM:esp32c3-api1-20210207"}
+{"event": "line", "line": "Build:Feb  7 2021"}
+{"event": "line", "line": "rst:0x3 (RTC_SW_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)"}
+{"event": "line", "line": "Saved PC:0x403806c4"}
+{"event": "line", "line": "SPIWP:0xee"}
+{"event": "line", "line": "mode:DIO, clock div:2"}
+{"event": "line", "line": "load:0x3fcd5820,len:0x1738"}
+{"event": "line", "line": "load:0x403cc710,len:0xa54"}
+{"event": "line", "line": "load:0x403ce710,len:0x2eac"}
+{"event": "line", "line": "entry 0x403cc710"}
+{"restart": "expected"}
+{"command": "AT+GMR", "payload_bytes": 0}
+{"reply": "AT version:3.1.0.0-dev(799ebf3 - ESP32C3 - Mar 16 2023 12:58:57)"}
+{"reply": "SDK version:v5.0-541-g885e501d99"}
+{"reply": "compile time(e9388b3):Mar 29 2023 11:52:15"}
+{"reply": "Bin version:2.5.0(MINI-1)"}
+{"result": "OK", "seconds": 0.019}
+{"command": "AT+CWMODE?", "payload_bytes": 0}
+{"reply": "+CWMODE:2"}
+{"result": "OK", "seconds": 0.005}
+{"command": "AT+SYSSTORE?", "payload_bytes": 0}
+{"reply": "+SYSSTORE:1"}
+{"result": "OK", "seconds": 0.006}
+{"command": "AT+BLEINIT?", "payload_bytes": 0}
+{"reply": "+BLEINIT:0"}
+{"result": "OK", "seconds": 0.005}
+{"restored_wifi": ["+CWMODE:2"], "restored_store": ["+SYSSTORE:1"], "restored_ble": ["+BLEINIT:0"]}
+{"command": "AT+BLEINIT?", "payload_bytes": 0}
+{"reply": "+BLEINIT:0"}
+{"result": "OK", "seconds": 0.005}
+{"command": "AT+BLEINIT=1", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.059}
+{"command": "AT+BLEINIT?", "payload_bytes": 0}
+{"reply": "+BLEINIT:1"}
+{"result": "OK", "seconds": 0.006}
+{"command": "AT+BLESECPARAM?", "payload_bytes": 0}
+{"reply": "+BLESECPARAM:<private>"}
+{"result": "OK", "seconds": 0.007}
+{"command": "AT+BLEENCDEV?", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.005}
+{"security_after_reset": ["+BLESECPARAM:0,0,0,0,0,0"], "bonds_after_reset": 0}
+{"command": "AT+BLEINIT=0", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.235}
+{"command": "AT+BLEINIT?", "payload_bytes": 0}
+{"reply": "+BLEINIT:0"}
+{"result": "OK", "seconds": 0.006}
+{"cleanup": "VERIFIED", "ble_role": 0, "stop_commands_rejected": 0}
