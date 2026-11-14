@@ -44,7 +44,7 @@ The current boot’s sampled MMC log showed deferred probes for `11240000.mmc`; 
 | eMMC P44 / ext4 / CQE | **Known risk / partial.** Historical CQE recovery/ext4 I/O errors remain unresolved. Latest read-only state: card CMDQ off, host software queue log present, HS400/8-bit ~190MHz; life A/B and Pre-EOL normal; current boot error counters zero. No stress test this cycle. | Keep artifacts off P44; compare stock and Debian 5.4.238/6.18.63 MMC driver/DT/clock/mode. Do not flash an unsigned kernel. |
 | P25/P26 A/B boot and recovery | **Partial.** Candidate structures and prior boot metadata were inspected; this cycle’s P25 candidate is unsigned and unbooted. | Use only a newly authorized exact-digest signing path plus independent verification and confirmed recovery procedure; then conduct a separate controlled boot cycle. |
 | RTC / TRNG / crypto / GPU / multimedia | **Partial / TRNG API unavailable.** A has an RTC at the MT6685 SPMI child and its date/time are readable; C has no `/sys/class/rtc/rtc0`. Both expose no registered hwrng provider. C has a `mediatek,trng` DT node and `CONFIG_HW_RANDOM_MTK=y`, but the 6.18 driver match table lacks that compatible; `/dev/hwrng` returns `ENODEV`. C also exposes DXCC DT/platform nodes without a verified userspace crypto API. | Identify a matched MT6990 TRNG programming/SMC contract before adding a compatible; trace C RTC through SPMI/PMIC support; verify crypto APIs separately. Do not infer hardware operation from node presence. |
-| Second independent stock-A sweep | **Not done.** Earlier A/C targeted comparisons are not a fresh device-and-service inventory. | After completing current priority tracks, repeat stock A enumeration independently (devices, services, scripts, interfaces, IRQ/GPIO consumers) and append only new evidence/candidates. |
+| Second independent stock-A sweep | **Preliminary independent read-only sweep recorded; final required sweep remains pending.** Fresh class/bus/platform/service inventory added RTC/HWRNG, I2C client binding, PWM fan and GPIO-key discrepancies. It is not yet the post-port final re-exploration. | After more known-function ports, repeat all A devices/services/scripts and C deltas from zero, including IRQ/GPIO/pinctrl consumers and physical component cross-checks. See [preliminary sweep record](CUNIT-STOCK-A-INDEPENDENT-SWEEP-20261114.ja.md). |
 
 ## Wi-Fi change and validation boundary
 
@@ -62,6 +62,7 @@ The Debian `regulatory.db` and detached signature were validated and embedded in
 - [C-unit GNSS port assessment](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/8)
 - [C-unit MT6990 I2C and GPIO-key assessment](CUNIT-I2C-GPIO-PORT-20261114.ja.md)
 - [C-unit MT6990 PWM fan live test](CUNIT-PWM-FAN-PORT-20261114.ja.md)
+- [Preliminary independent stock-A runtime sweep](CUNIT-STOCK-A-INDEPENDENT-SWEEP-20261114.ja.md)
 
 ## Outstanding project work
 
