@@ -1,0 +1,6 @@
+--- a/usr/local/sbin/terminal6-wifi-phy-start.sh
++++ b/usr/local/sbin/terminal6-wifi-phy-start.sh
+@@
+ cp "$OEM_EEPROM" "$FW_STAGE/mt7996_eeprom_233_2i5i6i.bin" || fail EEPROM_STAGE_VARIANT_INTERNAL
++cp "$OEM_EEPROM" "$FW_STAGE/mt7990_eeprom.bin" || fail EEPROM_STAGE_MT7990
++cp "$OEM_EEPROM" "$FW_STAGE/mt7990_eeprom_2i5i.bin" || fail EEPROM_STAGE_MT7990_2I5I

@@ -14,7 +14,7 @@
 
 リポジトリのC号機記録では、Debian 13 / Linux 6.18.63でMT7990系PCI機能が列挙され、`mt7996e`系ドライバがPHYを登録している。Wi-Fi記録には2.4/5/6GHz bandとEHT能力の表示がある一方、6GHzの規制状態は`00`、チャネルは利用不可、`regulatory.db`欠落、EEPROM default-bin fallback、MCU timeoutが記録されている。Debian上のAP起動・端末通信は未試験である。
 
-PCI ID `14c3:7990` と `14c3:7991` は、監査したLinux 6.18.63ソースのMT7996 driver内で同じ無線デバイスの本体/HIF側IDとして扱われる。2つのPCI機能は2台の独立無線機や2つの動作中PHYを意味しない。既存今回C号機は単一の`phy0`を観測。A号機の純正`iw phy`は`phy2`に6GHz、`phy1`に5GHz、`phy0`に2.4GHzを表示し、`iw dev`では`phy2`上のAP interfacesが6075MHz/320MHzで設定中だった。A号機の`iw reg get`もglobal `00`だが5925–7125MHz規則を表示する。これは稼働状態の比較記録で、法令適合やC号機送信許可の根拠にはしない。
+PCI ID `14c3:7990` と `14c3:7991` は、監査したLinux 6.18.63ソースのMT7996 driver内で同じ無線デバイスの本体/HIF側IDとして扱われる。2つのPCI機能は2台の独立無線機や2つの動作中PHYを意味しない。今回のC号機は単一の`phy0`を観測。A号機の純正`iw phy`は`phy2`に6GHz、`phy1`に5GHz、`phy0`に2.4GHzを表示し、`iw dev`では`phy2`上のAP interfacesが6075MHz/320MHzで設定中だった。A号機の`iw reg get`もglobal `00`だが5925–7125MHz規則を表示する。これは稼働状態の比較記録で、法令適合やC号機送信許可の根拠にはしない。
 
 同じカーネルソースの`mt7996/init.c`は`WIPHY_FLAG_SUPPORTS_MLO`とEMLSR能力を広告し、MLOリンク情報の管理領域を持つ。Linux Wirelessの[MediaTek driver情報](https://wireless.docs.kernel.org/en/latest/en/users/drivers/mediatek.html)も一般的なmt76機能を説明するが、この特定個体の動作証拠ではない。能力表示はC号機上でAP/STAのMLDが成立した証拠ではない。MLO PASSには、接続相手側のMLD、複数のactive link ID、各リンク上のpacket/byte増加、およびIPの双方向通信を確認する必要がある。
 
@@ -27,6 +27,14 @@ ARIB STD-T71の[公開情報](https://www.arib.or.jp/kikaku/kikaku_tushin/desc/s
 ## EEPROM・firmware
 
 既存記録では初回のEEPROM取得失敗とdriver fallbackが見られる。起動スクリプトが複数候補のファイル名を配置することだけでは、driverが選択したEEPROMが正しいことを証明できない。今回の調査では秘密・校正データを読み出したり、公開領域へコピーしたりしていない。C号機には`mt7996_eeprom*.bin`候補が複数存在するが、起動ログは`eeprom load fail, use default bin`。候補ファイルの存在は選択・適用成功を証明しない。実機の既存oneshot `terminal6-wifi-phy.service`はC号機自身のP26 firmwareとP38/P39側のstock rootfs_bからOEM EEPROMを読み取り専用で取得し、/runへ展開して`/lib/firmware/mediatek/mt7996`へtmpfs bind後にmt76 modulesをロードする。serviceはSUCCESS、両PCI endpointとphy0は結合済みだが、その直後のkernel logでもdefault-bin fallbackが出ている。つまり単純なDebian側ファイル配置漏れでは説明できず、stock EEPROMとdriver parser/variant/formatの互換性、または読み込み名を次に比較する。原EEPROM内容は読出し・記録・公開していない。`regulatory.db`もrootfs上には存在しDebian alternativesから`regulatory.db-debian`へ解決する一方、起動直後の要求失敗ログがある。カーネルは`CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y`で、C rootfsのDebian alternatives先には署名付きDBがある。起動直後の失敗ログは無署名fallbackではなく早期initramfs側の探索時点が原因候補。組み込みinitramfs (`CONFIG_INITRAMFS_SOURCE` はビルド時パスを記録) へファイルが含まれているか未確認。rootfs上のDBを見つけたことだけでdriver起動時に適用されたとは言えず、global `00`も維持。規制ドメイン変更は行わない。正しいC号機OEM校正データの読取経路、選択ファイル名、適用成功ログを非公開の証拠で確認する必要がある。default-bin状態での6GHz送信は進めない。
+
+## 2026-11-14 追加実機サイクル
+
+MT7996 module binaryのfirmware名文字列に `mediatek/mt7996/mt7990_eeprom.bin` と `mt7990_eeprom_2i5i.bin` があることを確認。既存のC号機起動scriptはC号機stock rootfs_b由来の7680-byte OEM EEPROMを `mt7996_eeprom*.bin` としてRAM配置していたため、同じ個体データを上記2名でもRAM stagingする2行を追加した。変更前scriptをCのP44上にbackupし、 `sh -n` PASS。通常再起動後、SSH/networkd/UART gettyとserviceが復帰し、RAM上の2名が配置され、phy0が登録された。EEPROM fallback warningは継続した。driverソースではuse_default時にdefault-binを要求・読み込み、modeをDEFAULT_BINにする経路で同warningを出すため、このメッセージだけでは読込失敗とは断定できない。実効EEPROM bytesは取得・公開せず、機器固有校正がband別に適用された独立検証は未完了。
+
+同一build-proofのkernel configは `CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y` と `CONFIG_INITRAMFS_SOURCE` をgzip CPIOに設定。対応initramfs archiveの読み取り一覧に `regulatory.db` / `.p7s` は存在しない。ログは起動0.52秒でrequest failure、4.48秒でcfg80211 load failure、MT7996 service/driverは9秒台に開始。rootfs上にはDebian signed regulatory.dbが存在し、後からalternativesが解決するが早期要求時には間に合わない。修正には署名付きDBと対応署名をkernel組み込みinitramfsへ含めたkernel rebuildが必要。P25の既存署名/復旧チェーンに対する候補再製造は未着手。
+
+このサイクルで実施したのはRAM staging名の追加と通常再起動。6GHz規制設定、RF送信、校正原本読出し、driver/module交換はしていない。再起動後MMC/ext4エラー増加はdmesg検索で検出なし。MMC番号変化により以前の固定sysfs pathはなくCQE値は再取得できず、確認済みとは記録しない。
 
 ## hostapd候補
 
