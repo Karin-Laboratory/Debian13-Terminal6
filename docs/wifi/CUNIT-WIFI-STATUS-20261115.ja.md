@@ -11,14 +11,14 @@
 | 2.4GHz AP | BLOCKED | __ap interfaceをDOWNのまま生成・削除できた。hostapd 2.12 ARM64の起動表示を確認 | 有効な規制条件、独立したクライアント、hostapd実動作を用意し認証・IP通信・再起動復帰 |
 | 2.4GHz STA | BLOCKED | 現在wlp1s0 managed / DOWN、TX packet counter 0 | 管理回線に影響しない独立したAP/クライアントと適法な設定で接続・通信 |
 | 5GHz AP/STA | BLOCKED | capabilityの表示のみ。RF試験なし | 適法な非DFS/DFS条件と別クライアントを用意し、帯域幅・暗号・IP通信を実測 |
-| WPA2/WPA3-SAE / PMF | UNKNOWN | hostapdの機能を含むビルドはあるが、接続試験なし | 実クライアントとの認証ネゴシエーションを記録 |
-| HE/EHT / Wi-Fi 7 | UNKNOWN | iw phyの能力表示のみ | EHT対応クライアントとassociation後、実際のPHYモード・双方向通信を測定 |
+| WPA2/WPA3-SAE / PMF | PARTIAL | hostapd 2.12 buildにSAE/PMF対応を含む。client認証試験はなし | 実クライアントとの認証ネゴシエーションを記録 |
+| HE/EHT / Wi-Fi 7 | PARTIAL | C号機iw phyがAP/managed EHT iftype capabilityを表示。実association・EHT data frameなし | EHT対応client接続後、実PHY mode・双方向通信を測定 |
 | 6GHz AP/STA | BLOCKED | 起動時regulatory.db要求失敗、実効country 00。6GHzチャネルは利用可能と確認できていない | 署名済みregdbを早期起動時に読み込み、個体の認証・条件と利用可能チャネルを確認後に試験 |
-| 160/320MHz | UNKNOWN | 実リンク未成立。チャネル幅の広告は実対応の証拠ではない | 許可条件とクライアント能力を確認し、実交渉幅を測定。320MHzは独立受入 |
-| MLO | UNKNOWN | 独立phyは1基。7990/7991のendpointを別PHYとは扱っていない | radio/link構成を確認し、MLDのlink ID、各link counter、実IP通信を確認 |
+| 160/320MHz | PARTIAL | iw phyは5GHz 160MHzと6GHz 320MHz capabilityを表示。実リンク未成立 | 許可条件とclient能力を確認し、実交渉幅を測定。320MHzは独立受入 |
+| MLO | PARTIAL | 実機moduleと同じソースでWIPHY_FLAG_SUPPORTS_MLO、driver MLD link paths、最大同時links=2を確認。実際のMLD/link成立なし | 2 linkを形成し、link ID・各link counter・双方向IP dataを確認 |
 | EasyMesh Controller / Agent | UNKNOWN | 1905.1 / Multi-AP接続試験なし | 実装選定後、Controller-Agent登録、topology、backhaul/fronthaul、再起動復帰 |
 
-BLOCKEDは今回の実機証拠だけに基づく再開条件を示す。ここでの表は未搭載の判定ではない。
+BLOCKEDは今回の実機証拠だけに基づく再開条件を示す。ここでの表は未搭載の判定ではない。PARTIALはコードまたは能力表示の確認までで、実通信を意味しない。
 
 ## 2026-11-15 最終安全状態確認
 
@@ -28,8 +28,8 @@ BLOCKEDは今回の実機証拠だけに基づく再開条件を示す。ここ�
 - eMMCは上限100MHz、実クロック 94,999,965 Hz、HS400 / 8-bit / 1.80V、cmdq_en=0。C号機SSHはraspi4経由で接続できた。
 - この確認ではRF送信、スキャン、association、AP/STA、Beaconを開始していない。hostapdは /run 上の -v 確認に限り、P44へは導入していない。
 
-## 再開条件
+## 実通信の再開条件
 
 次の実通信試験には、(1) 起動時に利用可能な署名済みregulatory databaseを組み込んだ正規署名済みP25（既存署名の流用不可）、(2) 適用法令・機器認証に沿った国・チャネル・帯域幅・出力条件、(3) 管理経路を切り離さず使える独立したWi-FiクライアントまたはAPが必要。P25署名と検証済み復旧経路を満たすまでinitramfs候補を実機起動せず、許可条件が確認されるまでBeaconやprobe等の送信を行わない。
 
-既知の実機修正・再起動結果・rollbackは[PR #9の詳細記録](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/9)を参照。個体固有EEPROM/OTP、raw log、module backupはprivate保管.
+既知の実機修正・再起動結果・rollbackは[PR #9の詳細記録](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/9)を参照。個体固有EEPROM/OTP、raw log、module backupはprivate保管。
