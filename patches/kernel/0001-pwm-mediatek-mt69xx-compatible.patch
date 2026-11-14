@@ -1,0 +1,19 @@
+From: Codex hardware porting
+Subject: [PATCH] pwm: mediatek: accept C-unit MT69xx PWM compatible
+
+The C-unit DT uses the vendor spelling "mediatek,mt69xx-pwm". The existing
+6.18 MT6990 data describes the same seven-channel block (base 0x80, stride
+0x40); add the DT compatible alias without changing the register layout.
+
+--- a/drivers/pwm/pwm-mediatek.c
++++ b/drivers/pwm/pwm-mediatek.c
+@@ -542,6 +542,7 @@
+ static const struct of_device_id pwm_mediatek_of_match[] = {
+ 	{ .compatible = "mediatek,mt2712-pwm", .data = &mt2712_pwm_data },
+ 	{ .compatible = "mediatek,mt6795-pwm", .data = &mt6795_pwm_data },
+ 	{ .compatible = "mediatek,mt6990-pwm", .data = &mt6990_pwm_data },
++	{ .compatible = "mediatek,mt69xx-pwm", .data = &mt6990_pwm_data },
+ 	{ .compatible = "mediatek,mt6991-pwm", .data = &mt6991_pwm_data },
+ 	{ .compatible = "mediatek,mt7622-pwm", .data = &mt7622_pwm_data },
+---
+2.39.5
