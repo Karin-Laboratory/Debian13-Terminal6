@@ -56,4 +56,4 @@ C号機の既知bootctrl状態 `0f000100000e00010000`から、純正rootfs Bをr
 
 CQE無効の状態でP44専用領域へ4KiB、1MiB、8MiB、16MiBをそれぞれ書込み、fsync・sync・SHA読戻しを実施。4件すべて一致し、当該bootの`DATA TIMEOUT`/`CQE recovery`/I/O error/ext4 extent error件数は0→0。`apt-get update`、`jq`・`libjq1`・`libonig5`の新規導入、`dpkg -V jq libjq1`、実行、syncも成功し、エラー件数0→0。再起動後もDebian slot A、P44 ext4 RW、管理LAN ping、strict SSH、Wi-Fi `phy0`、A retry=0/success=1が復帰。4テストファイルのSHA、APTパッケージ、`cmdq_en=0`を再確認し、新bootのMMC関連エラーは0件。
 
-**判定：限定的な実機安定化試験はPASS、CQEが元の障害の唯一の根本原因かは未確定。** CQE有効時にも小規模書込みとAPT `hello`導入は成功しており、今回の負荷だけでは再現性を持つA/B差を示せない。HS400タイミング、DMA、電源等も排除されない。より長い使用期間または元の失敗条件に近い負荷での観測が必要。試験ログとrootfsバックアップはowner-privateに保存し、機器固有データや生UARTログは公開していない。
+**判定：限定的な実機安定化試験はPASS、CQEが元の障害の唯一の根本原因かは未確定。** CQE有効時にも小規模書込みとAPT `hello`導入は成功しており、今回の負荷だけでは再現性を持つA/B差を示せない。HS400タイミング、DMA、電源等も排除されない。より長い使用期間または元の失敗条件に近い負荷での観測が必要。試験ログとrootfsバックアップはowner-privateに保存し、機器固有データや生UARTログは公開していない。SHA読戻し記録後に専用試験ファイルだけを削除し、sync後もMMC関連エラー0件を確認した。
