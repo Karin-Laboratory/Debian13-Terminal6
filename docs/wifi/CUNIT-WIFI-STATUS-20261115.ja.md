@@ -1,6 +1,6 @@
 # C号機 Wi-Fi段階別ステータス (2026-11-15)
 
-対象はC号機 Debian 13 / Linux 6.18.63、slot A。これは実測済み範囲の進捗表で、未検証の無線通信を成功扱いしない。
+対象はC号機 Debian 13 / Linux 6.18.63、slot A。能力表示、AP起動、association、認証、IP通信は別の達成段階として記録する。
 
 ## 機能別到達状況
 
@@ -8,28 +8,33 @@
 |---|---|---|---|
 | MT7990 PCI・driver・PHY | PARTIAL | PCI 14c3:7990/7991、mt7996e / mt7996e_hif結合、phy0登録 | AP/STA実通信後にデータ経路を判定 |
 | EEPROM/OTP初期化 | PARTIAL | C号機自身のOTP由来46 bytesをRAM EEPROM bufferへ統合、8/8ページACK。30秒timeout版で通常再起動後もPHY/SSH復帰 | 実通信時のfirmware・校正動作を検証 |
-| 2.4GHz AP | BLOCKED | __ap interfaceをDOWNのまま生成・削除できた。hostapd 2.12 ARM64の起動表示を確認 | 有効な規制条件、独立したクライアント、hostapd実動作を用意し認証・IP通信・再起動復帰 |
-| 2.4GHz STA | BLOCKED | 現在wlp1s0 managed / DOWN、TX packet counter 0 | 管理回線に影響しない独立したAP/クライアントと適法な設定で接続・通信 |
-| 5GHz AP/STA | BLOCKED | capabilityの表示のみ。RF試験なし | 適法な非DFS/DFS条件と別クライアントを用意し、帯域幅・暗号・IP通信を実測 |
-| WPA2/WPA3-SAE / PMF | PARTIAL | hostapd 2.12 buildにSAE/PMF対応を含む。client認証試験はなし | 実クライアントとの認証ネゴシエーションを記録 |
+| 2.4GHz AP | PARTIAL | WPA2/CCMPのhostapd 2.12がstart rc=0。live iwでAP / 2412 MHz ch1 / 20 MHz / 20 dBm。TX packet counterは8秒で0から12へ増加 | clientでBeaconを受信し、association・認証・DHCP・双方向IP通信・再起動復帰を確認 |
+| 2.4GHz STA | PARTIAL | Cからの受信専用scanで、raspi2が使用中のowner-managed APを2412 MHz ch1で検出。C側ch1はcountry 00の現行rulesでNO_IR/disabledなし、20 dBm上限。wpa_supplicant 2.10のnl80211 buildを/runで実行確認 | PSK取得後にassociation・WPA2・IP通信・再接続。PSKはraspi2の通常ユーザーAPIから取得できず、sudo/rootは使用しない |
+| 5GHz AP/STA | BLOCKED | Cのworld rulesでは対象bandがPASSIVE-SCAN。association試験なし | channelごとの規則と既存APの認証条件を維持したままSTA可能性を判定。AP送信は規則変更なしに開始しない |
+| WPA2/WPA3-SAE / PMF | PARTIAL | 2.4GHz WPA2/CCMP APの起動確認。client認証なし。hostapd 2.12 buildにはSAE/PMF対応を含む | WPA2 client association後、別途SAE/PMF交渉を実測 |
 | HE/EHT / Wi-Fi 7 | PARTIAL | C号機iw phyがAP/managed EHT iftype capabilityを表示。実association・EHT data frameなし | EHT対応client接続後、実PHY mode・双方向通信を測定 |
-| 6GHz AP/STA | BLOCKED | 起動時regulatory.db要求失敗、実効country 00。6GHzチャネルは利用可能と確認できていない | 署名済みregdbを早期起動時に読み込み、個体の認証・条件と利用可能チャネルを確認後に試験 |
+| 6GHz AP/STA | BLOCKED | 起動時regulatory.db要求失敗、実効country 00。6GHzチャネルはdisabled | 署名済みregdbを早期起動時に読み込み、個体の認証・条件と利用可能チャネルを確認後に試験 |
 | 160/320MHz | PARTIAL | iw phyは5GHz 160MHzと6GHz 320MHz capabilityを表示。実リンク未成立 | 許可条件とclient能力を確認し、実交渉幅を測定。320MHzは独立受入 |
 | MLO | PARTIAL | 実機moduleと同じソースでWIPHY_FLAG_SUPPORTS_MLO、driver MLD link paths、最大同時links=2を確認。実際のMLD/link成立なし | 2 linkを形成し、link ID・各link counter・双方向IP dataを確認 |
 | EasyMesh Controller / Agent | UNKNOWN | 1905.1 / Multi-AP接続試験なし | 実装選定後、Controller-Agent登録、topology、backhaul/fronthaul、再起動復帰 |
 
-BLOCKEDは今回の実機証拠だけに基づく再開条件を示す。ここでの表は未搭載の判定ではない。PARTIALはコードまたは能力表示の確認までで、実通信を意味しない。
+BLOCKEDは確認済みのチャネル制約や試験条件を示し、未搭載の判定ではない。PARTIALはコード・能力表示・AP起動までを含むが、実通信を意味しない。
 
-## 2026-11-15 最終安全状態確認
+## 2026-11-15 実機追試と安全状態
 
-- /usr/lib/modules/6.18.63-debian-t6-proto2/updates/terminal6-mt76/MODULE-SHA256SUMSの3モジュールをC号機上で検証し、すべてOK。mt7996e.ko SHA256は c87f66f6573d5a4c3d1e829009fc42baf3223f1b0b958c4fc8a549b135e0fecd。
-- wlp1s0 は managed / DOWN、TX packet counter 0。AP interfaceなし、hostapd daemonなし。hostapdと候補moduleの一時ファイルは /run に残っていない。
-- 起動ログに merged 46 OTP calibration-free bytes into EEPROM buffer および uploaded all 8 EEPROM buffer pages があり、その後の採取ログにEFUSE_CTRL timeout、EEPROM page失敗、MMC/ext4 I/O errorはなかった。
-- eMMCは上限100MHz、実クロック 94,999,965 Hz、HS400 / 8-bit / 1.80V、cmdq_en=0。C号機SSHはraspi4経由で接続できた。
-- この確認ではRF送信、スキャン、association、AP/STA、Beaconを開始していない。hostapdは /run 上の -v 確認に限り、P44へは導入していない。
+- raspi4の管理Wi-Fiとraspi2の既存owner-managed Wi-Fiは切り替えず、A号機は読み取り専用で確認した。C号機の接続先SSID/BSSIDは公開しない。
+- Cのpassive scanは2412/2437/2462 MHzに限定し、scan後のwlp1s0 TX counterは0。2412 MHz ch1のAPを受信した。
+- Cの実効規制コードは00。ch1はNO_IR/disabledなし、最大20 dBm。規制ドメインを設定変更していない。
+- Debian 13 arm64 wpasupplicant 2:2.10-24をAPTから/runへ一時展開し、nl80211 driver supportを確認。P44にはインストールしていない。raspi2の通常ユーザーAPIはPSKを開示せず、制御socketもcodexユーザーからアクセスできなかった。sudo/rootや認証迂回は行っていない。
+- 2.4GHz AP試験は一時WPA2/CCMP、HT20、ch1、country overrideなし、出力増加なしで8秒実施。hostapd start rc=0、live iwでtype AP / 2412 MHz / 20 dBm、TX counter 12を確認した。これはTX activityの証拠であり、外部Beacon captureやclient associationを示さない。hostapdと一時設定は停止・削除済み。
+- Cはmanaged / DOWN、IP addressなし、default routeは従来どおりlan2 via 192.168.3.71。SSHは維持。
+- eMMCは100MHz上限、実クロック 94,999,965 Hz、HS400 / 8-bit / 1.80V、cmdq_en=0。mt7996eの全checksumが一致し、46 OTP bytes統合・EEPROM全8 page ACKのログを確認。新規MMC/ext4 I/O errorなし。
 
-## 実通信の再開条件
+## 次の実通信試験
 
-次の実通信試験には、(1) 起動時に利用可能な署名済みregulatory databaseを組み込んだ正規署名済みP25（既存署名の流用不可）、(2) 適用法令・機器認証に沿った国・チャネル・帯域幅・出力条件、(3) 管理経路を切り離さず使える独立したWi-FiクライアントまたはAPが必要。P25署名と検証済み復旧経路を満たすまでinitramfs候補を実機起動せず、許可条件が確認されるまでBeaconやprobe等の送信を行わない。
+- 2.4GHz STAは独立したクライアント端末不要だが、owner-managed AP用PSKが必要。PSKが提供または許可された方法で取得できたら、まず有線管理経路を保ったままassociationを試す。SSID/BSSID/PSKはprivateのまま扱う。
+- Wi-Fi DHCP addressは有線management subnetと重なる可能性がある。試験時はdefault routeをlan2のまま維持し、networkdのDHCP UseRoutes/UseDNSを無効にして、特定経路を事前・事後確認する。
+- 2.4GHz APでclientデータ試験するには独立した接続端末が必要。
+- 5/6GHz country-specific operationには署名済みregdbの早期ロードと適用条件確認が必要。unsigned P25は適用しない。6GHz/320MHzは認証・規制条件が確認できるまで送信しない。
 
-既知の実機修正・再起動結果・rollbackは[PR #9の詳細記録](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/9)を参照。個体固有EEPROM/OTP、raw log、module backupはprivate保管。
+詳細な初期化修正とprivate log参照は[PR #9](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/9)。個体固有EEPROM/OTP、SSID/BSSID、credentials、raw scan、module backupはprivate保管。
