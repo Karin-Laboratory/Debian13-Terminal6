@@ -20,9 +20,10 @@ After inserting the module:
 - `/sys/class/pwm/pwmchip0/npwm` reported 7.
 - The deferred `pwm-fan` consumer bound successfully; `/sys/bus/platform/devices/pwm-fan/driver` resolved to `pwm-fan`.
 - Its hwmon interface reported `pwm1=255`, `pwm1_enable=1`; the C thermal cooling device appeared with the same zero-state/zero-maximum shape seen on A.
+- `/sys/kernel/debug/pwm` identifies channel 4 as `pwm-fan`; requested output was enabled at 9999/10000 ns and the controller reported an enabled 9979/9979 ns waveform after hardware quantization.
 - C management remained available: `lan2@eth1` stayed `192.168.3.1/24`, default route stayed via `192.168.3.71`, and SSH, systemd-networkd, serial-getty@ttyS0, and the Wi-Fi PHY service were active.
 
-This verifies controller registration, PWM framework exposure, fan-driver binding and the configured maximum-duty output. There is no tachometer feedback, so physical rotor motion is **not** verified. The sampled SoC temperatures before/after were effectively unchanged over the short interval and do not demonstrate cooling. No PWM value was manually changed.
+This verifies controller registration, PWM framework exposure, fan-driver binding and the configured maximum-duty output. There is no tachometer feedback, so physical rotor motion is **not** verified. SoC maximum temperature sampled 65.417°C before and 65.364°C after; the short interval and small change do not demonstrate cooling. No PWM value was manually changed.
 
 ## Persistence and safety boundary
 
