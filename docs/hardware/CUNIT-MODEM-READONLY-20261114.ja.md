@@ -86,3 +86,5 @@ C Debianの既存ノードには`/dev/ccci_fs`、`/dev/ccci_rpc`、`/dev/ccci_md
 4. その後に限り、非同期MD STARTを1回ずつ行い、FSM INVALID→STARTING/HS1/HS2/READYの最初の失敗を記録する。READYまではSIM照会やAPN操作を行わない。
 
 ここまでの成果はLTE実通信の実装完了ではない。今回の準備では全4領域のprivate保全を完了したが、C kernelの`devmap`/IPC ABI差が未解決のため、MD START要求に進む前の互換ゲートで止めている。`LTE_IPV4=NOT_ESTABLISHED`。
+
+追加作業ではC純正ランタイム（バイナリと共有ライブラリ、private archive SHA `4c3c7fa9…`）をowner-private raspi4へ用意し、Cの`/tmp`へ一度展開した。しかし保全済みNVRAM raw copyをそのRAM環境へ渡すSSHストリームが完了せず、宛先ファイルが存在しないことを確認した。作業用展開を削除し、稼働中daemonなし、MD1 INVALID、SSH継続を確認した。Cの永続領域とNVRAMは変更していない。private backup manifestには4領域の全量SHAを記録している。
