@@ -1,0 +1,20 @@
+{"command": "AT", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.003}
+{"command": "AT+GMR", "payload_bytes": 0}
+{"reply": "AT version:3.1.0.0-dev(799ebf3 - ESP32C3 - Mar 16 2023 12:58:57)"}
+{"reply": "SDK version:v5.0-541-g885e501d99"}
+{"reply": "compile time(e9388b3):Mar 29 2023 11:52:15"}
+{"reply": "Bin version:2.5.0(MINI-1)"}
+{"result": "OK", "seconds": 0.018}
+{"command": "AT+CWMODE?", "payload_bytes": 0}
+{"reply": "+CWMODE:2"}
+{"result": "OK", "seconds": 0.005}
+{"command": "AT+BLEINIT?", "payload_bytes": 0}
+{"reply": "+BLEINIT:0"}
+{"result": "OK", "seconds": 0.005}
+{"command": "AT+SYSRAM?", "payload_bytes": 0}
+{"reply": "+SYSRAM:155244,76308"}
+{"result": "OK", "seconds": 0.006}
+{"command": "AT+SYSSTORE?", "payload_bytes": 0}
+{"reply": "+SYSSTORE:1"}
+{"result": "OK", "seconds": 0.006}

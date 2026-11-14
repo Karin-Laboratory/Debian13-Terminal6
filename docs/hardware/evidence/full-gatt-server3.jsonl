@@ -1,0 +1,23 @@
+{"application_registered": true, "ready": true}
+{"legacy_mgmt": "connectable", "returncode": 0}
+{"legacy_mgmt": "advertising", "returncode": 0}
+{"read": true, "kind": "notify", "bytes": 15, "mtu": 64}
+{"write": true, "kind": "notify", "bytes": 16, "fixture_match": true, "mtu": 64}
+{"read": true, "kind": "notify", "bytes": 16, "mtu": 64}
+{"subscription": true, "kind": "notify"}
+{"notification_sent": 1, "kind": "notify", "bytes": 16}
+{"notification_sent": 2, "kind": "notify", "bytes": 16}
+{"notification_sent": 3, "kind": "notify", "bytes": 16}
+{"subscription": true, "kind": "indicate"}
+{"notification_sent": 1, "kind": "indicate", "bytes": 16}
+{"indication_confirmed": true, "kind": "indicate"}
+{"notification_sent": 2, "kind": "indicate", "bytes": 16}
+{"indication_confirmed": true, "kind": "indicate"}
+{"notification_sent": 3, "kind": "indicate", "bytes": 16}
+{"indication_confirmed": true, "kind": "indicate"}
+{"read": true, "kind": "encrypted", "bytes": 15, "mtu": 64}
+{"subscription": false, "kind": "notify"}
+{"subscription": false, "kind": "indicate"}
+{"read": true, "kind": "notify", "bytes": 16, "mtu": 64}
+{"read": true, "kind": "notify", "bytes": 16, "mtu": 64}
+{"cleanup": true, "adapter_power_restored": true}
