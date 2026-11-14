@@ -12,7 +12,7 @@ Experimental, community-maintained project to run **Debian 13 (arm64)** on SoftB
 
 ## Status
 
-**Live hardware research on one development unit.** Debian 13 with kernel `6.18.63-debian-t6-proto2` runs from P44 on the C-unit; Ethernet/SSH and ESP32-C3 UART queries have been measured. **eMMC CQE/write I/O errors and rootfs integrity remain unresolved.** This is not a validated general installer or complete hardware-support claim. See the [2026-11-14 hardware report, limitations and mitigation candidates](docs/hardware/README.md). Writing P44 can destroy existing data; preserve recovery before any separate firmware or filesystem work.
+**Live hardware research on one development unit.** Debian 13 with kernel `6.18.63-debian-t6-proto2` runs from P44 on the C-unit; Ethernet/SSH and ESP32-C3 UART queries have been measured. **eMMC CQE/write I/O errors and rootfs integrity remain unresolved.** This is not a validated general installer or complete hardware-support claim. See the [2026-11-14 hardware report, limitations and mitigation candidates](docs/hardware/README.md) and [current feature-porting ledger](docs/hardware/CUNIT-FEATURE-PORTING-LEDGER-20261114.ja.md). Writing P44 can destroy existing data; preserve recovery before any separate firmware or filesystem work.
 
 ## Publication policy
 
