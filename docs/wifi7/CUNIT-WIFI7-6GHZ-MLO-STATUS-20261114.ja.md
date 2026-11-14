@@ -46,9 +46,15 @@ initramfs source archiveはbuild-proof上にあり、gzip CPIO一覧でregulator
 
 公式hostapd 2.12ソース (SHA-256 `f43502561c28ba47ab77e18e1a973d07361c68cc8b14178e619bd5796b70eabd`) を一時作業領域で取得し、Debian arm64用に`nl80211`、802.11ax/be、SAEを有効にしてクロスビルドした。成果物はARM64 ELFで、QEMU-user上の`hostapd -v`はv2.12を返した。これはビルドと起動表示の確認のみで、C号機への配置、nl80211 AP起動、6GHz、EHT接続、MLOは試していない。バイナリと一時sysrootはgitに含めない。
 
+## regdb組込みP25候補（host only）
+
+C号機rootfsからDebian wireless-regdbのDBとdetached signatureを取得し、OpenSSL signature verification PASS。両ファイルを既存P44 initramfsへ追加し、署名必須/Kernel RegDB Keys設定を維持したARM64 6.18.63 kernelを再ビルド。新CPIO hash `9e149a1e7deb3ff859f494bda801335f463962bc16349988f0046459298d55ca`、kernel Image.gz hash `a9c230d06ca2bbd99f4d8bda708dfcd7788b60eaef29f206f465910d6f256f45`。Image内のCPIOは1回含まれ、ARM64 header/size PASS。32MiB P25候補 hash `9686d1b27276c62ad4308d926c2a3667b19b58bac3dc5100686e00aef691a1e9`は独立structural verifierで`UNSIGNED_P25_INDEPENDENT_STRUCTURAL_PASS`。署名・flash・bootは未実施。
+
+既存Private signing workflowは別P25 SHAを条件、承認文字列、download assetで固定しており、この新digestへ転用できない。新digest用署名経路と物理bootを完了するまでは候補を書き込まない。kernel/P25/校正データは公開Gitへ含めない。
+
 ## 次の実測段階
 
-1. C号機向けkernel source/build pathと適合署名・復旧手順を確立し、regdb入りinitramfs候補をhost側で検証する。
+1. 新unsigned P25 hash専用の署名workflowと復旧制御を確立し、RSA-PSS署名・独立検証後に物理bootとregdb load logを確認する。
 2. LAN/UART管理の維持を前提に、秘密情報を出さない読み取りsnapshotをDebian上で採取する。
 3. regulatory database、実機の適法な運用条件、EEPROM選択とfirmware起動、MCU応答を確認する。
 4. 認証/運用条件と電波試験環境が確認できてから、許可された帯域だけを低リスク段階で試験する。
