@@ -33,7 +33,7 @@ The current boot’s sampled MMC log showed deferred probes for `11240000.mmc`; 
 | EasyMesh controller/agent | **Not verified on C Debian.** | Port/service compatibility inventory from stock; then isolated controller-agent joining and topology/rejoin tests, separately from MLO. |
 | Ethernet / MT7531 / DSA | **Verified bounded operation.** SSH and content-checked transfer were previously observed on LAN2; latest management IP is unchanged. | Map physical jacks to DSA ports; test each fitted external port, VLAN/bridge behavior and hardware-offload counters. |
 | WWAN / LTE/5G | **Partial inventory only.** CCCI modem, 21 ccmni interfaces and related control nodes were observed; no SIM registration, PDN, or LTE/NR data session proven. | Compare stock modem daemon/protocol and device state; run a bounded, non-destructive registration/data test only after preserving current control access. |
-| GNSS | **Blocked.** DT candidate exists, standard GNSS interface/driver not active. | Compare stock GNSS daemon, firmware loading and device-specific init sequence; use a shielded/controlled receive-only fix test and redact coordinates. |
+| GNSS | **Blocked at driver integration.** A has gps_drv/conninfra, GNSS device nodes and gnss/mtk_agpsd services. C has a matching enabled MT6990 DT/resource node but no driver/service. The public GPL v062 driver compiles through object link with a scratch SMC call ID; final module post-processing fails on missing conninfra exports. See [PR #8](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/8). | Obtain the matching MT6990 conninfra source/API and validate GPS SMC support; complete a clean module build before any device init or location test. Keep stock firmware and location data private. |
 | ESP32-C3 UART / AT | **Verified bounded query.** UART1 `/dev/ttyS1`, 115200 8N1 and ESP-AT version/status queries have been observed. | Continue through the bounded Debian BLE/GATT API evidence in [PR #5](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/5); long-duration and full C reboot recovery remain open. |
 | ESP32 BLE / Linux Bluetooth HCI | **Partial / HCI not detected.** ESP-AT BLE APIs and owned-peer GATT operations passed in PR #5. This is proprietary AT control, not a standard Linux HCI controller. | Test arbitrary peripheral/server provisioning, pairing/security UX and reboot/long-run stability; separately investigate HCI feasibility from transport firmware/protocol without claiming HCI support. |
 | LEDs / AW9523B / buttons | **Unknown / API absent.** DT descriptions exist, but exterior components and input events have not been mapped. | Read-only stock service/device comparison, then human-assisted physical identification and reversible single-output/input tests. |
@@ -59,6 +59,7 @@ The Debian `regulatory.db` and detached signature were validated and embedded in
 - [Wi-Fi 7 / 6GHz evidence and candidate](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/6)
 - [eMMC stability and ESP32 baseline](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/3)
 - [ESP32-C3 BLE API and GATT verification](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/5)
+- [C-unit GNSS port assessment](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/8)
 
 ## Outstanding project work
 
