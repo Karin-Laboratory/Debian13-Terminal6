@@ -20,7 +20,7 @@ On the latest C-unit check after reboot, `lan2@eth1` remained `192.168.3.1/24`; 
 
 Global wireless regulatory state was `00`. The 6GHz channels remain disabled; no regulatory override or RF transmission was performed. A’s stock `phy2` 6GHz advertisement and configured 6075 MHz / 320 MHz AP interface are comparison observations only, not proof of lawful C-unit operation.
 
-The current boot’s sampled MMC log showed deferred probes for `11240000.mmc`; no P44 ext4/CQE write-error signature was present in that sample. CQE state was not exposed at the searched sysfs paths after reboot, so its current state is **unverified**. Prior evidence and the CQE mitigation candidate are recorded in [PR #3](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/3). No write/throughput stress test was run in this update.
+The current boot’s sampled MMC log showed deferred probes for `11240000.mmc`; no P44 ext4/CQE write-error signature was present in that sample. CQE state was not exposed at the searched sysfs paths after reboot, so its current state is **unverified**. A fresh Wi-Fi log review decoded `Message 0012002d (seq 3) timeout` to `MCU_WM_UNI_CMD(EFUSE_CTRL)`, the command used by `mt7996_mcu_set_eeprom()` to transfer the EEPROM buffer. The initial `mt7996_init_work()` call ignores this function’s return value; PHY registration therefore does not prove the EEPROM buffer reached the MCU. The timeout’s root cause and calibration effect remain unresolved. Prior evidence and the CQE mitigation candidate are recorded in [PR #3](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/3). No write/throughput stress test was run in this update.
 
 ## Feature ledger
 
@@ -48,7 +48,7 @@ The current boot’s sampled MMC log showed deferred probes for `11240000.mmc`; 
 
 ## Wi-Fi change and validation boundary
 
-The C-unit Wi-Fi startup script now stages the C-unit’s own stock EEPROM bytes under the MT7990 firmware request aliases in volatile `/run`. The original script backup is retained on C-unit. After a normal reboot, the service, aliases, and phy0 were present and management recovered. The driver still logged the generic “eeprom load fail, use default bin” warning; source inspection shows that this warning can precede a successful default-bin request, so it does not establish whether the intended calibration was selected.
+The C-unit Wi-Fi startup script now stages the C-unit’s own stock EEPROM bytes under the MT7990 firmware request aliases in volatile `/run`. The original script backup is retained on C-unit. After a normal reboot, the service, aliases, and phy0 were present and management recovered. The driver still logged the generic “eeprom load fail, use default bin” warning; source inspection shows that this warning can precede a successful default-bin request, so it does not establish whether the intended calibration was selected. The later `EFUSE_CTRL` MCU timeout is a separate warning sign that the EEPROM transfer itself may be unconfirmed; identify the firmware/driver compatibility and completion semantics before any Wi-Fi transmit test.
 
 The Debian `regulatory.db` and detached signature were validated and embedded into a rebuilt initramfs in an unsigned P25 candidate. The candidate passed independent structural checks, but exact-digest signing, flashing and boot have **not** been performed. The candidate remains a host-side artifact; see [PR #6](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/6). Do not promote it to device-ready.
 
