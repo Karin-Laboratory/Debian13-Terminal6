@@ -40,6 +40,8 @@ raspi4のowner-private領域へP44 rootfsをtar転送。主アーカイブ583,07
 
 この候補の実機A/B比較には、上記SHAへのprotected signingとC号機P25差替えについて別承認が必要。純正B復旧経路、現signed P25、P44 backupの所在とハッシュを実行前に再確認する。CQE offで失敗が続く場合はHS400/clockを次候補にする。オンラインrootfsの修復fsckやruntimeの未対応CQE切替は行わない。
 
+承認待ちの復旧準備として、現C号機の`PARTNAME=boot_a`は32MiBで、全量SHA-256 `7e2bf08e2aeaa84a70d2d8c30490ebc5628fb89aba803d8fec5bb4481259531b`。owner-privateに保存された既存signed P25の2コピーも同SHAであることを照合した。現bootctrlはA priority15/retry0/success1、B priority14/retry0/success1。候補試験時は既知のslot B管理経路とUARTを先に再確認し、旧signed P25を使った復帰可能性を保持する。今回この状態は変更していない。
+
 ## OpenWrtへの還元
 
 Linux 6.18系MediaTek MMC/MT6990の同じDT propertyとCQE経路を使用する場合、`supports-cqe`を外した比較候補を作り、HS400条件を固定して独立検証する。今回のDebian実測だけでOpenWrtへ恒久反映しない。
