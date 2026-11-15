@@ -7,7 +7,7 @@
 | 802.11s実装の有無 | kernel/driver sourceには実装あり | Linux 6.18.63 mac80211 mesh core、HWMP、peer-link state machine、およびmt7996 mesh関連コードを確認。 |
 | 保存済みDebian kernel config | **BLOCKED: `CONFIG_MAC80211_MESH`未設定** | PR #9用の6.18.63 build inputで`CFG80211=y`, `MAC80211=y`, `MT7996E=m`だが`MAC80211_MESH`はunset。mt7996のmesh interface advertisementとmesh-specific処理は`#ifdef CONFIG_MAC80211_MESH`でガードされる。 |
 | 修正config候補 | host config resolution PASS | このブランチの最小fragmentは`CONFIG_MAC80211_MESH=y`のみ。隔離したKbuild source copyで`olddefconfig`後も有効で、source guardがPASS。 |
-| ARM64 kernel/module build | **PASS (isolated host build)** | Privateな隔離ソースコピーでLinux 6.18.63 `Image modules` build exit 0。ARM64 Imageとmt76/mt7996 modulesを生成。未署名・未パッケージ・未起動。 |
+| ARM64 kernel/module build | **PASS (既存host artifact; source provenance incomplete)** | 保存済みreceiptと実物のImage/module SHAは一致し、ARM64成果物の存在は確認済み。ただし元のgitlessソースsnapshotを既知の配布tarから再現できないため、PR #9基準の再現可能ビルドとは認定しない。未署名・未パッケージ・未起動。 |
 | hwsim 2-node mesh | **PASS (host synthetic)** | 2437MHz、wpa_supplicant SAE mesh設定、peer成立および双方向IP pingを実行。物理MT7990動作の証拠ではない。 |
 | A号機 802.11s | UNKNOWN | 保存済み純正観測にはWi-Fi設定/PHY/APの情報はあるが、mesh point、peer、HWMP path、mesh dataの証拠がない。独自mesh/EasyMesh/WDS/802.11sのいずれかを推定しない。 |
 | C号機 mesh peer / SAE / HWMP / IP | NOT TESTED | 実機操作を行っていない。 |
@@ -19,7 +19,7 @@
 
 ## C号機 source audit
 
-参照した保存ソースはLinux stable v6.18.63 (`1cdda838e8475edf89b73ff0cc952005dd0b1fa7`) とPR #9のC号機EEPROM/OTP初期化修正入りmt76 source。
+既存build receiptはLinux stable v6.18.63とPR #9のMT7996 EEPROM/OTP変更を含む入力snapshotと記録し、`1cdda838e8475edf89b73ff0cc952005dd0b1fa7`を既存receipt由来のbaseline SHAとして挙げている。ただしbuild用source copyにGit metadataがなく、このSHAと実際の全ソース内容の対応は独立確認されていない。2026-11-16の再監査で、保存済み標準Linux stable 6.18.63 tarはMT6990用vendor source/Kconfigを含まず、PR #9 patchだけを当ててもC号機向けkernel treeにはならないことを確認した。現在残るprivate build treeには`drivers/clk/mediatek/clk-mt6990.c`等のvendor sourceが存在し、`kernelrelease`は`6.18.63-debian-t6-proto2`だが、source commit/patch manifestは欠落している。したがって既存build artifactは実在するhost artifactとして扱い、正確なsource provenanceと再現性が回復するまでP25候補の製造・実機適用には使用しない。
 
 - `net/mac80211/Kconfig`の`MAC80211_MESH`はboolで、802.11 mesh operationを有効にする。
 - `net/mac80211/mesh.c`, `mesh_plink.c`, `mesh_hwmp.c`, `mesh_pathtbl.c`はmesh lifecycle、peering, HWMP, mesh path tableを実装する。
@@ -71,6 +71,15 @@ mesh support config、`iw phy` capabilityまたはmesh interface作成だけで�
 - `mt7996e.ko`: 1,681,384 bytes; SHA-256 `d4431795a2395dfe1b2f28924eac6c3bf4ba053df9ab44b9a81d739133d9742b`; `readelf` identifies ELF64 little-endian AArch64 relocatable module. `vmlinux` contains mac80211 mesh path/HWMP symbols including `ieee80211s_init` and `mesh_path_start_discovery`.
 - Build location: `/home/masataka/private/cunit-80211s-build-20261115/kernel-src`; binaries remain private and were not copied to the public GitHub repository or device.
 - This is a host build only. No DTB pairing, initramfs, firmware bundle, signing, physical load, boot, or RF test was performed.
+
+## 2026-11-16 source provenance re-audit
+
+- 標準Linux stable 6.18.63 source archive: `/home/masataka/private/debian13-proto3-build-20261112/source/linux-6.18.63.tar.xz`, SHA-256 `81764a545072d160748beff4d9de2e7d95aa9f16e8261110288f067a2cc61d71`。このarchiveには`drivers/clk/mediatek/clk-mt6990.c`がなく、MT6990 vendor Kconfig/sourceも不足する。
+- PR #9 headは`a1f0c88bad662a37bd9aaeeb6ffcee9796ca88c5`。PR #9 patchの適用だけでは、標準tarへ欠落しているSoC supportを補えない。
+- 既存private build tree `/home/masataka/private/cunit-80211s-build-20261115/kernel-src` は`6.18.63-debian-t6-proto2`を名乗り、MT6990 sourceと`CONFIG_MAC80211_MESH=y`を含む。`.config` SHAは`1f70c927ea9ae20ec711506b6d63c9037d577c18b44c7e003ffe1a1cacd389b0`、既存Image/moduleのSHAは上記receiptと一致した。しかし`.git`、完全な入力manifest、ソース由来を証明する署名済みreceiptがなく、commit SHAとの対応は確認不能。
+- 標準tarを使った再現ビルドを試みたが、`olddefconfig`でMT6990固有configが失われるため中止した。生成物は完成せず、candidateとして使用していない。deviceにはアクセスしていない。
+- 既存テストを再実行：`python3 -m unittest discover -s tests -v` 2/2 PASS、compileall PASS、hwsim smoke PASS（SAE-configured 2-node peer、双方向ping、2437 MHz）、shell syntax PASS、`git diff --check` PASS。これは物理MT7996/MT7990、3-node HWMP、実機kernel provenanceを証明しない。
+- Build provenance blockerを解消するには、PR #9と同じvendor kernel sourceの完全なtar/commitと、PR #9 patch series・config・toolchainを結びつけるinput receiptが必要。これが揃うまではPR #11の次段階であるP25製造・署名・実機bootを行わない。
 
 ## 参照
 
