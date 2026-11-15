@@ -39,6 +39,24 @@ BLOCKEDは確認済みのチャネル制約や試験条件を示し、未搭載�
 
 詳細な初期化修正とprivate log参照は[PR #9](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/9)。個体固有EEPROM/OTP、SSID/BSSID、credentials、raw scan、module backupはprivate保管。
 
+## 2026-11-16 基本機能継続試験の再開点
+
+- このステータスのSTA証拠は、2.4/5GHzでのWPA2-PSK association、DHCP、gateway/external IPv4 ping、TLS 1.3/HTTP 200まで。DNS、意図的な切断からの再接続、通常再起動後の復帰、WPA3-SAE、速度測定はこの記録では未実施。
+- AP側はhostapd起動と送信カウンタ増加まで。独立端末による外部Beacon受信、association、認証、DHCP、双方向通信、再起動復帰は未確認。今回の追加試験も行っていない。
+- agent-101-vmから対象への直接経路はなく、許可済みraspi2経由のstrict SSHは接続先ホスト鍵確認後に公開鍵認証拒否となった。raspi2のUART brokerが稼働中だったためUARTも開いていない。試験中のネットワーク変更・再起動は行っていない。
+- `scripts/wifi-link-check.py`を追加した。read-only既定動作でSTA association、band/frequency、WPA2/WPA3 SAE交渉、Wi-Fi経由のgateway ping、指定DNSへのDNS query、station counterを検査する。default routeが管理IFのみであることを事前確認し、経路表が不変であることを事後確認する。出力にはSSID/BSSID/MAC/IP/DNS回答を含めない。
+- 明示的な`--exercise-reconnect`だけが一時的にwpa_supplicantへdisconnect/reconnectを指示する。default routeが管理IF以外を含む場合は拒否し、永続ファイル・routeを変更しない。任意の`--throughput-server`を指定した場合だけ、Wi-Fi routeを事前確認して10秒のiperf3 TCP受信速度を測る。
+- オフライン合成テスト9件と既存ハードウェアツールテスト3件、Python構文検査はPASS。C号機実行、DNS/WPA3/reconnect/throughputの実測は未実施。
+
+### 次回の実機手順
+
+1. 既存の承認済みSSH経路を復旧し、同一bootのDebian/Linux・Ethernet管理経路をread-onlyで確認する。
+2. live interface名、gateway、DNS resolverをC号機から取得し、2.4GHz/5GHzを個別にread-only smoke testする。`--security wpa2`を指定する。
+3. WPA2再接続を試す場合だけ`--exercise-reconnect`を付け、管理default routeが有線に固定されていることを確認する。
+4. WPA3試験は対応する既存AP/STA設定と承認済み資格情報を使い`--security sae`で交渉状態を検証する。資格情報はコマンド引数やログへ出さない。
+5. 速度測定は所有者管理のiperf3 peerを指定できる場合に限る。独立peerがなければ保留する。
+6. AP側試験は独立クライアントを使い、Beacon、association、DHCP、双方向通信を別々に採取する。既存のraspi4/raspi2管理Wi-Fiを試験端末に転用しない。
+
 
 ## 2026-11-15 STA association / DHCP follow-up
 
