@@ -31,24 +31,21 @@
 | regulatory.db.p7s | `7417102f349fc43bb96197cf77a854b42d6f7702076064a3c83ef34cc42c5a6d` | 過去のビルド記録上OpenSSL detached signature verification PASS |
 | regdb入りinitramfs CPIO gzip | `9e149a1e7deb3ff859f494bda801335f463962bc16349988f0046459298d55ca` | 候補素材 |
 | Linux Image.gz | `a9c230d06ca2bbd99f4d8bda708dfcd7788b60eaef29f206f465910d6f256f45` | 同じbuild-treeの候補素材 |
-| unsigned 32MiB P25 | `9686d1b27276c62ad4308d926c2a3667b19b58bac3dc5100686e00aef691a1e9` | 構造検査PASSの記録あり。署名なし |
+| 初期 unsigned 32MiB P25 | `9686d1b27276c62ad4308d926c2a3667b19b58bac3dc5100686e00aef691a1e9` | **不採用**。再検査でMMC DTに`max-frequency=200000000`と`supports-cqe`が残存。C号機の100MHz/no-CQE基準を損なうため署名・適用していない |
+| 安全化 unsigned 32MiB P25 | `f3cf2327287a1c388faa3e8b59cc09bf92bab08cb006cc84912ab2c32b370889` | initramfs/Image.gzを維持し、安全確認済み100MHz/no-CQE DTBのみを組み込み直した候補。P25構造検証PASS |
+| signed 32MiB P25 | `8457ae5b31d38a754442ed0826544e19cf262059d8578b1eb0218d1cc3f2beb8` | 2026-11-15 protected signer workflow成功、独立RSA-PSS検証receipt PASS。非公開SBAT6A-Offline-Archive draft releaseに保管。実機適用・起動は未実施 |
 
-カーネル設定は署名済みregdb必須であり、regdbと署名ファイルは早期initramfsに格納される候補。候補の署名・書込み・起動は未実施。PR #6の独立構造検証は「unsigned P25」としての形式確認であり、署名検証または実機検証ではない。
+カーネル設定は署名済みregdb必須であり、regdbと署名ファイルは早期initramfsに格納される。候補SHAに対する署名は、ユーザーが明示承認した後、保護された署名環境で実行した。workflow run [43676185512](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/43676185512) はsuccess。receiptではunsigned SHAとの一致、署名body不変、RSA-PSS検証、証明書鎖検証を記録し、`device_action=NONE`・`physical_boot=NOT_TESTED`である。
 
-保護された既存署名workflowは別の完全一致P25 digestに固定され、この候補digestを受け付けない。署名を別イメージへ流用しない。実機適用前に必要な不足物は次のとおり。
+また、2026-11-14に同一C号機で純正`quec_bootctrl -F`によるslot B起動と`quec_bootctrl -s`によるslot A復帰、各起動後SSH接続に成功した記録を復旧根拠として採用する。今回のユーザーは既存経路に加えて電源サイクル介入を復旧条件として承認した。今回signed P25のboot_a書込み、全量readback、実機起動はまだ未実施である。
 
-1. このP25の正確なSHA-256を許可対象とする正規の署名workflow/承認。
-2. workflowが出力した署名済みP25と、別プロセスによるRSA-PSS/署名body不変性の検証receipt。
-3. signed候補の厳密なSHAと対象boot partitionを固定したreadback手順、および同一C号機で再確認されたstock slot B復旧手順。
-4. 実機起動後の早期kernel logでsigned regdb読込み成功を確認し、実効countryと6GHz各チャネルをread-only採取すること。
-
-2026-11-14のPR #6では、同一C号機での純正slot B/slot A切替実績を含む旧復旧経路が記録されている。ただし、今回のregdb P25は未署名・未起動のままであり、今回候補に対するreadback/bootは当然ながら未検証。
+次に必要な作業はsigned SHA・対象パーティションを再照合してからのC号機適用、全量readback照合、slot A復帰、起動後の早期kernel logでsigned regdb読込み確認である。署名成功だけでは実効regulatory設定や送信許可を意味しない。C号機の銘板/認証設計との一致と改造後の運用条件は依然未確認なので、6GHz RF送信は引き続き行わない。
 
 ## 実機観測との区別
 
 PR #6/ #9にある最後のC号機測定では、Linux 6.18.63、global regulatory code `00`、6GHz advertised channels disabled、6GHz passive scanがInvalid argumentで失敗している。6GHz送信・認証・PSK検証はいずれも行っていない。これはPR記録の既測定結果であり、今回の作業セッション内での新規実機測定ではない。
 
-この作業セッションではC号機、raspi4、UARTへ接続していない。candidate P25のハッシュをホスト上で再確認しただけであり、実機状態、署名器動作、regdbの起動時読込み、チャネル解放は未検証。
+この作業セッションではC号機、raspi4、UARTへ接続していない。署名成果物はホストへ取得し、P25のSHA-256とreceiptのunsigned/signed SHA、サイズ、DTBハッシュを照合した。実機への書込み・起動、regdbの起動時読込み、実効ルール/チャネル状態は未検証。
 
 ## 次の安全な検証
 
