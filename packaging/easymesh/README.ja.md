@@ -2,9 +2,9 @@
 
 ## 現状
 
-候補は prplMesh 6.0.1 (`5ba21ee04a3b34f0d99635eeacd547d78cb67efe`) のLinux NL80211 BWLである。C号機のDebian 13/arm64向けバイナリはまだ生成・実機試験していない。現状のhost buildは開発VM用であり、そのままC号機へ配置しない。
+候補は prplMesh 6.0.1 (`5ba21ee04a3b34f0d99635eeacd547d78cb67efe`) のLinux NL80211 BWLである。2026-11-16にDebian 13/arm64向けcross buildとELF/依存関係の静的監査を完了した。C号機への配置・実機起動・IEEE 1905通信は未試験であり、生成物をそのままC号機へ配置しない。
 
-ビルドrunnerはAMX-prefix内のAmbiorix共有ライブラリを検出し、ビルド出力のprivate `lib/`へコピーする。インストール済みバイナリは`$ORIGIN/../lib`だけをRUNPATHに持つ。installerは実行ファイルと同梱共有ライブラリすべてのELF Machineを検査する。
+ビルドrunnerはターゲットAMX-prefix内のAmbiorix共有ライブラリを検出し、ビルド出力のprivate `lib/`へコピーする。インストール済みバイナリは`$ORIGIN/../lib`だけをRUNPATHに持つ。installerは実行ファイルと同梱共有ライブラリすべてのELF Machineを検査する。
 
 ローカルパッチ`patches/prplmesh/0001-linux-bpl-configurable-radios-and-secure-security-modes.patch`は、Linux BPLのAP radio index 0/1をprivate platform DBから読み、WPA2-PSK/WPA3-SAE/transition以外の認証値を拒否する。radio/stationの実netdev対応を調べる前にserviceをenableしない。
 
@@ -14,10 +14,10 @@
 
 ```sh
 packaging/easymesh/build-prplmesh-nl80211.sh \
-  <prplMesh-6.0.1-checkout> <hostapd-layout-root> <AMX-prefix> <build-dir> [CMake-toolchain-file]
+  <prplMesh-6.0.1-checkout> <hostapd-layout-root> <target-AMX-prefix> <build-dir> [CMake-toolchain-file]
 ```
 
-cross buildでは、Debian 13 arm64用sysrootと、同じarm64向けにbuildしたAmbiorix-prefixを用意してtoolchain fileを渡す。QEMUを使わない場合は`PRPLMESH_BUILD_TESTS=OFF`としてテスト実行を分離し、target上の実機試験が済むまではPASSとしない。
+Native buildでは`AMX_HOST_PREFIX`を省略でき、target prefixをホスト用コード生成器にも使う。クロスビルドでは、ホスト実行用`amxo-cg`とそのホスト共有ライブラリを持つprefixを`AMX_HOST_PREFIX`に指定し、同じARM64向けAmbiorix共有ライブラリとヘッダーを含むtarget prefixを第3引数へ渡す。これによりホスト実行ツールへtarget ELFをロードしない。`toolchain-debian13-arm64.cmake`は`CUNIT_TARGET_SYSROOT`を必須とし、pkg-config・CMakeの探索をtarget sysrootへ限定する。今回のcross buildはターゲットで実行できないためCTestを省略し、host側14/14とproject 24/24の結果を別枠で記録した。arm64実行とC号機試験が済むまではruntime PASSとしない。
 
 ビルドスクリプトはCMake installを`<build-dir>/stage`へ隔離する。上流が`/etc/acl/admin/prplmesh.json`へprefix外installするため、`DESTDIR`は必須。
 

@@ -2,7 +2,7 @@
 set -eu
 
 if [ "$#" -lt 4 ] || [ "$#" -gt 5 ]; then
-    echo "usage: $0 <clean-prplMesh-6.0.1-checkout> <hostapd-layout-root> <AMX-prefix> <build-dir> [CMake-toolchain-file]" >&2
+    echo "usage: AMX_HOST_PREFIX=<host-tools-prefix> $0 <clean-prplMesh-6.0.1-checkout> <hostapd-layout-root> <target-AMX-prefix> <build-dir> [CMake-toolchain-file]" >&2
     exit 2
 fi
 src=$(realpath "$1")
@@ -10,6 +10,12 @@ hostapd_root=$(realpath "$2")
 amx_prefix=$(realpath "$3")
 build=$(realpath -m "$4")
 toolchain_file=${5:-}
+if [ -n "$toolchain_file" ]; then
+    toolchain_file=$(realpath "$toolchain_file")
+fi
+host_amx_prefix=${AMX_HOST_PREFIX:-$amx_prefix}
+host_amx_prefix=$(realpath "$host_amx_prefix")
+target_sysroot=${CUNIT_TARGET_SYSROOT:-}
 repo_root=$(realpath "$(dirname "$0")/../..")
 patch_file="$repo_root/patches/prplmesh/0001-linux-bpl-configurable-radios-and-secure-security-modes.patch"
 expected=5ba21ee04a3b34f0d99635eeacd547d78cb67efe
@@ -54,12 +60,38 @@ for lib in libamxc libamxp libamxd libamxb libamxs libamxo libamxj libamxrt; do
         exit 1
     fi
 done
-if [ ! -x "$amx_prefix/bin/amxo-cg" ]; then
-    echo "missing amxo-cg from Ambiorix toolchain prefix" >&2
+if [ ! -x "$host_amx_prefix/bin/amxo-cg" ]; then
+    echo "missing host-runnable amxo-cg from AMX_HOST_PREFIX" >&2
     exit 1
 fi
-export PATH="$amx_prefix/bin:$PATH"
-export LD_LIBRARY_PATH="$amx_libdir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+host_amx_config=$(find "$host_amx_prefix/lib" -name libamxc.so -print -quit)
+if [ -z "$host_amx_config" ]; then
+    echo "cannot locate host Ambiorix libraries below AMX_HOST_PREFIX/lib" >&2
+    exit 1
+fi
+host_amx_libdir=${host_amx_config%/*}
+export PATH="$host_amx_prefix/bin:$PATH"
+# CMake executes amxo-cg on the build host. Keep its loader path separate from
+# target AArch64 libraries to avoid attempting to load target ELF objects.
+export LD_LIBRARY_PATH="$host_amx_libdir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+cmake_prefix_path=$amx_prefix
+cmake_include_path="$amx_prefix/include"
+cmake_library_path=$amx_libdir
+if [ -n "$toolchain_file" ]; then
+    if [ -z "$target_sysroot" ] || [ ! -d "$target_sysroot/usr/include" ]; then
+        echo "cross build requires CUNIT_TARGET_SYSROOT with target headers" >&2
+        exit 1
+    fi
+    target_sysroot=$(realpath "$target_sysroot")
+    target_pc="$target_sysroot/usr/lib/aarch64-linux-gnu/pkgconfig:$target_sysroot/usr/share/pkgconfig"
+    export PKG_CONFIG_SYSROOT_DIR="$target_sysroot"
+    export PKG_CONFIG_LIBDIR="$target_pc"
+    export PKG_CONFIG_PATH="$target_pc"
+    cmake_prefix_path="$amx_prefix;$target_sysroot/usr"
+    cmake_include_path="$amx_prefix/include;$target_sysroot/usr/include"
+    cmake_library_path="$amx_libdir;$target_sysroot/usr/lib/aarch64-linux-gnu;$target_sysroot/lib/aarch64-linux-gnu;$target_sysroot/usr/lib"
+fi
 
 set -- -S "$src" -B "$build" -G Ninja \
     -DTARGET_PLATFORM=linux \
@@ -68,16 +100,16 @@ set -- -S "$src" -B "$build" -G Ninja \
     -DUSE_PRPLMESH_WHM=OFF \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="$build/install" \
-    -DCMAKE_PREFIX_PATH="$amx_prefix" \
-    -DCMAKE_INCLUDE_PATH="$amx_prefix/include" \
-    -DCMAKE_LIBRARY_PATH="$amx_libdir" \
+    -DCMAKE_PREFIX_PATH="$cmake_prefix_path" \
+    -DCMAKE_INCLUDE_PATH="$cmake_include_path" \
+    -DCMAKE_LIBRARY_PATH="$cmake_library_path" \
     -DCMAKE_BUILD_RPATH="$amx_libdir" \
     -DCMAKE_INSTALL_RPATH="\$ORIGIN/../lib;\$ORIGIN" \
     -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=OFF \
     -DCMAKE_CXX_FLAGS="-Wno-ignored-attributes -Wno-overloaded-virtual -I$amx_prefix/include" \
     -DPLATFORM_BUILD_DIR="$hostapd_root" \
     -DHOSTAPD_INCLUDE_DIR="$hostapd_include" \
-    -DAMXO_CG_EXECUTABLE="$amx_prefix/bin/amxo-cg"
+    -DAMXO_CG_EXECUTABLE="$host_amx_prefix/bin/amxo-cg"
 if [ -n "$toolchain_file" ]; then
     set -- "$@" "-DCMAKE_TOOLCHAIN_FILE=$toolchain_file"
 fi

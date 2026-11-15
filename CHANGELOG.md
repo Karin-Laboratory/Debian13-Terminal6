@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-16 — EasyMesh Debian arm64 cross-build
+
+- Split the host `amxo-cg` runtime prefix from the target Ambiorix prefix and added a Debian 13 arm64 CMake toolchain using an explicit target sysroot.
+- Built prplMesh 6.0.1 NL80211 Controller/Agent/IEEE 1905 binaries for AArch64 and independently audited 73 staged ELF files and dependencies. Build artifacts remain in owner-private storage.
+- Validation: 24 project tests PASS; shell syntax and diff checks PASS; target CTest and C-unit device/network tests remain NOT RUN.
+
 ## 2026-11-14
 
 - Recorded live C-unit Debian 13 hardware inventory, driver/API mapping, Device Tree census, unknown candidates, radio findings and OpenWrt comparison.
