@@ -9,11 +9,11 @@
 | MT7990 PCI・driver・PHY | PARTIAL | PCI 14c3:7990/7991、mt7996e / mt7996e_hif結合、phy0登録 | AP/STA実通信後にデータ経路を判定 |
 | EEPROM/OTP初期化 | PARTIAL | C号機自身のOTP由来46 bytesをRAM EEPROM bufferへ統合、8/8ページACK。30秒timeout版で通常再起動後もPHY/SSH復帰 | 実通信時のfirmware・校正動作を検証 |
 | 2.4GHz AP | PARTIAL | WPA2/CCMPのhostapd 2.12がstart rc=0。live iwでAP / 2412 MHz ch1 / 20 MHz / 20 dBm。TX packet counterは8秒で0から12へ増加 | clientでBeaconを受信し、association・認証・DHCP・双方向IP通信・再起動復帰を確認 |
-| 2.4GHz STA | PARTIAL | owner-managed APに2412 MHz ch1でSTA association、WPA2-PSK handshake完了。RX 68,565 bytes / 423 packets、TX 1,880 bytes / 10 packets | DHCPDISCOVERを確認したがOFFERなし。AP/DHCP経路を切り分け、IPv4通信・双方向データ・再接続を確認 |
-| 5GHz AP/STA | PARTIAL | 有効な受動beacon後にchannel 36 / 5180 MHzのNO_IRなしを確認し、owner-managed APへWPA2-PSK STA association完了。RX 60,404 bytes / 454 packets、TX 1,598 bytes / 17 packets | IPv4 lease未取得（5GHz側のDHCP packet capture未実施）。APモード未試験。国別規則を強制せず、DHCP交換・IPv4通信を確認 |
-| WPA2/WPA3-SAE / PMF | PARTIAL | hostapd 2.12の2.4GHz AP start、および2.4/5GHz STAのWPA2-PSK handshakeを確認。SAE/PMF交渉は未試験 | 独立clientを使うAP認証/IP試験後、SAE/PMFを別途実測 |
+| 2.4GHz STA | PARTIAL | 2412 MHz ch1、WPA2-PSK、DHCP予約192.168.3.32/22取得。gateway ping 3/3、外部IPv4 ping 3/3、Wi-Fi拘束TLS 1.3 / HTTP 200を確認 | DNS、再接続、通常起動後の自動復帰を確認 |
+| 5GHz AP/STA | PARTIAL | channel 36 / 5180 MHz、WPA2-PSK、DHCP予約192.168.3.32/22取得。VHT 80 MHz、gateway ping 3/3、外部IPv4 ping 3/3、Wi-Fi拘束TLS 1.3 / HTTP 200を確認 | DNS、再接続、APモード、通常起動後の自動復帰を確認 |
+| WPA2/WPA3-SAE / PMF | PARTIAL | 2.4/5GHz STAのWPA2-PSK handshake、IPv4、HTTPSデータ受信を確認。hostapd 2.4GHz AP start済み。WPA3-SAE/PMFは未試験 | WPA3-SAE/PMF交渉とAP側client認証を実測 |
 | HE/EHT / Wi-Fi 7 | PARTIAL | C号機iw phyがAP/managed EHT iftype capabilityを表示。実association・EHT data frameなし | EHT対応client接続後、実PHY mode・双方向通信を測定 |
-| 6GHz AP/STA | BLOCKED | 起動時regulatory.db要求失敗、実効country 00。6GHzチャネルはdisabled | 署名済みregdbを早期起動時に読み込み、個体の認証・条件と利用可能チャネルを確認後に試験 |
+| 6GHz AP/STA | BLOCKED | 実効country 00。5955–7115 MHzの全チャネルdisabled。5955/5975 MHzの受動scanもInvalid argumentで開始不可。送信・認証試験なし（PSK未評価） | 適法な認証条件に対応する署名済みregdbを早期起動時に読み込み、利用可能チャネルを確認後に試験 |
 | 160/320MHz | PARTIAL | iw phyは5GHz 160MHzと6GHz 320MHz capabilityを表示。実リンク未成立 | 許可条件とclient能力を確認し、実交渉幅を測定。320MHzは独立受入 |
 | MLO | PARTIAL | 実機moduleと同じソースでWIPHY_FLAG_SUPPORTS_MLO、driver MLD link paths、最大同時links=2を確認。実際のMLD/link成立なし | 2 linkを形成し、link ID・各link counter・双方向IP dataを確認 |
 | EasyMesh Controller / Agent | UNKNOWN | 1905.1 / Multi-AP接続試験なし | 実装選定後、Controller-Agent登録、topology、backhaul/fronthaul、再起動復帰 |
@@ -32,10 +32,10 @@ BLOCKEDは確認済みのチャネル制約や試験条件を示し、未搭載�
 
 ## 次の実通信試験
 
-- 2.4GHz STAはWPA2 associationまで達成。DHCPDISCOVERを送信したがDHCPOFFERを受信せず、IPv4 address/data通信は未達。raspi2は同じ2.4GHz APから192.168.0.26/22・gateway 192.168.0.1をDHCP取得している。C側DHCP応答なしの原因は未解明。SSID/BSSID/PSKはprivateのまま扱う。
+- MACフィルタ登録前のSTA試験ではDHCPDISCOVERにDHCPOFFERが返らなかった。Wi-Fi MACの登録・DHCP予約後、2.4/5GHzで192.168.3.32/22を取得し、IPv4/TLS通信に成功した。SSID/BSSID/PSKはprivateのまま扱う。
 - Wi-Fi DHCP addressは有線management subnetと重なる可能性がある。試験時はdefault routeをlan2のまま維持し、networkdのDHCP UseRoutes/UseDNSを無効にして、特定経路を事前・事後確認する。
 - 2.4GHz APでclientデータ試験するには独立した接続端末が必要。
-- 5/6GHz country-specific operationには署名済みregdbの早期ロードと適用条件確認が必要。unsigned P25は適用しない。6GHz/320MHzは認証・規制条件が確認できるまで送信しない。
+- 5GHz ch36/5180 MHzは受動beacon後にNO_IRが解除され、STA実通信を確認した。6GHz/320MHzはcountry 00でdisabledのため未送信。署名済みregdbと個体の国内認証条件が確認できるまで規制設定を変更しない。
 
 詳細な初期化修正とprivate log参照は[PR #9](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/9)。個体固有EEPROM/OTP、SSID/BSSID、credentials、raw scan、module backupはprivate保管。
 
@@ -46,3 +46,12 @@ BLOCKEDは確認済みのチャネル制約や試験条件を示し、未搭載�
 - Neither band received an IPv4 lease. During the 2.4 GHz attempt, a short C-side capture observed two DHCPDISCOVER packets and no DHCPOFFER; the 5 GHz DHCP exchange was not packet-captured. A temporary networkd file explicitly disabled DHCP routes and DNS; no IPv4 address or Wi-Fi route was installed, so wired management/default route stayed unchanged.
 - No IP communication, ping, DNS, or package transfer is claimed. C wlp1s0 was returned to DOWN and all temporary credentials, supplicant files, runtime network config, and extracted package files were removed.
 - Possible AP-side DHCP/client policy or a C driver/data-path issue remains unresolved. Because the AP /22 overlaps C's wired 192.168.3.0/24, no arbitrary static address was assigned.
+
+
+## 2026-11-15 MACフィルタ登録後の実通信
+
+- owner側でC号機のWi-Fi MACがMACフィルタに登録され、DHCP予約が反映された後に追試。2.4/5GHzとも同一Wi-Fi MACで192.168.3.32/22を取得し、gateway 192.168.0.1から払い出された。
+- 両bandでgateway ping 3/3、外部IPv4 1.1.1.1 ping 3/3を確認。さらにwlp1s0へsocketをbindし、一時的な1.1.1.1/32経路をWi-Fi gateway経由に設定してTLS 1.3 / HTTP 200、204 response-body bytes受信を確認。DNSはこの試験で使用していない。
+- 5GHzは5180 MHz、VHT 80 MHz link report。country 00は維持し、NO_IRを解除するregulatory overrideは行っていない。
+- Wi-Fi試験時もdefault routeはlan2 via 192.168.3.71のまま。試験終了後に一時経路・supplicant・鍵・/run package・networkd fileを削除し、wlp1s0をDOWNへ戻した。
+- 6GHzは全5955–7115 MHz channels disabled。5955/5975 MHz passive scanはInvalid argument。association/PSK試験は送信前に停止したため、提供された6GHz PSKの正誤は未判定。
