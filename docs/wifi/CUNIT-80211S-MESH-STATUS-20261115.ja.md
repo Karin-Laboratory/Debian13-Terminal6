@@ -7,7 +7,7 @@
 | 802.11s実装の有無 | kernel/driver sourceには実装あり | Linux 6.18.63 mac80211 mesh core、HWMP、peer-link state machine、およびmt7996 mesh関連コードを確認。 |
 | 保存済みDebian kernel config | **BLOCKED: `CONFIG_MAC80211_MESH`未設定** | PR #9用の6.18.63 build inputで`CFG80211=y`, `MAC80211=y`, `MT7996E=m`だが`MAC80211_MESH`はunset。mt7996のmesh interface advertisementとmesh-specific処理は`#ifdef CONFIG_MAC80211_MESH`でガードされる。 |
 | 修正config候補 | host config resolution PASS | このブランチの最小fragmentは`CONFIG_MAC80211_MESH=y`のみ。隔離したKbuild source copyで`olddefconfig`後も有効で、source guardがPASS。 |
-| ARM64 kernel/module build | 実行中 | PR #9系の6.18.63 source/configをprivate隔離コピーでビルド中。実機へは書き込まない。 |
+| ARM64 kernel/module build | **PASS (isolated host build)** | Privateな隔離ソースコピーでLinux 6.18.63 `Image modules` build exit 0。ARM64 Imageとmt76/mt7996 modulesを生成。未署名・未パッケージ・未起動。 |
 | hwsim 2-node mesh | **PASS (host synthetic)** | 2437MHz、wpa_supplicant SAE mesh設定、peer成立および双方向IP pingを実行。物理MT7990動作の証拠ではない。 |
 | A号機 802.11s | UNKNOWN | 保存済み純正観測にはWi-Fi設定/PHY/APの情報はあるが、mesh point、peer、HWMP path、mesh dataの証拠がない。独自mesh/EasyMesh/WDS/802.11sのいずれかを推定しない。 |
 | C号機 mesh peer / SAE / HWMP / IP | NOT TESTED | 実機操作を行っていない。 |
@@ -58,6 +58,19 @@ mesh support config、`iw phy` capabilityまたはmesh interface作成だけで�
 - 結果：`HWSIM_80211S_SAE_CONFIGURED_PEERING=PASS`, `HWSIM_BIDIRECTIONAL_IP=PASS`, `HWSIM_FREQ_MHZ=2437`。
 - cleanup後にhwsim module、network namespace、supplicant processが残らないことを確認。
 - これは暗号化された物理MT7990メッシュ、HWMP複数ホップ、RF性能を検証しない。
+
+### Isolated arm64 build evidence
+
+- Source provenance: 保存済みLinux stable v6.18.63 tree (`1cdda838e8475edf89b73ff0cc952005dd0b1fa7`) とPR #9のmt7996 EEPROM/OTP修正を含む入力snapshot。build copyにはGit metadataがなかったため、基準SHAは既存保存記録から継承。
+- Build input `.config` SHA-256: `1f70c927ea9ae20ec711506b6d63c9037d577c18b44c7e003ffe1a1cacd389b0` (`CONFIG_MAC80211_MESH=y`)。
+- Baseline `.config` SHA-256: `b164811ae1a5246c694b641323f96e2e8f1842342529aea8e858dddb80f9887d`。
+- Command: `make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image modules`, GCC 14.2.0; exit 0. Kbuild printed existing `MODULE_DESCRIPTION()` modpost warnings for unrelated configured modules; no build error.
+- `arch/arm64/boot/Image`: 19,105,800 bytes; SHA-256 `904beb668b12bc508790555fe586da56179b440b60cc49900886493a1011aa81`.
+- `mt76.ko`: 1,189,376 bytes; SHA-256 `ba53b88806e574d4eeab82d348b37cb81e04b85bf3fa309e6f7ecfd2f672031d`.
+- `mt76-connac-lib.ko`: 625,040 bytes; SHA-256 `70d182716c6c77ca1bd1564a5971c4cde7eb12dc6bcd0f702e6566b9db5c75b4`.
+- `mt7996e.ko`: 1,681,384 bytes; SHA-256 `d4431795a2395dfe1b2f28924eac6c3bf4ba053df9ab44b9a81d739133d9742b`; `readelf` identifies ELF64 little-endian AArch64 relocatable module. `vmlinux` contains mac80211 mesh path/HWMP symbols including `ieee80211s_init` and `mesh_path_start_discovery`.
+- Build location: `/home/masataka/private/cunit-80211s-build-20261115/kernel-src`; binaries remain private and were not copied to the public GitHub repository or device.
+- This is a host build only. No DTB pairing, initramfs, firmware bundle, signing, physical load, boot, or RF test was performed.
 
 ## 参照
 
