@@ -1,0 +1,12 @@
+# Copy to /etc/terminal6-easymesh/node.conf and fill only after live inventory.
+# This file contains no SSID, PSK, MAC address or host key.
+[node]
+role = controller-agent
+management_ifaces =
+wired_backhaul_ifaces =
+station_ifaces =
+radio_ifaces =
+# Fill only after live interface/control-socket mapping. The local Linux BPL
+# patch reads the two AP radio names from the generated platform database.
+# station_ifaces lists their separately provisioned supplicant control peers.
+# wired_backhaul_ifaces is optional; leave empty for wireless-only backhaul.
