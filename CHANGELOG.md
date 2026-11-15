@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-15
+
+- Added C-unit MLO radio inventory and A/C evidence audit. The audit distinguishes driver advertisements and configured APs from a real two-link MLD data session; 6GHz RF remains gated by the exact unit authorization and regulatory DB.
+- Fixed the read-only `iw phy` parser to recognize fractional MHz output and added coverage for per-radio inventory, interface-to-wiphy mapping, and missing radio sections. No device or RF operation was performed.
+
 ## 2026-11-14
 
 - Recorded live C-unit Debian 13 hardware inventory, driver/API mapping, Device Tree census, unknown candidates, radio findings and OpenWrt comparison.

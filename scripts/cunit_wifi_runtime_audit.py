@@ -41,10 +41,17 @@ def _cmd(runner: Runner, *argv: str) -> str:
 def _interfaces(iw_dev: str) -> list[dict[str, object]]:
     result: list[dict[str, object]] = []
     current: dict[str, object] | None = None
+    current_phy: int | None = None
     for line in iw_dev.splitlines():
+        m = re.match(r"phy#(\d+)", line)
+        if m:
+            current_phy = int(m.group(1))
+            current = None
+            continue
         m = re.match(r"\s*Interface\s+(\S+)", line)
         if m:
-            current = {"name": m.group(1), "type": None,
+            current = {"name": m.group(1), "wiphy_index": current_phy,
+                       "type": None,
                        "channel_mhz": None, "ssid_present": False}
             result.append(current)
             continue
@@ -59,6 +66,56 @@ def _interfaces(iw_dev: str) -> list[dict[str, object]]:
         if re.match(r"\s*ssid\s+", line):
             current["ssid_present"] = True
     return result
+
+
+def _radio_records(iw_phy: str) -> tuple[list[dict[str, object]], bool]:
+    """Parse per-radio frequency inventory when iw exposes the Radios section."""
+    records: list[dict[str, object]] = []
+    in_radios = False
+    current: dict[str, object] | None = None
+    for line in iw_phy.splitlines():
+        if re.match(r"\s*Radios:\s*$", line):
+            in_radios = True
+            continue
+        if not in_radios:
+            continue
+        match = re.match(r"\s*\*\s*radio\s+(\d+)", line, re.I)
+        if match:
+            current = {"radio_id": int(match.group(1)),
+                       "bands_advertised": set(),
+                       "frequencies_mhz": [],
+                       "max_different_channels": []}
+            records.append(current)
+            continue
+        if current is None:
+            continue
+        freq = re.search(r"\*\s*(\d{4,5}(?:\.\d+)?)\s+MHz\s+\[(\d+)\]", line)
+        if freq:
+            mhz = int(freq.group(1))
+            band = ("2.4GHz" if 2400 <= mhz < 2500 else
+                    "5GHz" if 4900 <= mhz < 5925 else
+                    "6GHz" if 5925 <= mhz <= 7125 else None)
+            if band:
+                bands = current["bands_advertised"]
+                frequencies = current["frequencies_mhz"]
+                assert isinstance(bands, set) and isinstance(frequencies, list)
+                bands.add(band)
+                frequencies.append(mhz)
+        channel_limit = re.search(r"#channels\s*<=\s*(\d+)", line)
+        if channel_limit:
+            limits = current["max_different_channels"]
+            assert isinstance(limits, list)
+            limits.append(int(channel_limit.group(1)))
+    for record in records:
+        bands = record["bands_advertised"]
+        record["bands_advertised"] = sorted(bands) if isinstance(bands, set) else []
+        frequencies = record["frequencies_mhz"]
+        assert isinstance(frequencies, list)
+        record["frequencies_mhz"] = sorted(set(frequencies))
+        limits = record["max_different_channels"]
+        assert isinstance(limits, list)
+        record["max_different_channels"] = sorted(set(limits))
+    return records, in_radios
 
 
 def _regulatory(reg: str) -> dict[str, object]:
@@ -114,7 +171,7 @@ def _phy_records(iw_phy: str, regulatory: dict[str, object]) -> list[dict[str, o
             current["eht_capability_advertised"] = True
         if re.search(r"\bMLO\b|Multi[- ]Link", line, re.I):
             current["mlo_keyword_observed"] = True
-        m = re.search(r"(\d{4,5})\s+MHz\s+\[(\d+)\](.*)$", line)
+        m = re.search(r"(\d{4,5}(?:\.\d+)?)\s+MHz\s+\[(\d+)\](.*)$", line)
         if not m:
             continue
         freq = int(float(m.group(1)))
@@ -214,6 +271,7 @@ def collect(runner: Runner = run_command, sys_root: Path = Path("/sys")) -> dict
     phy_text = _cmd(runner, "iw", "phy")
     dev_text = _cmd(runner, "iw", "dev")
     interfaces = _interfaces(dev_text)
+    radios, radio_inventory_available = _radio_records(phy_text)
     return {
         "schema": 1,
         "collected_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
@@ -221,6 +279,8 @@ def collect(runner: Runner = run_command, sys_root: Path = Path("/sys")) -> dict
         "pci_wifi_endpoints": _pci_inventory(sys_root),
         "regulatory": reg,
         "wiphys": _phy_records(phy_text, reg),
+        "radio_inventory": radios,
+        "radio_inventory_available": radio_inventory_available,
         "interfaces": interfaces,
         "associated_stations": _station_info(runner, interfaces),
         "diagnostic_markers": _diagnostic_markers(_cmd(runner, "dmesg")),
