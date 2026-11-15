@@ -9,6 +9,7 @@ Date: 2026-11-15
 - `hostapd-6ghz-160mhz.example.conf` is a placeholder-only configuration. It uses Japan operating class 134, primary channel 33 (6115 MHz), and center frequency index 47 (6185 MHz), which corresponds to a 160 MHz allocation 6105–6265 MHz. The MIC Information and Communications Council public-comment draft for standard-power (SP) operation lists 6185 MHz among lower-band 160 MHz center frequencies. Because that document is a draft for SP, it is only a channel-plan cross-check, not authority for this C-unit LPI device. The selected 160 MHz span is 6105–6265 MHz, inside both the 5925–6425 MHz Japanese low band and the A775 / 020-240075 certificate record’s 5955–6415 MHz frequency interval; the exact C-unit label/certificate and operating conditions remain unverified.
 - The config requires SAE and PMF and encodes AP type 0 (indoor AP/LPI in hostapd 2.12). This is a candidate value only: do not start it until the exact C-unit label/certification and indoor installation are verified.
 - No 6 GHz RF transmission has been attempted. The 2026 MIC report cited below is explicitly a draft on SP conditions and does not itself clear this device for transmission.
+- A regdb-containing, 100 MHz/no-CQE P25 was assembled and signed for exact unsigned SHA256 `f3cf2327287a1c388faa3e8b59cc09bf92bab08cb006cc84912ab2c32b370889`. Protected signer workflow run `43676185512` completed successfully. Independent receipt reports RSA-PSS/certificate-chain verification PASS, unchanged signed body, and output SHA256 `8457ae5b31d38a754442ed0826544e19cf262059d8578b1eb0218d1cc3f2beb8`. Private draft release contains the image and receipt. This P25 retains the 100 MHz/no-CQE DT but does not include the newly built 320 MHz suppression driver; it is only a regdb-boot candidate, not the integrated 160 MHz Wi-Fi image.
 
 ## Verification performed
 
@@ -19,12 +20,11 @@ Date: 2026-11-15
 
 ## Gates still open
 
-1. Obtain a permitted management route to raspi4/C-unit; last direct permitted gateway attempt from agent-101-vm timed out on three `ssh -F /dev/null` attempts to raspi2 after an earlier `No route to host`. No C-unit live status was collected in this session.
+1. Obtain a permitted management route to raspi2; the latest allowed attempt from agent-101-vm returned `No route to host`. No C-unit live status was collected in this session.
 2. Confirm the physical C-unit product label and exact certification identity/conditions.
-3. Sign the existing regdb-containing P25 candidate under the authorized workflow for its exact SHA; independently verify signature/body and candidate-specific recovery/readback.
-4. Boot that candidate and prove signed regulatory.db loads at boot and that the effective JP rules permit the selected 160 MHz allocation and power type.
-5. Rebuild the complete P25 image from this combined source and the matching PR #9 driver, then sign that exact image and independently verify it. Deployment still requires candidate-specific readback/recovery checks.
-6. Confirm the client supports 6 GHz, WPA3-SAE, PMF, EHT and 160 MHz. Then proceed through AP beacon, association, IP traffic, measured link width, and reboot recovery. No 320 MHz operation.
+3. From an approved management host, apply the signed regdb P25 using the documented slot recovery path, verify the exact target and full readback SHA, then boot it and prove the signed regulatory.db loads and record effective rules/channels. Signing and prior slot-B recovery history do not constitute a test of this candidate's write/readback/boot.
+4. Rebuild the complete P25 image from this combined source and the matching PR #9 driver, then authorize/sign that exact integrated image and independently verify it. Deployment still requires candidate-specific readback/recovery checks.
+5. Confirm the client supports 6 GHz, WPA3-SAE, PMF, EHT and 160 MHz. Then proceed through AP beacon, association, IP traffic, measured link width, and reboot recovery. No 320 MHz operation.
 
 ## Sources
 
