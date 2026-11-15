@@ -4,7 +4,7 @@ Date: 2026-11-15
 
 ## State
 
-- Kernel patch `0001-mt7996-cap-160mhz-no320.patch` removes the MT7996-family driver's 6 GHz EHT 320 MHz capability advertisement and 320 MHz MCS/NSS and AP MU capability fields. The 80/160 MHz EHT capability fields remain.
+- Kernel patch `patches/0002-mt7996-cunit-6ghz-cap-160mhz-no320.patch` removes the MT7996-family driver's 6 GHz EHT 320 MHz capability advertisement and 320 MHz MCS/NSS and AP MU capability fields. The 80/160 MHz EHT capability fields remain.
 - Host module build completed for ARM64 against the staged Linux 6.18.63 source/config. `mt7996e-160mhz-no320-hostbuild.ko` is a host build artifact only; it has not been signed, deployed, loaded, or tested on C-unit.
 - `hostapd-6ghz-160mhz.example.conf` is a placeholder-only configuration. It uses Japan operating class 134, primary channel 33 (6115 MHz), and center frequency index 47 (6185 MHz), which corresponds to a 160 MHz allocation 6105–6265 MHz. The Japanese MIC technical-conditions report lists 6185 MHz as a permitted 160 MHz center in the lower 6 GHz band; this allocation is within 5925–6425 MHz and within the A775 / 020-240075 certificate's recorded 5955–6415 MHz frequency range.
 - The config requires SAE and PMF and encodes AP type 0 (indoor AP/LPI in hostapd 2.12). This is a candidate value only: do not start it until the exact C-unit label/certification and indoor installation are verified.
