@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-15
+
+- Added an isolated 802.11s kernel config fragment enabling `CONFIG_MAC80211_MESH=y` and source/config validation based on the PR #9 Linux 6.18.63 input.
+- Added a host-only two-radio mac80211_hwsim SAE mesh smoke test; peer formation and bidirectional IP passed at 2437 MHz. Multi-hop and C-unit RF behavior remain untested.
+- Started an isolated arm64 Image/modules build; no device configuration, RF transmission, or boot partition was changed.
+- Recorded that the permitted raspi2 path reached the gateway but C-unit SSH authentication was denied; no alternate host/path was used.
+
 ## 2026-11-14
 
 - Recorded live C-unit Debian 13 hardware inventory, driver/API mapping, Device Tree census, unknown candidates, radio findings and OpenWrt comparison.
