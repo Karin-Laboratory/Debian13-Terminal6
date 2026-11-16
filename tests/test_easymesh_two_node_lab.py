@@ -46,6 +46,29 @@ class LabTests(unittest.TestCase):
         with self.assertRaisesRegex(module.LabError, "--execute"):
             module.lab(types.SimpleNamespace(execute=False))
 
+    @patch.object(module, "command", return_value="COMMAND\n/usr/bin/ieee1905_transport\n/opt/bin/beerocks_controller\n/usr/bin/beerocks_agent")
+    def test_controller_processes_detected_by_docker_top(self, command):
+        self.assertTrue(module.wait_for_processes(
+            "controller", ("ieee1905_transport", "beerocks_controller", "beerocks_agent"),
+            seconds=0))
+        command.assert_called_once_with(["docker", "top", "controller", "-eo", "args"])
+
+    @patch.object(module, "command", return_value="COMMAND\n/bin/sh")
+    def test_container_without_prplmesh_process_is_not_ready(self, command):
+        self.assertFalse(module.wait_for_processes("agent", ("beerocks_agent",), seconds=0))
+
+    @patch.object(module, "command", return_value="AL MAC 02:00:00:00:00:0b in network map")
+    def test_controller_topology_query_matches_al_mac(self, command):
+        self.assertTrue(module.agent_in_controller_db("controller", "beerocks_cli -c bml_conn_map",
+                                                    bytes.fromhex("02000000000b")))
+        command.assert_called_once_with(
+            ["docker", "exec", "controller", "beerocks_cli", "-c", "bml_conn_map"], timeout=20)
+
+    @patch.object(module, "command", return_value="no agent entry")
+    def test_controller_database_probe_does_not_claim_agent_when_absent(self, command):
+        self.assertFalse(module.agent_in_controller_db(
+            "controller", "beerocks_cli -c bml_conn_map", bytes.fromhex("02000000000b")))
+
     def test_checker_is_real_capture_parser_not_faked_pass(self):
         verifier = module.load_verifier()
         self.assertEqual(verifier.ETH_P_1905, 0x893A)
