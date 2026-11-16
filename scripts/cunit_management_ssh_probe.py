@@ -67,7 +67,10 @@ def ssh_options() -> list[str]:
 
 def make_remote_probe(target: str, identity: str) -> str:
     readonly = " ; ".join(KNOWN_COMMANDS)
-    args = ["ssh", *ssh_options(), "-i", identity, target, "sh", "-c", readonly]
+    # Both the raspi4-side shell and the target shell need separate quoting.
+    # Preserve the complete readonly script as one target command.
+    args = ["ssh", *ssh_options(), "-i", identity, target,
+            "sh -c " + shlex.quote(readonly)]
     return shlex.join(args)
 
 
