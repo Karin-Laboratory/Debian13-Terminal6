@@ -64,7 +64,10 @@ def reconstruct(upstream_tar: Path, expected_sha: str, snapshot: Path,
     with tempfile.TemporaryDirectory(prefix="cunit-80211s-reconstruct-") as temp:
         baseline = replay_tarball(upstream_tar, Path(temp))
         git(baseline, "init", "-q")
-        git(baseline, "add", "-A")
+        # Vendor kernels often add files matching upstream .gitignore patterns
+        # (for example generated-looking board data). Source inventory is the
+        # authority, so ignored source files must still enter the replay patch.
+        git(baseline, "add", "-f", "-A")
         git(baseline, "-c", "user.name=CUnit Replay",
             "-c", "user.email=cunit-replay@localhost",
             "commit", "-qm", "upstream tar")
@@ -76,7 +79,7 @@ def reconstruct(upstream_tar: Path, expected_sha: str, snapshot: Path,
         if not include_pr9_in_private_snapshot:
             git(baseline, "apply", "--check", "-R", str(pr9_patch.resolve()))
             git(baseline, "apply", "-R", str(pr9_patch.resolve()))
-        git(baseline, "add", "-A")
+        git(baseline, "add", "-f", "-A")
         vendor_diff = git(baseline, "diff", "--cached",
                           "--binary", "--full-index", capture=True)
         if not isinstance(vendor_diff, bytes) or not vendor_diff.strip():

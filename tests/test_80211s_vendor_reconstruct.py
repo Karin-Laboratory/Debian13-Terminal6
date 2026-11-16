@@ -16,6 +16,7 @@ class VendorReconstructionTests(unittest.TestCase):
             directory = upstream / "drivers/clk/mediatek"
             directory.mkdir(parents=True)
             (directory / "common.c").write_text("original\n")
+            (upstream / ".gitignore").write_text("drivers/clk/mediatek/clk-mt6990.c\n")
             archive = root / "upstream.tar"
             with tarfile.open(archive, "w") as out:
                 out.add(upstream, arcname=upstream.name)
@@ -23,6 +24,7 @@ class VendorReconstructionTests(unittest.TestCase):
             snapshot = root / "owner-snapshot"
             vendor_dir = snapshot / "drivers/clk/mediatek"
             vendor_dir.mkdir(parents=True)
+            (snapshot / ".gitignore").write_text((upstream / ".gitignore").read_text())
             (vendor_dir / "common.c").write_text("pr9-modified\n")
             (vendor_dir / "clk-mt6990.c").write_text("vendor-src\n")
             pr9 = root / "0001-mt7996-eeprom-calfree-timeout.patch"
