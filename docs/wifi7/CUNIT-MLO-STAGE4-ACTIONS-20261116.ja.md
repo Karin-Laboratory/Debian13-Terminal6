@@ -77,3 +77,28 @@ sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_stage4.py \
 GitHub Actionsのstage4 `summary.json` から、最初の未成功工程とreturncodeを確定する。もし `start.sh` が失敗すれば、読み取り可能なkernel構成/モジュール、hostapd/wpa_supplicant、`iw dev` と名前空間環境を比較する。通常AP `ap_open` が通りMLDだけ失敗するなら、MLO特有のkernel/hostap互換性とlogを精査する。単なるtimeout延長はしない。
 
 **この文書の作成自体は仮想通信成功の証拠ではない。CIの実行ID・完了結果を別途記録する。**
+
+## GitHub Actions実通信再現：成功記録（2026-11-16）
+
+**CIでの実行は2回連続SUCCESS。** D-Bus任意登録を一時無効化した修正済みhostap起動構成を、独立GitHub-hosted runnerで検証した。
+
+| 証拠 | 初回PASS | 2回目PASS |
+|---|---|---|
+| Actions実行 | [#43808573046](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808573046) | [#43808585110](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808585110) |
+| kernel | `7.0.0-1014-aws` | `7.0.0-1014-aws` |
+| 上流hostap build / hwsim start | PASS | PASS |
+| `ap_open` 基礎テスト | PASS | PASS |
+| `eht_mld_owe_two_links` | PASS (0.82s) | PASS (0.82s) |
+| `eht_mld_link_removal` | PASS (4.22s) | PASS (4.28s) |
+| `eht_mld_disassociate` | PASS (4.62s) | PASS (4.63s) |
+| `cunit_mlo_5g160_6g160` | PASS (3.07s) | PASS (3.12s) |
+| 方向別IPv4 ping STA→AP / AP→STA | 両方向 6送信/6受信 | 両方向 6送信/6受信 |
+| 後処理 `stop.sh` | PASS | PASS |
+| サニタイズ済みartifact | [ID 14199865457](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808573046/artifacts/14199865457) | [ID 14198709785](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808585110/artifacts/14198709785) |
+
+2回目のホスト側Python回帰は28件PASS。双方とも判定器はsmoke試験に `UPSTREAM_MLD_SMOKE_PASS`、5/6GHz仮想試験に `WIDE_MLD_IP_PASS` を返した。IPv4成功値は独立network namespaceから実際のping出力を解析したもの。
+
+**失敗原因の切り分け**：修正前の GitHub-hosted VMは上流 `start.sh channels=2` が約10秒後に終了コード1、wlan0用制御ソケット不在、wlan1/2はPONG成功。上流 `start.sh` がwlan0で追加する任意のD-Bus `-u` を、固定ソースcommitの隔離CIコピーでのみ無効化したところ、`start.sh` が0.42〜0.52秒で終了コード0になりwlan0 PONGが復帰した。D-Bus登録経路が失敗に関与することを支持する比較結果であり、Linux 7.0全般のkernel不適合を証明するものではない。以前の250秒timeoutの内部機構がstdout pipe継承によるかは未確定。
+
+**証拠の境界**：上流のlink-removal/disassociateテストのPASSと、専用5GHz＋6GHz試験の同一MLD・双方向IPは確認できたが、これらは一つの連続セッションで両リンクを順次落とし、その間のIP継続・リンク別TX/RXカウンタ・異なる実radio IDまで測ったものではない。そのため [Acceptance v2](CUNIT-MLO-EVIDENCE-V2-20261116.ja.md) は `NOT_PROVEN`。C号機RF実通信は `NOT_TESTED`。C号機/A号機/raspi4/6GHz RFには触れていない。
+
