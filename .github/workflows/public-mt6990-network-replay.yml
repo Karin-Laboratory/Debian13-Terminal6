@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'scripts/apply-public-mt6990-kernel.py'
+      - 'scripts/port-public-mt6990-pcs.py'
+      - 'scripts/port-public-mt6990-ethernet.py'
+      - 'scripts/port-public-mt6990-hwv.py'
+      - 'scripts/port-public-mt6990-clock.py'
       - 'configs/public-mt6990-sources.json'
       - '.github/workflows/public-mt6990-network-replay.yml'
   workflow_dispatch:
@@ -43,4 +47,25 @@ jobs:
           assert len(x["patches"])==8
           print("PUBLIC_MT6990_NETSYS_PHY_PCS_SOURCE_REPLAY_PASS_NOT_HW_TESTED")
           PY
+      - name: Cross compile MT6990 clock, NETSYS and LynxI PCS as real ARM64 objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get -y -qq install \
+            gcc-aarch64-linux-gnu bc bison flex libssl-dev libelf-dev
+          cd "$RUNNER_TEMP/linux"
+          export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+          make -s defconfig
+          scripts/config --enable ARCH_MEDIATEK --enable COMMON_CLK_MT6990 \
+            --enable COMMON_CLK_MEDIATEK --enable NET_VENDOR_MEDIATEK \
+            --enable NET_MEDIATEK_SOC --enable PCS_MTK_LYNXI
+          make -s olddefconfig prepare
+          grep -qx 'CONFIG_NET_MEDIATEK_SOC=y' .config
+          grep -qx 'CONFIG_COMMON_CLK_MT6990=y' .config
+          make -j4 drivers/clk/mediatek/clk-mt6990.o \
+            drivers/clk/mediatek/clk-mt6990-ifrao.o \
+            drivers/net/ethernet/mediatek/mtk_eth_soc.o \
+            drivers/net/pcs/pcs-mtk-lynxi.o
+          echo "PUBLIC_MT6990_CLOCK_NETSYS_PCS_ARM64_OBJECTS_COMPILED_NOT_HW_VALIDATED"
       # No binary artifacts, no signing, no physical device write.
