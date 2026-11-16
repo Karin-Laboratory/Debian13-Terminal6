@@ -11,7 +11,7 @@
 | hwsim 2-node mesh | **PASS (host synthetic)** | 2437MHz、wpa_supplicant SAE mesh設定、peer成立および双方向IP pingを実行。物理MT7990動作の証拠ではない。 |
 | A号機 802.11s | UNKNOWN | 保存済み純正観測にはWi-Fi設定/PHY/APの情報はあるが、mesh point、peer、HWMP path、mesh dataの証拠がない。独自mesh/EasyMesh/WDS/802.11sのいずれかを推定しない。 |
 | C号機 mesh peer / SAE / HWMP / IP | NOT TESTED | 実機操作を行っていない。 |
-| 3-node multi-hop | NOT TESTED | 仮想試験は2ノード。実機対向ノードも限定hwsim link topologyも未検証。 |
+| 3-node multi-hop | **PARTIAL PASS (host only)** | 2026-11-16 hosted hwsim/wmediumd実行でA-B-C peering、A-Cの非直接通信とHWMP B経由、B down時の断を確認。B復旧はFAIL、AMPE独立検証・実機は未実施。 |
 
 ## A号機との比較
 
@@ -87,6 +87,15 @@ mesh support config、`iw phy` capabilityまたはmesh interface作成だけで�
 - Added [wmediumd-isolated 3-node SAE/HWMP test](../../scripts/run_80211s_hwsim_3node.sh). It enforces A-B-C only, checks no A-C direct peer, both HWMP next-hop directions through B, intermediate-node shutdown/recovery, and ping loss/latency. The test is **not yet executed**; neither 3-node PASS nor independent AMPE frame protection can be claimed.
 - Added [runbook and C-unit acceptance gates](CUNIT-80211S-REPLAY-HWSIM3-20261116.ja.md) and branch-scoped host static/unit CI.
 - Source provenance is still **BLOCKED** pending a complete patch manifest and verified independent rebuild. No P25 packaging/signing, C-unit write, RF test, or reboot occurred in this change.
+
+## 2026-11-16: 3ノード実通信の独立実行と再現入力補助
+
+- [実行run 43784875228](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43784875228) は使い捨てUbuntuホストでmac80211_hwsim/wmediumdを実行。A-B、B-C peering成立、A-C直接peerなし、A↔C ping成功、両方向HWMPのnext hop=B、B down後A-C疎通なしを確認した。
+- **B up後の復旧は FAIL**。ログは「FAIL: no A-C recovery through B」。このrunのGitHub Actions表示は当初SUCCESSだったが、検証スクリプトの終了コードをteeが隠した不具合による**偽陽性**である。run全体をPASSと扱わない。
+- 修正workflowではpipefailと合格マーカー照合を適用。B復帰は自動再収束とwpa_cliによる補助復旧を区別する。改修版の合否は実際のrun結果が出るまで未確定とする。
+- [private source再構成補助](../../scripts/reconstruct_80211s_vendor_patch.py)を実装。Linux stable tarとprivate snapshotからvendor差分を抽出し、PR #9を最後に再適用したsource inventory一致を検査。**現時点は模擬ソースでのテストのみPASS**、実際のMT6990 treeでは未実行。
+- Source provenanceの参考として[PR #1](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/1)の6.18.44→6.18.63 stable mergeとprivate保持ソースの既存証拠を特定。ただし起源/再配布権限・正確な新ソース再現・ARM64独立ビルドは引き続き未合格。
+- PR #11の単体テストは9件PASS。C号機、A号機、P25、6GHz電波への操作は行っていない。
 
 ## 参照
 
