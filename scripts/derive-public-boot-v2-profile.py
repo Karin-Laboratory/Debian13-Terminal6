@@ -49,7 +49,7 @@ def public_profile(raw: bytes, expected_sha: str = RC16_SHA256) -> dict:
         raise ValueError("reference FDT magic mismatch")
     if struct.unpack_from(">I", table, 68)[0] != dtbsize - 64:
         raise ValueError("reference FDT total size mismatch")
-    name = raw[48:64].split(b"\\0", 1)[0].decode("ascii")
+    name = raw[48:64].split(bytes([0]), 1)[0].decode("ascii")
     # The reference header is only used to extract public numeric addresses.
     # The Debian command line is independently authored and no OEM bytes are
     # embedded in output.
