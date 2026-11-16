@@ -9,6 +9,7 @@ on:
       - scripts/cunit_mlo_hwsim_runner.py
       - scripts/cunit_mlo_hwsim_stage4.py
       - scripts/hwsim/test_cunit_mlo.py
+      - scripts/hwsim/prepare_mlo_ci_startup.py
       - tests/test_cunit_mlo_hwsim_runner.py
       - tests/test_cunit_mlo_stage4.py
       - .github/workflows/cunit-mlo-hwsim.yml
@@ -40,6 +41,7 @@ jobs:
           git clone --no-checkout https://chromium.googlesource.com/chromiumos/third_party/hostap /tmp/cunit-hostap
           git -C /tmp/cunit-hostap checkout f1e9b5086718ad567dc40e3d5a1456534d51749f
           git -C /tmp/cunit-hostap apply "$GITHUB_WORKSPACE/patches/hostap/0001-hwsim-use-MLO-STATUS-without-mac80211-debugfs.patch"
+          python3 scripts/hwsim/prepare_mlo_ci_startup.py --hostap-tree /tmp/cunit-hostap
       - name: Inspect hwsim capability and driver sandbox
         run: |
           sudo python3 scripts/cunit_mlo_hwsim_runner.py probe --hostap-tree /tmp/cunit-hostap | tee /tmp/cunit-hwsim-preflight.json
