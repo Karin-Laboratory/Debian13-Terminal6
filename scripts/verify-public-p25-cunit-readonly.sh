@@ -52,6 +52,19 @@ if [ -e /sys/class/net/lan2 ]; then
     printf 'LAN2_SPEED=%s\n' "$(cat /sys/class/net/lan2/speed 2>/dev/null || :)"
     printf 'LAN2_DUPLEX=%s\n' "$(cat /sys/class/net/lan2/duplex 2>/dev/null || :)"
 fi
+if ip -4 -o addr show dev lan2 2>/dev/null | grep -q ' inet '; then
+    ok LAN2_IPV4_ADDRESS
+else
+    bad LAN2_IPV4_ADDRESS
+fi
+# Original Debian C-unit success also required a Wi-Fi PHY to register.
+# PHY presence does not authorize radio transmission or validate firmware.
+if [ -d /sys/class/ieee80211 ] &&
+    find /sys/class/ieee80211 -maxdepth 1 -name 'phy*' -print 2>/dev/null | grep -q .; then
+    ok WIFI_PHY_REGISTERED
+else
+    bad WIFI_PHY_REGISTERED
+fi
 if systemctl -q is-active systemd-networkd 2>/dev/null; then
     ok NETWORKD_ACTIVE
 else
