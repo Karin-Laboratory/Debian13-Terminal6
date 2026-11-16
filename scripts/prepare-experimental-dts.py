@@ -22,7 +22,12 @@ def enable_emmc(board):
     match=re.search(r"(?ms)^&mmc0\s*\{(.*?)^\};",board)
     if not match or match.group(1).count('status = "disabled";')!=1:
         raise ValueError("MMC0 baseline not recognized")
-    new=match.group(0).replace('status = "disabled";','status = "okay";')
+    # C-unit eMMC mitigation already proved on hardware: 100 MHz, CQE off.
+    # This does NOT validate donor SoC clock routing or the board's power pins.
+    if 'supports-cqe' in match.group(0) or 'max-frequency' in match.group(0):
+        raise ValueError("MMC0 baseline has unexpected CQE/frequency policy")
+    new=match.group(0).replace('status = "disabled";',
+                                'max-frequency = <100000000>;\\n status = "okay";')
     result=board[:match.start()]+new+board[match.end():]
     if result.count('status = "okay";')!=board.count('status = "okay";')+1:
         raise ValueError("unexpected status mutation")
