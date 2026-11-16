@@ -53,6 +53,19 @@ sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_stage4.py \
 - 5/6GHz 160MHzの仮想MLD、双方向IP PASS：当該仮想試験の到達点。周波数幅・リンク別TX/RXと切断・復帰の証拠は別。
 - [Acceptance v2](CUNIT-MLO-EVIDENCE-V2-20261116.ja.md) に必要な異なるradio ID、AP/STA同一MLD、リンク別カウンタ、双方各リンクdown/up、reconnect、全段階IP継続が実際に揃った場合だけ `HWSIM_PASS` を検討。C号機RF通信のPASSは別扱い。
 
+## 最初のGitHub runner実測（2026-11-16）
+
+[Stage4 CI #43807784250](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43807784250) はkernel `7.0.0-1014-aws` 上で、上流 `start.sh channels=2` が **10.00秒、終了コード1** で失敗した。独立後処理の `stop.sh` は **1.42秒、終了コード0**。従って `ap_open` とMLO 3件は **NOT RUN**。上流buildとPython 26件はPASS。これにより「250秒timeoutで関連付けイベント0」の直前に、hwsim環境準備失敗が存在することを切り出せた。前回の250秒全体timeoutが、起動した子プロセスによるstdout pipeの継承に関連する可能性はあるが、まだ仮説とする。
+
+同じ実行のJSON artifactは、Pythonがroot/0700 directoryで保存したデータを非rootのupload actionへ直接渡し、`EACCES` となった。このため、rootが特定の **sanitized JSONだけ** をrunnerの可読ディレクトリへコピーしてからアップロードする修正を追加。生ログは引き続きprivate保管。以後のrunで新しいartifactの保存結果と `start.sh` の失敗分類（WPAソケット/hostapd/カーネル/権限など）を照合する。
+
+### 最新到達点の判定
+
+- 診断器単体のホストCIはPASS。
+- GitHub MLO実通信smoke3件は **NOT RUN**。
+- 同一MLD・2リンク、リンク別TX/RX、リンク断復旧、仮想双方向IPは **NOT PROVEN**。
+- 追加のstage4 CI実行は独立PR #16で進行。成功を確認していない項目を事実に昇格させない。
+
 ## 次のゲート
 
 GitHub Actionsのstage4 `summary.json` から、最初の未成功工程とreturncodeを確定する。もし `start.sh` が失敗すれば、読み取り可能なkernel構成/モジュール、hostapd/wpa_supplicant、`iw dev` と名前空間環境を比較する。通常AP `ap_open` が通りMLDだけ失敗するなら、MLO特有のkernel/hostap互換性とlogを精査する。単なるtimeout延長はしない。
