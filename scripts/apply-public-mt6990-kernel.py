@@ -90,7 +90,7 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
         safe = (Path(__file__).resolve().parents[1]
                 / "patches/mt6990/0002-air6-avoid-sgmii-top-cycle.patch")
         data = safe.read_bytes()
-        blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\\0" + data).hexdigest()
+        blob = hashlib.sha1(b"blob " + str(len(data)).encode() + bytes([0]) + data).hexdigest()
         if blob != "031a2d4837b7166000afcc868d05b8282e9fa5db":
             raise ValueError("public Air6 SGMII safety patch SHA mismatch")
         for arg in ("--check",):
