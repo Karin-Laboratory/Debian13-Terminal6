@@ -27,6 +27,18 @@ if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
   python3 "$ROOT/scripts/port-public-mt6990-clock.py" \
     "$WORKDIR/drivers/clk/mediatek/clk-mt6990.c"
 fi
+if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-capable" ]]; then
+  # Source-only hardware-calibration fix from public Debian PR #9, derived
+  # from openwrt/mt76. No firmware, per-device EEPROM/OTP bytes or RF I/O.
+  # CI independently checked applicability to pristine stable Linux 6.18.63.
+  public_otp_patch="$ROOT/patches/mt7990-public-otp-calfree-timeout.patch"
+  test -s "$public_otp_patch"
+  git apply --check "$public_otp_patch"
+  git apply "$public_otp_patch"
+  grep -Fq 'mt7996_mcu_get_cal_free_data' drivers/net/wireless/mediatek/mt76/mt7996/mcu.c
+  grep -Fq 'mdev->mcu.timeout = 30 * HZ' drivers/net/wireless/mediatek/mt76/mt7996/mcu.c
+  echo 'PUBLIC_MT7990_CALFREE_OTP_TIMEOUT_SOURCE_PATCH_PASS'
+fi
 if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-lean" || "${KERNEL_PROFILE:-generic}" = "terminal6-capable" ]]; then
   test -n "${PUBLIC_MT6990_STAGE:-}" && test "${PUBLIC_MT6990_SCOPE:-}" = network || { echo "terminal6 source profile requires public network MT6990 source stage" >&2; exit 2; }
   make ARCH=arm64 tinyconfig
@@ -109,6 +121,11 @@ fi
 export KBUILD_BUILD_USER=terminal6 KBUILD_BUILD_HOST=source-build
 export KBUILD_BUILD_TIMESTAMP='Thu Jan  1 00:00:00 UTC 1970'
 export SOURCE_DATE_EPOCH=0
+if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
+  # Source code patches dirty the disposable clone. Do not let Kbuild append
+  # a variable '-dirty' suffix to the installed P44 module release string.
+  : > .scmversion
+fi
 make ARCH=arm64 -j"${JOBS:-4}" Image modules
 module_name="terminal6-lean-modules.tar"
 if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
