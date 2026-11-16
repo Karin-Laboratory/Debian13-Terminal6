@@ -25,8 +25,9 @@ jobs:
         run: |
           set -euo pipefail
           git clone -q --depth 1 --branch v6.18.63 \
-            https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git \
+            https://github.com/gregkh/linux.git \
             "$RUNNER_TEMP/linux-6.18.63"
+          test "$(git -C "$RUNNER_TEMP/linux-6.18.63" rev-parse HEAD)" = 1cdda838e8475edf89b73ff0cc952005dd0b1fa7
           test "$(make -s -C "$RUNNER_TEMP/linux-6.18.63" kernelversion)" = 6.18.63
       - name: Replay public MT6990 SoC clocks and eMMC source only
         run: |
