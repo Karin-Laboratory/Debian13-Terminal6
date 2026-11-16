@@ -37,6 +37,26 @@ python3 -m scripts.replay_80211s_kernel_source \
 
 `--build-artifacts`を省略したときはソース照合だけを実施する。**SOURCE_REPLAY_MATCH≠BUILD_PASS**。ビルド後は `CONFIG_MAC80211_MESH=y` と `CONFIG_MT7996E=m` を要求する。パッチが部分的しか存在しない場合、ツールは失敗として終了し、候補Imageは生成しない。
 
+## 第1ゲート補助：元Git履歴が欠落したprivate sourceからpatchを再構成
+
+[private差分の再構成ツール](../../scripts/reconstruct_80211s_vendor_patch.py)は、既存のGit履歴がないLinux build treeにも適用できる。標準Linux tarballと実ソースsnapshotを比較し、snapshotに含まれるPR #9のEEPROM/OTP差分を逆適用した状態をvendor/board変更として抽出する。次に `vendor patch → PR #9 patch` を完全に別の一時展開元に当て、全ソースのSHA256一致を検証する。これは**バイト列の再現性**であり、vendorコードの出所・再配布可能性や実機での動作を証明しない。
+
+owner-privateホストでのみ以下のように実行する。
+
+```bash
+python3 -m scripts.reconstruct_80211s_vendor_patch \
+  --upstream-tar /home/masataka/private/debian13-proto3-build-20261112/source/linux-6.18.63.tar.xz \
+  --upstream-sha256 81764a545072d160748beff4d9de2e7d95aa9f16e8261110288f067a2cc61d71 \
+  --private-tree /home/masataka/private/cunit-80211s-build-20261115/kernel-src \
+  --pr9-patch patches/0001-mt7996-eeprom-calfree-timeout.patch \
+  --private-output-dir /home/masataka/private/cunit-80211s-vendor-patches \
+  --ack-private-only
+```
+
+出力される `PRIVATE-MT6990-vendor-board-source.patch` と `PRIVATE-MT6990-source-manifest.json` は0600で保存し、Git管理領域への保存を拒否する。**公開禁止・内容監査前の資料**であり、GitHubへpushしない。差分が再現できない場合はfail closed。旧[PR #1 のstable upgrade手順](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/1)は6.18.44→6.18.63の3-way mergeと個別解消を記録しているため、元ソースの履歴調査で併せて参照する。
+
+合格後に前節の `--patch` へprivate vendor patchを指定し、PR #9パッチを最後に続ける。さらに独立ARM64ビルドとconfig・toolchain・成果物のハッシュを検証する。元vendorソースの権利根拠が不明ならpublic patchは作らず、**privateのみで再現可能な状態**と明記する。
+
 ## 第2ゲート: A-B-C の仮想無線で真の中継を検証
 
 Linuxホストの隔離VM（既存の物理PHY・hwsim・wmediumdが存在しない環境）で、`iw`、`ip`、`ping`、`openssl`、`wpa_supplicant`、`wpa_cli`、`mac80211_hwsim`、`wmediumd`を用意して実行する。
