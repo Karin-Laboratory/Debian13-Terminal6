@@ -28,18 +28,20 @@ python3 packaging/easymesh/run-easymesh-two-node-lab.py \
   --controller-image <local-prplmesh-6.0.1-runner-image> \
   --agent-image <local-prplmesh-6.0.1-runner-image> \
   --install-tree <private-prplmesh-build-install> \
+  --install-target <compiled-CMAKE_INSTALL_PREFIX> \
   --controller-al <private-controller-AL-MAC> \
   --agent-al <private-agent-AL-MAC> \
   --controller-db-command 'beerocks_cli -c bml_conn_map' \
   --output <new-private-directory> --duration 60 --outage 45 --execute
 ~~~
 
+- `--install-target` はコンテナ内のmount先と `INSTALL_DIR`。既存cross buildで `CMAKE_INSTALL_PREFIX` に絶対パスを埋め込んでいる場合は**その元の値を渡す**。未指定の既定値 `/opt/t6-prplmesh` は相対パス前提で再現できるイメージ用。個別イメージの必要パスは実起動で確認する。
 - `--install-tree` 省略時は実バイナリをすでに含む独自のprebuilt image向け従来動作のまま。イメージ単体に必要な実バイナリが存在するか確認すること。
 - `--auto-al` はコンテナ起動後に `br-lan` MACを読み取る調査用モード。Agent再作成後のMAC不一致を復旧成功と扱わず停止するため、**完全な復旧実証には固定の明示AL MACを使う**。
 - 参照イメージのtagではなく、実image digest・ソースcommit・設定・実プロセス・実PCAPをprivate記録に残す。合成テストや単なるdaemon PIDだけでは合格としない。
 - upstreamの `platform_init` やネットワーク再構成が必要なときも、許すのはこの隔離ラボ内だけ。ホスト・C号機での実行は禁止。
 
-現セッションで実行可能な環境にはDocker、tcpdump、QEMU-user、private ARM64 sysrootがないため、**本変更は起動契約の修正であり、実プロセス成功や実1905通信成功を示すものではない**。次に実ラボで上記コマンドを実行し、起動ログ、3つの実PCAP、Controller DBスナップショットを検証する。
+現セッションで実行可能な環境にはDocker、tcpdump、QEMU-user、private ARM64 sysrootがないため、**本変更は起動契約の修正であり、実プロセス成功や実1905通信成功を示すものではない**。次に実ラボで上記コマンドを実行し、private出力に保存される起動時Dockerログ、3つの実PCAP、Controller DBスナップショットを検証する。失敗時は `failure.json` を保存する。
 
 ## ARM64の第1ゲート
 
