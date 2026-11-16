@@ -86,7 +86,7 @@ def apply(h: str, c: str, patch: str):
     regmap = group(H,4)
     # The donor .page field has no equivalent in stable 6.18's QDMA ABI
     # and no reader in the mainline driver. Keep the other exact registers.
-    unused_page = "\\t\\t.page\\t\\t= 0x45f0,\\n"
+    unused_page = chr(9)*2 + ".page" + chr(9)*2 + "= 0x45f0," + chr(10)
     if regmap.count(unused_page)!=1:
         raise ValueError("donor QDMA unused page register field changed")
     regmap=regmap.replace(unused_page,"")
