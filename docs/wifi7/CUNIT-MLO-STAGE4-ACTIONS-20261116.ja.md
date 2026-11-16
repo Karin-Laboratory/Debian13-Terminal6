@@ -61,6 +61,10 @@ sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_stage4.py \
 
 [run #43808048460](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808048460) はさらに `hwsim_module_loaded=true`、`phy_count=7`、`netdev_count=7`、`hostapd_processes=2`、`wpa_supplicant_processes=3` を確認。初期化が全く始まらないのではなく、仮想PHY生成後に停止したことを示す。[run #43808212246](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808212246) は `wpa_control_socket` の接続失敗を分類し、サニタイズ済みartifactの保存も成功した。**初期化失敗原因の最終確定ではなく、個別ソケットの疎通確認へ進む。**
 
+[run #43808342853](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808342853) では、`wpa_supplicant` 制御ソケットの実応答を追跡。wlan0側はsocket不在/PONG失敗、wlan1とwlan2はPONG成功。global追加ソケットのうち5はPONG成功、6/7は不在。hostapdのglobal socketは存在。よって1個のhwsim radioが無いのではなく、wlan0だけで適用される起動オプションの違いも疑われる。
+
+上流 `start.sh` のwlan0専用経路でオプション `-u`（D-Bus登録）が付く構造が確認されているため、専用VM内に限定してその**任意のD-Bus登録だけ**を除外する比較試験を追加した。対象hostap commit `f1e9b5086718ad567dc40e3d5a1456534d51749f` と想定ソース行に一致しない場合は安全側で停止する。これはまだ仮説検証であり、C号機のD-BusやWi-Fi管理には一切適用しない。
+
 ### 最新到達点の判定
 
 - 診断器単体のホストCIはPASS。
