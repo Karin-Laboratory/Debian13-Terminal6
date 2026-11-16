@@ -60,7 +60,7 @@ def validate_install_tree(path: Path) -> Path:
 
 
 def run_container(name: str, network: str, image: str, startup: str,
-                  install_tree: Path | None = None) -> str:
+                  install_tree: Path | None = None, bridge_al: bytes | None = None) -> str:
     argv = [
         "docker", "run", "--detach", "--rm", "--name", name,
         "--network", network, "--cap-add=NET_RAW", "--cap-add=NET_ADMIN",
@@ -69,10 +69,20 @@ def run_container(name: str, network: str, image: str, startup: str,
     if install_tree is not None:
         # Upstream runner's entrypoint needs INSTALL_DIR and a mounted install
         # tree. Mount separate scratch copies, never the original build output.
-        if any(char in str(install_tree) for char in ",:\\n"):
+        if any(char in str(install_tree) for char in ",:\n"):
             raise LabError("unsafe character in install tree mount path")
         argv += ["--mount", f"type=bind,source={install_tree},target=/opt/t6-prplmesh",
                  "--env", "INSTALL_DIR=/opt/t6-prplmesh"]
+    if bridge_al is not None:
+        if install_tree is None:
+            raise LabError("fixed bridge identity requires the upstream install-tree runner")
+        # Old upstream runner's entrypoint executes /bin/bash "$@". Set the
+        # bridge identity only *inside* this disposable network namespace,
+        # before starting prplMesh. Re-apply on Agent restart.
+        al = ":".join(f"{byte:02x}" for byte in bridge_al)
+        argv += ["--env", f"T6_AL_MAC={al}"]
+        return command([*argv, image, "-c",
+                        'ip link set dev br-lan address "$T6_AL_MAC" && exec ' + startup])
     return command([*argv, image, startup])
 
 
@@ -187,9 +197,12 @@ def lab(args) -> dict:
     os.umask(0o077)
     if args.output.exists() or args.output.is_symlink():
         raise LabError("choose a new private output directory")
+    if source_tree is not None and (args.output.resolve().is_relative_to(source_tree)):
+        raise LabError("private output cannot be inside source install tree")
     args.output.mkdir(parents=True, mode=0o700)
     if not args.output.is_dir() or args.output.is_symlink():
         raise LabError("unsafe output directory")
+    args.output = args.output.resolve(strict=True)
     for probe in plan_images(args.controller_image, args.agent_image):
         command(probe)
     # Keep upstream-installed binaries and config independent per node. The
@@ -228,9 +241,10 @@ def lab(args) -> dict:
         def start_pair():
             nonlocal ctrl_al, agent_al
             run_container(controller, network, args.controller_image, "start-controller-agent",
-                          controller_tree)
+                          controller_tree, ctrl_al if source_tree is not None else None)
             resources["controller"] = True
-            run_container(agent, network, args.agent_image, "start-agent", agent_tree)
+            run_container(agent, network, args.agent_image, "start-agent", agent_tree,
+                          agent_al if source_tree is not None else None)
             resources["agent"] = True
             if not (container_running(controller) and container_running(agent)):
                 raise LabError("at least one node stopped before initial capture")
@@ -240,11 +254,14 @@ def lab(args) -> dict:
                 agent, ("ieee1905_transport", "beerocks_agent"))
             if not (result["controller_processes_running"] and result["agent_processes_running"]):
                 raise LabError("prplMesh processes not observed in both independent nodes")
+            actual_ctrl = bridge_al_mac(controller, verifier)
+            actual_agent = bridge_al_mac(agent, verifier)
             if args.auto_al:
-                ctrl_al = bridge_al_mac(controller, verifier)
-                agent_al = bridge_al_mac(agent, verifier)
+                ctrl_al, agent_al = actual_ctrl, actual_agent
                 if ctrl_al == agent_al:
                     raise LabError("both prplMesh bridges have the same AL MAC")
+            elif source_tree is not None and (actual_ctrl != ctrl_al or actual_agent != agent_al):
+                raise LabError("actual bridge AL MAC does not match pinned runner identity")
 
         capture(bridge, args.output / "initial.ieee1905.pcap", args.duration,
                 during_capture=start_pair)
@@ -265,11 +282,14 @@ def lab(args) -> dict:
                 controller, args.controller_db_command, agent_al)
 
         def restart_agent():
-            run_container(agent, network, args.agent_image, "start-agent", agent_tree)
+            run_container(agent, network, args.agent_image, "start-agent", agent_tree,
+                          agent_al if source_tree is not None else None)
             resources["agent"] = True
             if not container_running(agent) or not wait_for_processes(
                     agent, ("ieee1905_transport", "beerocks_agent")):
                 raise LabError("agent process failed to restart")
+            if bridge_al_mac(agent, verifier) != agent_al:
+                raise LabError("Agent AL MAC changed across restart; recovery cannot be proven")
 
         capture(bridge, args.output / "agent-restarted.ieee1905.pcap", args.duration,
                 during_capture=restart_agent)
