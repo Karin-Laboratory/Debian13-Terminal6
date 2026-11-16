@@ -4,10 +4,14 @@ on:
   push:
     branches:
       - codex/cunit-mlo-radio-map-20261115
+      - codex/cunit-mlo-actions-replay-20261116
     paths:
       - scripts/cunit_mlo_hwsim_runner.py
+      - scripts/cunit_mlo_hwsim_stage4.py
       - scripts/hwsim/test_cunit_mlo.py
+      - scripts/hwsim/prepare_mlo_ci_startup.py
       - tests/test_cunit_mlo_hwsim_runner.py
+      - tests/test_cunit_mlo_stage4.py
       - .github/workflows/cunit-mlo-hwsim.yml
   workflow_dispatch:
 
@@ -23,7 +27,7 @@ jobs:
       - name: Host-only Python regression
         run: |
           python3 -m compileall -q scripts tests
-          python3 -m unittest tests.test_cunit_mlo_hwsim_runner -v
+          python3 -m unittest tests.test_cunit_mlo_hwsim_runner tests.test_cunit_mlo_stage4 -v
       - name: Prepare isolated VM dependencies
         run: |
           sudo apt-get update -qq
@@ -37,6 +41,7 @@ jobs:
           git clone --no-checkout https://chromium.googlesource.com/chromiumos/third_party/hostap /tmp/cunit-hostap
           git -C /tmp/cunit-hostap checkout f1e9b5086718ad567dc40e3d5a1456534d51749f
           git -C /tmp/cunit-hostap apply "$GITHUB_WORKSPACE/patches/hostap/0001-hwsim-use-MLO-STATUS-without-mac80211-debugfs.patch"
+          python3 scripts/hwsim/prepare_mlo_ci_startup.py --hostap-tree /tmp/cunit-hostap
       - name: Inspect hwsim capability and driver sandbox
         run: |
           sudo python3 scripts/cunit_mlo_hwsim_runner.py probe --hostap-tree /tmp/cunit-hostap | tee /tmp/cunit-hwsim-preflight.json
@@ -44,25 +49,40 @@ jobs:
       - name: Build upstream hostap test binaries
         working-directory: /tmp/cunit-hostap/tests/hwsim
         run: ./build.sh
-      - name: Execute real upstream MLD association and recovery tests
+      - name: Execute segmented upstream MLD association and recovery tests
         run: |
-          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_runner.py run \
+          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_stage4.py \
             --hostap-tree /tmp/cunit-hostap \
             --output-dir /tmp/cunit-hwsim-smoke \
             --tests eht_mld_owe_two_links eht_mld_link_removal eht_mld_disassociate
-      - name: Attempt real virtual 5GHz/6GHz 160MHz MLD association
+      - name: Attempt virtual 5GHz/6GHz 160MHz MLD association and bidirectional IP
         run: |
-          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_runner.py run \
+          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_stage4.py \
             --hostap-tree /tmp/cunit-hostap \
             --output-dir /tmp/cunit-hwsim-wide \
             --sim-country CA --tests cunit_mlo_5g160_6g160
+      - name: Copy only readable SANITIZED evidence out of root-private output
+        if: always()
+        run: |
+          set -eu
+          dest="$RUNNER_TEMP/cunit-mlo-sanitized"
+          install -d -m 0700 "$dest"
+          for entry in \
+            "cunit-hwsim-preflight.json:preflight.json" \
+            "cunit-hwsim-smoke/kernel.json:smoke-kernel.json" \
+            "cunit-hwsim-wide/kernel.json:wide-kernel.json" \
+            "cunit-hwsim-smoke/summary.json:smoke-summary.json" \
+            "cunit-hwsim-wide/summary.json:wide-summary.json"; do
+            source_path="/tmp/${entry%%:*}"
+            safe_name="${entry#*:}"
+            if sudo test -f "$source_path"; then
+              sudo install -m 0644 "$source_path" "$dest/$safe_name"
+            fi
+          done
       - name: Upload SANITIZED summary only
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cunit-mlo-host-summary
-          path: |
-            /tmp/cunit-hwsim-preflight.json
-            /tmp/cunit-hwsim-smoke/summary.json
-            /tmp/cunit-hwsim-wide/summary.json
+          path: ${{ runner.temp }}/cunit-mlo-sanitized/
           if-no-files-found: ignore
