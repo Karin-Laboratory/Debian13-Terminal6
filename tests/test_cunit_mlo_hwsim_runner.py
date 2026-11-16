@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from scripts.cunit_mlo_hwsim_runner import (KNOWN_TESTS, completed_test,
                                             physical_wifi_present, sanitized_summary,
+                                            parse_ip_ping_marker,
                                             upstream_test_command, vm_probe)
 
 
@@ -50,6 +51,25 @@ class RunnerTests(unittest.TestCase):
         summary = sanitized_summary(p, {"cunit_mlo_5g160_6g160": "SMOKE_PASS"})
         self.assertEqual(summary["status"], "WIDE_MLD_SMOKE_PASS")
         self.assertEqual(summary["acceptance_v2"], "NOT_PROVEN")
+
+    def test_real_ping_marker_parses_only_measured_counts(self):
+        text = ("CUNIT_MLO_IP_BIDIRECTIONAL_PASS "
+                "tx_sta=6 rx_sta=5 tx_ap=6 rx_ap=6\\n")
+        record = parse_ip_ping_marker(text)
+        self.assertEqual(record["sta_to_ap"], {"sent": 6, "received": 5})
+        self.assertEqual(record["ap_to_sta"], {"sent": 6, "received": 6})
+        summary = sanitized_summary({"status": "READY", "kernel": "test"},
+                                    {"cunit_mlo_5g160_6g160": "SMOKE_PASS"},
+                                    record)
+        self.assertEqual(summary["status"], "WIDE_MLD_IP_PASS")
+        self.assertEqual(summary["acceptance_v2"], "NOT_PROVEN")
+
+    def test_ping_marker_rejects_missing_and_impossible_counts(self):
+        self.assertIsNone(parse_ip_ping_marker("PASS cunit_mlo_5g160_6g160\\n"))
+        self.assertIsNone(parse_ip_ping_marker(
+            "CUNIT_MLO_IP_BIDIRECTIONAL_PASS tx_sta=6 rx_sta=7 tx_ap=6 rx_ap=6"))
+        self.assertIsNone(parse_ip_ping_marker(
+            "CUNIT_MLO_IP_BIDIRECTIONAL_PASS tx_sta=6 rx_sta=0 tx_ap=6 rx_ap=6"))
 
     def test_first_failure_is_reported_without_raw_log(self):
         p = {"status": "READY", "kernel": "test"}
