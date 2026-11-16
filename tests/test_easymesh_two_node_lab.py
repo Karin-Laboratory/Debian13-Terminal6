@@ -83,7 +83,9 @@ class LabTests(unittest.TestCase):
             root = Path(tmp)
             source = root / "private.conf"
             dest = root / "stage"
-            source.write_text("backhaul_wire_iface=eth0\nwireless_interface_2=lab2\n")
+            source.write_text("backhaul_wire_iface=eth0\nwireless_interface_0=lab0\n"
+                              "wireless_interface_1=lab1\nwireless_interface_2=lab2\n"
+                              "wireless_interface_3=lab3\n")
             source.chmod(0o600)
             module.stage_private_platform_db(source, dest)
             output = dest / "lab/prplmesh_platform_db"
@@ -105,6 +107,25 @@ class LabTests(unittest.TestCase):
             source.chmod(0o644)
             with self.assertRaisesRegex(module.LabError, "mode 0600"):
                 module.stage_private_platform_db(source, dest)
+
+    def test_private_lab_requires_all_four_radio_indices_and_exact_wired_value(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "private.conf"
+            prefix = "wireless_interface_0=a0\nwireless_interface_1=a1\n"
+            suffix = "wireless_interface_2=a2\nwireless_interface_3=a3\n"
+            for name, bad in (
+                ("missing_radio3", "backhaul_wire_iface=eth0\n" + prefix),
+                ("commented_eth0", "#backhaul_wire_iface=eth0\n" + prefix + suffix),
+                ("different_iface", "backhaul_wire_iface=eth0X\n" + prefix + suffix),
+                ("duplicate_radio", "backhaul_wire_iface=eth0\n" +
+                    prefix + "wireless_interface_2=a0\nwireless_interface_3=a3\n"),
+            ):
+                with self.subTest(case=name):
+                    source.write_text(bad)
+                    source.chmod(0o600)
+                    with self.assertRaises(module.LabError):
+                        module.stage_private_platform_db(source, root / "out")
 
     @patch.object(module, "command", return_value="02:00:00:00:00:0b")
     def test_real_bridge_address_is_read_from_container(self, command):
