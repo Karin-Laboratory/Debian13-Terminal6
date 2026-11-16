@@ -5,6 +5,8 @@ on:
       - 'scripts/stage-public-mt6990-sources.py'
       - 'configs/public-mt6990-sources.json'
       - 'tests/test_stage_public_mt6990_sources.py'
+      - 'scripts/assemble-template-free-p25.py'
+      - 'tests/test_assemble_template_free_p25.py'
       - '.github/workflows/public-mt6990-source-stage.yml'
   workflow_dispatch:
 permissions:
@@ -18,7 +20,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Verify offline fail-closed behavior
-        run: python3 -m unittest discover -s tests -p 'test_stage_public_mt6990_sources.py' -v
+        run: |
+          python3 -m unittest discover -s tests -p 'test_stage_public_mt6990_sources.py' -v
+          python3 -m unittest discover -s tests -p 'test_assemble_template_free_p25.py' -v
       - name: Stage SHA-pinned PUBLIC source files into ephemeral runner only
         shell: bash
         run: |
@@ -28,8 +32,51 @@ jobs:
           import json, sys
           d=json.load(open(sys.argv[1], encoding="utf-8"))
           assert d["status"] == "PUBLIC_TEXT_STAGED_NOT_BOOT_VALIDATED"
-          assert len(d["files"]) == 15
-          print("PUBLIC_MT6990_SOURCE_BLOBS_15_VERIFIED")
+          assert len(d["files"]) == 16
+          print("PUBLIC_MT6990_SOURCE_BLOBS_16_VERIFIED")
           print("NO_KERNEL_BUILD_NO_P25_NO_DEVICE_BOOT")
           PY
           # No GitHub Actions upload, caches, firmware, signer or device access.
+      - name: Manufacture template-free 32MiB UNSIGNED synthetic fixture (not a device image)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/synthetic-p25"
+          python3 - "$RUNNER_TEMP/synthetic-p25" <<'PY'
+          from pathlib import Path
+          import gzip, json, struct, sys
+          p=Path(sys.argv[1])
+          cpio=gzip.compress(b"rootfs_data\\0synthetic-test-only", mtime=0)
+          image=bytearray(8192)
+          image[56:60]=b"ARM\\x64"
+          image[1024:1024+len(cpio)]=cpio
+          (p/"Image").write_bytes(image)
+          (p/"initramfs.cpio.gz").write_bytes(cpio)
+          dtb=bytearray(40)
+          struct.pack_into(">II",dtb,0,0xd00dfeed,40)
+          (p/"test.dtb").write_bytes(dtb)
+          meta={"cmdline":"root=PARTLABEL=rootfs_data",
+                "dtb_addr":32505856,"header_size":1660,"header_version":2,
+                "kernel_addr":0,"name":"mt6990","os_version":0,
+                "page_size":2048,"ramdisk_addr":16777216,
+                "second_addr":15728640,"tags_addr":0}
+          (p/"profile.json").write_text(json.dumps(meta))
+          PY
+          python3 scripts/assemble-template-free-p25.py \
+            --source-stage "$RUNNER_TEMP/public-mt6990-stage" \
+            --profile "$RUNNER_TEMP/synthetic-p25/profile.json" \
+            --kernel-image "$RUNNER_TEMP/synthetic-p25/Image" \
+            --initramfs-cpio-gz "$RUNNER_TEMP/synthetic-p25/initramfs.cpio.gz" \
+            --dtb "$RUNNER_TEMP/synthetic-p25/test.dtb" \
+            --output "$RUNNER_TEMP/synthetic-p25/candidate"
+          python3 - "$RUNNER_TEMP/synthetic-p25/candidate" <<'PY'
+          from pathlib import Path
+          import json,sys
+          p=Path(sys.argv[1])
+          d=json.loads((p/"p25-receipt.json").read_text())
+          assert d["status"] == "UNSIGNED_TEMPLATE_FREE_NOT_LK_VALIDATED"
+          assert (p/"p25-unsigned.img").stat().st_size == 33554432
+          assert (p/"p25-unsigned.img").read_bytes()[:8] == b"ANDROID!"
+          print("SYNTHETIC_TEMPLATE_FREE_32M_P25_PASS_NOT_BOOT_VALIDATED")
+          PY
+          # Synthetic image is ephemeral; no artifact upload, signing or device access.
