@@ -54,11 +54,20 @@
 
 独立ARM64ビルドは`CONFIG_MAC80211_MESH=y`、`CONFIG_MT7996E=m`、`CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y`を含む設定で`olddefconfig`変更なし、`Image`と必要なmt76 modulesのビルドがPASS。正確なartifact SHAとsource replay receiptはprivate領域に保管する。これはホストビルド成果で、P25署名、実機起動、MESH_POINT登録、RF通信を証明しない。
 
+### 2026-11-16 実機再確認と候補イメージ
+
+- raspi4経由SSHでC号機を読み取り確認。slot A、kernel `6.18.63-debian-t6-proto2 #4`、有線`192.168.3.1/24`、default route `192.168.3.71`、P44 ext4 RW、1.7GB空き。`boot_a`の実測SHA256は`8457ae5b31d38a754442ed0826544e19cf262059d8578b1eb0218d1cc3f2beb8`。eMMC actual clock `94,999,965 Hz`、HS400/8-bit/1.8V、`cmdq_en=0`相当の既存no-CQE状態。採取時のkernel logでDATA TIMEOUT/CQE recovery/I/O error/ext4 errorは0件。
+- 期待と異なり、稼働中`/proc/config.gz`には`# CONFIG_MAC80211_MESH is not set`。`iw phy phy0 info`のsupported modesに`mesh point`はなく、無送信の`iw dev wlp1s0 interface add mesh-probe type mp`は`Operation not supported (-95)`で失敗した。試験interfaceは生成されず、既存`wlp1s0`と管理経路への変更なし。これはhost buildの`CONFIG_MAC80211_MESH=y`が実機に未適用であることを示す。
+- C号機に`hostapd`、`wpa_supplicant`、`prplmesh`、`ieee1905d`実行ファイルは見つからず、起動中のWi-Fi/EasyMesh関連serviceもなし。IEEE 1905や無線実通信は未実施。
+- 現行global regdomainは`00`、起動ログは`regulatory.db is malformed or signature is missing/invalid`、6GHz全チャネルdisabled。6GHz送信なし。
+- regdb署名とmeshを含むunsigned P25候補は生成・構造検証済み。サイズ32MiB、SHA256 `83478d8804172777c9dc69fd35a1e3931257a130a5c803e588b6e286c390cd2e`。この候補には正確なSHA向け署名がまだなく、未署名・未適用・未起動である。署名済み旧候補の署名を流用しない。
+- 現在のprotected signing workflowは過去の別SHA/DTB/一回限りmarkerへ固定されているため、この新候補を署名できない。新候補を正確なdigest・DTB・initramfs・専用one-shot markerに固定した同等以上の保護workflowを用意し、既存署名系のsource pins、shared lock、独立RSA-PSS検証を維持する必要がある。新候補の署名とboot_a書込みはまだ行っていない。
+
 実機書込み前の残ゲート:
 
 1. 更新した`replay_80211s_kernel_source.py`と再構成ツールを含む統合ブランチCIをPASSさせる。
-2. ビルドImage・modules、100MHz/no-CQE DT、既存initramfsと署名済みregdbの組合せを検証し、正確なunsigned P25を製造する。
-3. そのP25の正確なSHAに対応する保護署名と独立receiptを確認し、slot B起動・電源サイクル復旧条件が引き続き使えることを照合する。boot_a以外、boot_b、校正/OEM領域は書かない。
+2. ビルドImage・modules、100MHz/no-CQE DT、署名済みregdbの組合せを検証し、正確なunsigned P25を製造する。現在の候補は構造検証済み。
+3. 新候補SHAに固定した保護署名workflowと独立receiptを確立する。現在の旧workflowは異なるdigest/DTBに固定され、新候補には使えない。署名後、slot B起動・電源サイクル復旧条件が引き続き使えることを照合する。boot_a以外、boot_b、校正/OEM領域は書かない。
 4. 実機へ接続できる管理経路から適用後、reboot後のMESH_POINT、160MHz/no-320、regdb、eMMC、SSHをread-onlyで確認する。
 5. 独立802.11s peerまたはMLO端末を用いた実通信を行う。EasyMeshは実control socketと2ノードpeerが揃うまでhost成果と分ける。
 
