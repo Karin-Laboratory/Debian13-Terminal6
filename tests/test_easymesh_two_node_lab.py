@@ -60,6 +60,73 @@ class LabTests(unittest.TestCase):
                                      'ip link set dev br-lan address "$T6_AL_MAC" && exec start-agent'])
         self.assertNotIn("--privileged", argv)
 
+    @patch.object(module, "command")
+    def test_ambiorix_ubus_startup_is_isolated_and_explicit(self, command):
+        module.run_container("agent", "isolated", "prplmesh:6.0.1", "start-agent",
+                             Path("/tmp/agent-install"), bytes.fromhex("02000000000b"),
+                             "/tmp/build/install", amx_ubus=True)
+        argv = command.call_args.args[0]
+        self.assertIn("INSTALL_DIR=/tmp/build/install", argv)
+        self.assertIn("mod-amxb-ubus.so", argv[-1])
+        self.assertIn("ubusd -s /var/run/ubus.sock", argv[-1])
+        self.assertIn('test -S /var/run/ubus.sock', argv[-1])
+        self.assertNotIn("--privileged", argv)
+        self.assertNotIn("--network=host", argv)
+
+    def test_ambiorix_ubus_requires_private_stage_and_al_identity(self):
+        with self.assertRaisesRegex(module.LabError, "staged install"):
+            module.run_container("agent", "isolated", "image:1", "start-agent",
+                                 amx_ubus=True)
+
+    def test_private_platform_db_is_staged_only_in_container_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "private.conf"
+            dest = root / "stage"
+            source.write_text("backhaul_wire_iface=eth0\nwireless_interface_0=lab0\n"
+                              "wireless_interface_1=lab1\nwireless_interface_2=lab2\n"
+                              "wireless_interface_3=lab3\n")
+            source.chmod(0o600)
+            module.stage_private_platform_db(source, dest)
+            output = dest / "lab/prplmesh_platform_db"
+            self.assertTrue(output.is_file())
+            self.assertEqual(output.read_bytes(), source.read_bytes())
+            self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(source.stat().st_mode & 0o777, 0o600)
+
+    def test_private_platform_db_rejects_host_interface_and_bad_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "private.conf"
+            dest = root / "stage"
+            source.write_text("backhaul_wire_iface=eth1\n")
+            source.chmod(0o600)
+            with self.assertRaisesRegex(module.LabError, "Docker eth0"):
+                module.stage_private_platform_db(source, dest)
+            source.write_text("backhaul_wire_iface=eth0\n")
+            source.chmod(0o644)
+            with self.assertRaisesRegex(module.LabError, "mode 0600"):
+                module.stage_private_platform_db(source, dest)
+
+    def test_private_lab_requires_all_four_radio_indices_and_exact_wired_value(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "private.conf"
+            prefix = "wireless_interface_0=a0\nwireless_interface_1=a1\n"
+            suffix = "wireless_interface_2=a2\nwireless_interface_3=a3\n"
+            for name, bad in (
+                ("missing_radio3", "backhaul_wire_iface=eth0\n" + prefix),
+                ("commented_eth0", "#backhaul_wire_iface=eth0\n" + prefix + suffix),
+                ("different_iface", "backhaul_wire_iface=eth0X\n" + prefix + suffix),
+                ("duplicate_radio", "backhaul_wire_iface=eth0\n" +
+                    prefix + "wireless_interface_2=a0\nwireless_interface_3=a3\n"),
+            ):
+                with self.subTest(case=name):
+                    source.write_text(bad)
+                    source.chmod(0o600)
+                    with self.assertRaises(module.LabError):
+                        module.stage_private_platform_db(source, root / "out")
+
     @patch.object(module, "command", return_value="02:00:00:00:00:0b")
     def test_real_bridge_address_is_read_from_container(self, command):
         verifier = module.load_verifier()
@@ -96,6 +163,20 @@ class LabTests(unittest.TestCase):
     def test_unsupported_elf_architecture_fails_closed(self, command, which):
         with self.assertRaisesRegex(module.LabError, "unsupported"):
             module.stage_architecture(Path("/private/install"))
+
+    @patch.object(module.shutil, "which", return_value="/usr/bin/readelf")
+    @patch.object(module, "command")
+    def test_ambiorix_backend_elf_must_match_native_runtime(self, command, which):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plugin = root / "lib/amxb/mod-amxb-ubus.so"
+            plugin.parent.mkdir(parents=True)
+            plugin.write_bytes(b"test-module-marker")
+            command.side_effect = (["Machine: AArch64"] * 3 +
+                                   ["Machine: Advanced Micro Devices X86-64"])
+            with self.assertRaisesRegex(module.LabError, "mixed or unsupported"):
+                module.stage_architecture(root)
+            self.assertEqual(command.call_count, 4)
 
     @patch.object(module.shutil, "which", return_value=None)
     def test_no_docker_fails_before_side_effect(self, which):

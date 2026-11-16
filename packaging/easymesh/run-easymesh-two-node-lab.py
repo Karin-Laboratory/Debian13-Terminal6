@@ -59,13 +59,57 @@ def validate_install_tree(path: Path) -> Path:
     return root
 
 
+def stage_private_platform_db(source: Path, destination_install: Path) -> None:
+    """Copy one private node configuration only into a disposable install tree."""
+    info = source.lstat()
+    if (source.is_symlink() or not source.is_file()
+            or info.st_uid != os.geteuid() or info.st_mode & 0o077
+            or info.st_size > 1024 * 1024):
+        raise LabError("private platform DB must be owned by caller, mode 0600")
+    content = source.read_bytes()
+    if not content or b"\x00" in content:
+        raise LabError("invalid private platform DB")
+    # Accept only effective key=value lines, not comments or substring matches.
+    # This protects the lab from silently retrying missing radio slots 2/3.
+    text = content.decode("utf-8")
+    entries = {}
+    for line in text.splitlines():
+        value = line.strip()
+        if not value or value.startswith("#"):
+            continue
+        if "=" not in value:
+            continue
+        key, setting = [part.strip() for part in value.split("=", 1)]
+        if key in entries:
+            raise LabError("duplicate lab platform DB key: " + key)
+        entries[key] = setting
+    if entries.get("backhaul_wire_iface") != "eth0":
+        raise LabError("lab platform DB must explicitly track Docker eth0")
+    radios = [entries.get("wireless_interface_" + str(i), "") for i in range(4)]
+    if (any(not re.fullmatch(r"[A-Za-z0-9_.-]{1,15}", item) for item in radios)
+            or len(set(radios)) != 4):
+        raise LabError("lab platform DB requires four distinct mapped radio slots 0..3")
+    if "@RADIO" in text or "@STA" in text or "REPLACE_WITH" in text:
+        raise LabError("unconfigured lab platform DB placeholder")
+    target = destination_install / "lab/prplmesh_platform_db"
+    target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    target.write_bytes(content)
+    target.chmod(0o600)
+
+
 def stage_architecture(root: Path) -> str:
     """Prevent feeding an AArch64 cross-build to an x86 Docker runner (or vice versa)."""
     if not shutil.which("readelf"):
         raise LabError("readelf required for runner/ELF architecture preflight")
     machines = set()
-    for binary in ("beerocks_agent", "beerocks_controller", "ieee1905_transport"):
-        result = command(["readelf", "-h", str(root / "bin" / binary)])
+    binaries = [root / "bin" / name for name in
+                ("beerocks_agent", "beerocks_controller", "ieee1905_transport")]
+    amx_module = root / "lib/amxb/mod-amxb-ubus.so"
+    if amx_module.is_file():
+        # The backend is dlopen()'d at runtime; its machine type must agree.
+        binaries.append(amx_module)
+    for binary in binaries:
+        result = command(["readelf", "-h", str(binary)])
         match = re.search(r"(?m)^\s*Machine:\s*(.+?)\s*$", result)
         if not match:
             raise LabError("ELF machine unavailable from staged prplMesh binary")
@@ -89,7 +133,8 @@ def validate_install_target(target: str) -> str:
 
 def run_container(name: str, network: str, image: str, startup: str,
                   install_tree: Path | None = None, bridge_al: bytes | None = None,
-                  install_target: str = "/opt/t6-prplmesh") -> str:
+                  install_target: str = "/opt/t6-prplmesh",
+                  amx_ubus: bool = False) -> str:
     argv = [
         "docker", "run", "--detach", "--rm", "--name", name,
         "--network", network, "--cap-add=NET_RAW", "--cap-add=NET_ADMIN",
@@ -103,6 +148,8 @@ def run_container(name: str, network: str, image: str, startup: str,
         target = validate_install_target(install_target)
         argv += ["--mount", f"type=bind,source={install_tree},target={target}",
                  "--env", f"INSTALL_DIR={target}"]
+    if amx_ubus and (install_tree is None or bridge_al is None):
+        raise LabError("AMX UBus requires staged install and pinned isolated AL identity")
     if bridge_al is not None:
         if install_tree is None:
             raise LabError("fixed bridge identity requires the upstream install-tree runner")
@@ -111,8 +158,29 @@ def run_container(name: str, network: str, image: str, startup: str,
         # before starting prplMesh. Re-apply on Agent restart.
         al = ":".join(f"{byte:02x}" for byte in bridge_al)
         argv += ["--env", f"T6_AL_MAC={al}"]
-        return command([*argv, image, "-c",
-                        'ip link set dev br-lan address "$T6_AL_MAC" && exec ' + startup])
+        if amx_ubus:
+            # Only the disposable container interfaces are modified; its
+            # Docker eth0 is attached to the local bridge for wired 1905.
+            # Install a separate, private platform DB for each node.
+            command_prefix = (
+                '(ip link show dev br-lan >/dev/null 2>&1 || '
+                'ip link add name br-lan type bridge) && '
+                'ip link show dev eth0 >/dev/null && '
+                'ip link set dev eth0 master br-lan && '
+                'ip link set dev eth0 up && '
+                'ip link set dev br-lan address "$T6_AL_MAC" && '
+                'ip link set dev br-lan up && '
+                'mkdir -p /tmp/beerocks /var/run && '
+                'cp "$INSTALL_DIR/lab/prplmesh_platform_db" '
+                '/tmp/beerocks/prplmesh_platform_db && '
+                'chmod 600 /tmp/beerocks/prplmesh_platform_db && '
+                'test -r "$INSTALL_DIR/lib/amxb/mod-amxb-ubus.so" && '
+                'command -v ubusd >/dev/null && '
+                '(ubusd -s /var/run/ubus.sock >/dev/null 2>&1 &) && '
+                'sleep 1 && test -S /var/run/ubus.sock && ')
+        else:
+            command_prefix = 'ip link set dev br-lan address "$T6_AL_MAC" && '
+        return command([*argv, image, "-c", command_prefix + 'exec ' + startup])
     return command([*argv, image, startup])
 
 
@@ -245,6 +313,16 @@ def lab(args) -> dict:
     source_tree = validate_install_tree(args.install_tree) if args.install_tree else None
     if source_tree is not None:
         validate_install_target(args.install_target)
+    if args.amx_ubus:
+        if source_tree is None:
+            raise LabError("--amx-ubus requires --install-tree")
+        backend = source_tree / "lib/amxb/mod-amxb-ubus.so"
+        if not backend.is_file() or not backend.stat().st_size:
+            raise LabError("missing staged AMXRT UBus backend module")
+        if not args.controller_platform_db or not args.agent_platform_db:
+            raise LabError("--amx-ubus requires two distinct private platform DB files")
+        if args.controller_platform_db.resolve() == args.agent_platform_db.resolve():
+            raise LabError("Controller and Agent must use separate platform DB sources")
     os.umask(0o077)
     if args.output.exists() or args.output.is_symlink():
         raise LabError("choose a new private output directory")
@@ -272,6 +350,9 @@ def lab(args) -> dict:
         agent_tree = args.output / "agent-install"
         shutil.copytree(source_tree, controller_tree, symlinks=True)
         shutil.copytree(source_tree, agent_tree, symlinks=True)
+        if args.amx_ubus:
+            stage_private_platform_db(args.controller_platform_db, controller_tree)
+            stage_private_platform_db(args.agent_platform_db, agent_tree)
     tag = secrets.token_hex(3)
     network, bridge = "t6mesh-" + tag, "t6m" + tag
     controller, agent = network + "-c", network + "-a"
@@ -302,10 +383,11 @@ def lab(args) -> dict:
             nonlocal ctrl_al, agent_al
             run_container(controller, network, args.controller_image, "start-controller-agent",
                           controller_tree, ctrl_al if source_tree is not None else None,
-                          args.install_target)
+                          args.install_target, amx_ubus=args.amx_ubus)
             resources["controller"] = True
             run_container(agent, network, args.agent_image, "start-agent", agent_tree,
-                          agent_al if source_tree is not None else None, args.install_target)
+                          agent_al if source_tree is not None else None,
+                          args.install_target, amx_ubus=args.amx_ubus)
             resources["agent"] = True
             if not (container_running(controller) and container_running(agent)):
                 raise LabError("at least one node stopped before initial capture")
@@ -352,7 +434,8 @@ def lab(args) -> dict:
 
         def restart_agent():
             run_container(agent, network, args.agent_image, "start-agent", agent_tree,
-                          agent_al if source_tree is not None else None)
+                          agent_al if source_tree is not None else None,
+                          args.install_target, amx_ubus=args.amx_ubus)
             resources["agent"] = True
             if not container_running(agent) or not wait_for_processes(
                     agent, ("ieee1905_transport", "beerocks_agent")):
@@ -411,6 +494,12 @@ def main() -> int:
                     help="in-container CMAKE_INSTALL_PREFIX; use the compiled path if absolute")
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--controller-db-command", help="optional in-container CLI command, e.g. beerocks_cli -c bml_conn_map")
+    ap.add_argument("--amx-ubus", action="store_true",
+                    help="isolated lab: require staged backend and per-node ubusd")
+    ap.add_argument("--controller-platform-db", type=Path,
+                    help="private controller node DB; copied to disposable container tree")
+    ap.add_argument("--agent-platform-db", type=Path,
+                    help="private agent node DB; copied to disposable container tree")
     ap.add_argument("--duration", type=int, default=60)
     ap.add_argument("--outage", type=int, default=45)
     ap.add_argument("--execute", action="store_true", help="permit temporary Docker network/containers")

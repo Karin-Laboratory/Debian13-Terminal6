@@ -28,6 +28,22 @@ station_ifaces=sta24,sta5
         self.assertIn("wireless.ap24.psk=synthetic-only", rendered)
         self.assertNotIn("@RADIO", rendered)
 
+    def test_optional_extra_radios_map_indices_two_and_three(self):
+        rendered = module.render_text("wireless_interface_0=@RADIO0@\n",
+            "[node]\nradio_ifaces=ap0,ap1\nstation_ifaces=sta0,sta1\n"
+            "radio_ifaces_extra=lab2,lab3\n")
+        self.assertIn("wireless_interface_0=ap0", rendered)
+        self.assertIn("wireless_interface_2=lab2", rendered)
+        self.assertIn("wireless_interface_3=lab3", rendered)
+
+    def test_extra_radio_mapping_overlap_and_partial_pair_rejected(self):
+        base = "[node]\nradio_ifaces=ap0,ap1\nstation_ifaces=sta0,sta1\n"
+        for suffix in ("radio_ifaces_extra=ap0,lab3\n",
+                       "radio_ifaces_extra=lab2\n",
+                       "radio_ifaces_extra=lab2,lab2\n"):
+            with self.subTest(suffix=suffix), self.assertRaises(ValueError):
+                module.render_text("@RADIO0@", base + suffix)
+
     def test_bad_radio_count_fails(self):
         with self.assertRaisesRegex(ValueError, "exactly two"):
             module.render_text("@RADIO0@", "[node]\nradio_ifaces=ap0\nstation_ifaces=sta0,sta1\n")

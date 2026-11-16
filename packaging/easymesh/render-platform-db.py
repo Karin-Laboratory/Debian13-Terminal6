@@ -26,12 +26,25 @@ def render_text(template: str, node_text: str) -> str:
     config.read_string(node_text)
     radios = names(config, "radio_ifaces")
     stations = names(config, "station_ifaces")
-    if set(radios) & set(stations):
-        raise ValueError("radio_ifaces and station_ifaces must be distinct")
+    # Additional radio indices are optional. They are needed by some upstream
+    # Agent builds even when wired 1905 is the only feature under test.
+    extra_raw = config.get("node", "radio_ifaces_extra", fallback="").strip()
+    extra = []
+    if extra_raw:
+        extra = [value.strip() for value in extra_raw.split(",")]
+        if (len(extra) != 2 or any(not IFNAME_RE.fullmatch(value) for value in extra)):
+            raise ValueError("radio_ifaces_extra must contain exactly two valid interface names")
+    if len(set(radios + stations + extra)) != len(radios + stations + extra):
+        raise ValueError("radio/station/extra interface names must be distinct")
     for i in range(2):
         template = template.replace(f"@RADIO{i}@", radios[i]).replace(f"@STA{i}@", stations[i])
     if "@RADIO" in template or "@STA" in template or "REPLACE_WITH" in template:
         raise ValueError("private platform database still contains an unconfigured placeholder")
+    if extra:
+        if not template.endswith("\n"):
+            template += "\n"
+        for i, iface in enumerate(extra, start=2):
+            template += f"wireless_interface_{i}={iface}\n"
     return template
 
 

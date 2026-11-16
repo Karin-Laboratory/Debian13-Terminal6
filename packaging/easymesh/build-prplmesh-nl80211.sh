@@ -93,6 +93,22 @@ if [ -n "$toolchain_file" ]; then
     cmake_library_path="$amx_libdir;$target_sysroot/usr/lib/aarch64-linux-gnu;$target_sysroot/lib/aarch64-linux-gnu;$target_sysroot/usr/lib"
 fi
 
+# Stage 4 isolated wired-1905 lab optionally enables the upstream Ambiorix
+# UBus transport.  libamxb.so by itself does not provide a loadable backend.
+# Keep the opt-in explicit so existing C-unit builds do not silently change.
+amx_lab_ubus=${PRPLMESH_AMX_LAB_UBUS:-0}
+amx_ubus_plugin=
+if [ "$amx_lab_ubus" = 1 ]; then
+    amx_ubus_plugin=$(find "$amx_prefix" -type f -name 'mod-amxb-ubus.so' -print -quit)
+    if [ -z "$amx_ubus_plugin" ]; then
+        echo "missing mod-amxb-ubus.so: libamxb alone is not an AMXRT backend" >&2
+        exit 1
+    fi
+elif [ "$amx_lab_ubus" != 0 ]; then
+    echo "PRPLMESH_AMX_LAB_UBUS must be 0 or 1" >&2
+    exit 2
+fi
+
 set -- -S "$src" -B "$build" -G Ninja \
     -DTARGET_PLATFORM=linux \
     -DBWL_TYPE=NL80211 \
@@ -113,6 +129,14 @@ set -- -S "$src" -B "$build" -G Ninja \
 if [ -n "$toolchain_file" ]; then
     set -- "$@" "-DCMAKE_TOOLCHAIN_FILE=$toolchain_file"
 fi
+if [ "$amx_lab_ubus" = 1 ]; then
+    # From prplOS feed-prpl's AMBIORIX_BACKEND_PATH/BUS_URI convention.
+    # The isolated runner must mount install at the compiled prefix and launch
+    # a functioning ubusd at /var/run/ubus.sock in *each* namespace.
+    amx_target_backend="$build/install/lib/amxb/mod-amxb-ubus.so"
+    bus_defines="-DAMBIORIX_BACKEND_PATH=\\\"$amx_target_backend\\\" -DAMBIORIX_BUS_URI=\\\"ubus:/var/run/ubus.sock\\\""
+    set -- "$@" "-DENABLE_NBAPI=ON" "-DUBUS_SOCK=$bus_defines"
+fi
 cmake "$@"
 mkdir -p "$build/stage"
 DESTDIR="$build/stage" cmake --build "$build" --target install --parallel "${JOBS:-4}"
@@ -130,6 +154,14 @@ for lib in libamxc libamxp libamxd libamxb libamxs libamxo libamxj libamxrt; do
         exit 1
     fi
 done
+if [ "$amx_lab_ubus" = 1 ]; then
+    # Copy the actual backend module, not only its core libamxb dependency.
+    # The loader and ubus socket must still be exercised at runtime.
+    install -d "$staged_prefix/lib/amxb"
+    cp -L "$amx_ubus_plugin" "$staged_prefix/lib/amxb/mod-amxb-ubus.so"
+    test -s "$staged_prefix/lib/amxb/mod-amxb-ubus.so"
+    echo "AMXRT_UBUS_PLUGIN=STAGED runtime_load=NOT_PROVEN"
+fi
 if [ "${PRPLMESH_BUILD_TESTS:-ON}" = ON ]; then
     ctest --test-dir "$build" --output-on-failure
 else
