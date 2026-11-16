@@ -16,7 +16,7 @@ index 2653570..1eac659 100644
 +#include "bpl_cfg_linux.h"
 +
 @@ -30,0 +35,15 @@ bool radio_num_to_wlan_iface_name(const int32_t radio_num, std::string &iface_st
-+    if (radio_num < 0 || radio_num > 1) {
++    if (radio_num < 0 || radio_num > 3) {
 +        return false;
 +    }
 +    const std::string key = "wireless_interface_" + std::to_string(radio_num);
