@@ -4,6 +4,10 @@
 
 ## 第4段階の実CI受入記録
 
+**最終確認**: [Actions #43808587584](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808587584) は全3ジョブSUCCESS（2-node、3-node独立VM×2）。監視器付き復旧は5.094 / 5.111秒、両VMで`HWSIM_PCAP_AUDIT=PASS`、`HWSIM_AMPE_FRAME_PROTECTION=ONWIRE_MIC_FORMAT_PASS_CRYPTO_MIC_UNVERIFIED`。これは独立AES-SIV MIC検証ではなく保護形式のフレーム観測である。A/C実機でのRF通信は未実施。
+
+
+
 - [Actions #43808405316](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808405316) **全3ジョブSUCCESS**。2-node smokeはSAE-configured peering、双方向IPがPASS。独立2VMの3-nodeではwmediumdでA-C遮断、HWMP A↔C next hop B、双方向ping、B停止時の断、復旧後のpeer/IP/HWMPをすべて確認。
 - `mesh_peer_autorejoin.py`の監視器がBのDOWN→UPを検知し、`mesh_group_remove/add`を**無人実行**。SUPERVISED_AUTO復旧2/2 PASS、B UP後 5.114 / 5.095 秒、復旧後20/20 ping・0% loss、RTT平均 2.511 / 2.047ms。**native自動復旧をPASSとはしない**（監視器ありの試験なので今回はNOT TESTED、PR #11ではnative FAIL）。
 - `hwsim0`で取得した一時PCAPを公開せず、別処理でSAE auth algorithm 3、Self-protected Mesh Peering Open/Confirmの**MIC IE ID 140、16バイト**、Protected-bit付きDataを2送信元で確認。`HWSIM_PCAP_AUDIT=PASS` 2/2。**AES-SIVのMICを独立復号・暗号学的検証したものではない**。
