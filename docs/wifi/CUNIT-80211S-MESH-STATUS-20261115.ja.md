@@ -81,6 +81,13 @@ mesh support config、`iw phy` capabilityまたはmesh interface作成だけで�
 - 既存テストを再実行：`python3 -m unittest discover -s tests -v` 2/2 PASS、compileall PASS、hwsim smoke PASS（SAE-configured 2-node peer、双方向ping、2437 MHz）、shell syntax PASS、`git diff --check` PASS。これは物理MT7996/MT7990、3-node HWMP、実機kernel provenanceを証明しない。
 - Build provenance blockerを解消するには、PR #9と同じvendor kernel sourceの完全なtar/commitと、PR #9 patch series・config・toolchainを結びつけるinput receiptが必要。これが揃うまではPR #11の次段階であるP25製造・署名・実機bootを行わない。
 
+## 2026-11-16: source replay / 3-node implementation (host-only, unverified)
+
+- Added [offline source replay and optional arm64 build gate](../../scripts/replay_80211s_kernel_source.py), with input inventory tests. This can only PASS if a complete legitimate vendor/board patch series plus PR #9 reconstruct the exact private tree; the missing series is **not** reconstructed or certified by this change.
+- Added [wmediumd-isolated 3-node SAE/HWMP test](../../scripts/run_80211s_hwsim_3node.sh). It enforces A-B-C only, checks no A-C direct peer, both HWMP next-hop directions through B, intermediate-node shutdown/recovery, and ping loss/latency. The test is **not yet executed**; neither 3-node PASS nor independent AMPE frame protection can be claimed.
+- Added [runbook and C-unit acceptance gates](CUNIT-80211S-REPLAY-HWSIM3-20261116.ja.md) and branch-scoped host static/unit CI.
+- Source provenance is still **BLOCKED** pending a complete patch manifest and verified independent rebuild. No P25 packaging/signing, C-unit write, RF test, or reboot occurred in this change.
+
 ## 参照
 
 - [PR #6: C-unit Wi-Fi 7/6GHz audit](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/6)
