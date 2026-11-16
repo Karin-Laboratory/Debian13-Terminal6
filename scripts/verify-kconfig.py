@@ -68,6 +68,16 @@ if __name__ == "__main__":
     if a.lean:
         absent += lean_problems(cfg)
     if absent:
+        if a.lean:
+            # Fail-closed troubleshooting without exposing kernel binaries,
+            # serial identifiers, credentials or private build inputs.
+            keys = ("ARM64_VA_BITS", "ARM64_VA_BITS_39", "ARM64_VA_BITS_48",
+                    "ARM64_VA_BITS_52", "PAGE_SIZE_4KB", "ARM64_4K_PAGES")
+            values = dict(line.split("=", 1) for line in cfg.splitlines()
+                          if line.startswith("CONFIG_") and "=" in line)
+            print("LEAN_KCONFIG_SELECTED_CHOICES " +
+                  " ".join(f"CONFIG_{key}={values.get('CONFIG_' + key, 'n')}"
+                           for key in keys))
         raise SystemExit("KCONFIG_FAIL: " + ", ".join(absent))
     print("DEBIAN_T6_REQUIRED_KCONFIG_PASS")
     if a.lean:
