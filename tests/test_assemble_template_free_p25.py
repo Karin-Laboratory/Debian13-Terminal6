@@ -6,6 +6,7 @@ from pathlib import Path
 import unittest
 import struct
 import hashlib
+import tempfile
 
 P = Path(__file__).resolve().parents[1] / "scripts/assemble-template-free-p25.py"
 s = importlib.util.spec_from_file_location("template_free_p25", P)
@@ -84,6 +85,21 @@ class TestTemplateFreeP25(unittest.TestCase):
         struct.pack_into(">II", fdt, 0, 0xd00dfeed, 40)
         with self.assertRaises(ValueError):
             m.aosp_dtb_table(bytes(fdt))
+
+    def test_real_size_source_image_allowed_but_unbounded_rejected(self):
+        # An actual 6.18.63 network Image was 51,927,552 bytes raw
+        # and only 16,985,921 bytes after gzip. Test sparse-file guard.
+        with tempfile.TemporaryDirectory() as td:
+            sample=Path(td)/"arm64-Image"
+            with sample.open("wb") as out:
+                out.truncate(51_927_552)
+            self.assertEqual(m.MAX_ARM64_IMAGE_SIZE, 128*1024*1024)
+            self.assertEqual(len(m.require_file(sample, m.MAX_ARM64_IMAGE_SIZE)),
+                             51_927_552)
+            with sample.open("r+b") as out:
+                out.truncate(m.MAX_ARM64_IMAGE_SIZE + 1)
+            with self.assertRaisesRegex(ValueError, "oversized input"):
+                m.require_file(sample, m.MAX_ARM64_IMAGE_SIZE)
 
     def test_blob_lock(self):
         self.assertEqual(len(m.PACKER_BLOB), 40)
