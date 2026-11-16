@@ -1,0 +1,37 @@
+name: Public MT7990 OTP patch applicability preflight
+on:
+  push:
+    branches:
+      - codex/public-p25-terminal6-capable-35m-20261117
+    paths:
+      - .github/workflows/terminal6-mt7990-patch-preflight.yml
+      - patches/mt7990-public-otp-calfree-timeout.patch
+permissions:
+  contents: read
+jobs:
+  patch-applicability:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check public PR9 MT7990 OTP patch on pinned Linux 6.18.63 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/mt7990-upstream-compat"
+          mkdir -p "$work/drivers/net/wireless/mediatek/mt76/mt7996"
+          for path in mt7996.h eeprom.c mcu.c init.c; do
+            curl -fsSL --retry 2 --max-time 70 \
+              "https://raw.githubusercontent.com/gregkh/linux/v6.18.63/drivers/net/wireless/mediatek/mt76/mt7996/$path" \
+              -o "$work/drivers/net/wireless/mediatek/mt76/mt7996/$path"
+          done
+          cd "$work"
+          git init -q
+          git apply --check "$GITHUB_WORKSPACE/patches/mt7990-public-otp-calfree-timeout.patch"
+          git apply "$GITHUB_WORKSPACE/patches/mt7990-public-otp-calfree-timeout.patch"
+          grep -F 'mt7996_mcu_get_cal_free_data' drivers/net/wireless/mediatek/mt76/mt7996/mcu.c
+          grep -F 'mdev->mcu.timeout = 30 * HZ' drivers/net/wireless/mediatek/mt76/mt7996/mcu.c
+          echo 'PINNED_6_18_63_MT7990_OTP_PUBLIC_SOURCE_PATCH_APPLICABILITY_PASS'
+      # This only checks patch applicability. Runtime MT7990 firmware and PHY remain untested.
