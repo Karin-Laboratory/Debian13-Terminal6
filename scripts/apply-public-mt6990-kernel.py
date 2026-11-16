@@ -93,7 +93,7 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
             if patch_text.count(anchor) != 1 or "LG6851F board has fixed rails" not in patch_text:
                 raise ValueError("donor MMC patch structure changed")
             patch_text = patch_text.split(anchor, 1)[0]
-        cmd = ["git", "-C", str(kernel), "apply"]
+        cmd = ["git", "-C", str(kernel), "apply", "--recount"]
         check = subprocess.run(cmd + ["--check", "-"], input=patch_text,
                                capture_output=True, text=True)
         if check.returncode:
