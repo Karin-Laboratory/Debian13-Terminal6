@@ -4,10 +4,13 @@ on:
   push:
     branches:
       - codex/cunit-mlo-radio-map-20261115
+      - codex/cunit-mlo-actions-replay-20261116
     paths:
       - scripts/cunit_mlo_hwsim_runner.py
+      - scripts/cunit_mlo_hwsim_stage4.py
       - scripts/hwsim/test_cunit_mlo.py
       - tests/test_cunit_mlo_hwsim_runner.py
+      - tests/test_cunit_mlo_stage4.py
       - .github/workflows/cunit-mlo-hwsim.yml
   workflow_dispatch:
 
@@ -23,7 +26,7 @@ jobs:
       - name: Host-only Python regression
         run: |
           python3 -m compileall -q scripts tests
-          python3 -m unittest tests.test_cunit_mlo_hwsim_runner -v
+          python3 -m unittest tests.test_cunit_mlo_hwsim_runner tests.test_cunit_mlo_stage4 -v
       - name: Prepare isolated VM dependencies
         run: |
           sudo apt-get update -qq
@@ -44,15 +47,15 @@ jobs:
       - name: Build upstream hostap test binaries
         working-directory: /tmp/cunit-hostap/tests/hwsim
         run: ./build.sh
-      - name: Execute real upstream MLD association and recovery tests
+      - name: Execute segmented upstream MLD association and recovery tests
         run: |
-          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_runner.py run \
+          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_stage4.py \
             --hostap-tree /tmp/cunit-hostap \
             --output-dir /tmp/cunit-hwsim-smoke \
             --tests eht_mld_owe_two_links eht_mld_link_removal eht_mld_disassociate
-      - name: Attempt real virtual 5GHz/6GHz 160MHz MLD association
+      - name: Attempt virtual 5GHz/6GHz 160MHz MLD association and bidirectional IP
         run: |
-          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_runner.py run \
+          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_stage4.py \
             --hostap-tree /tmp/cunit-hostap \
             --output-dir /tmp/cunit-hwsim-wide \
             --sim-country CA --tests cunit_mlo_5g160_6g160
@@ -63,6 +66,8 @@ jobs:
           name: cunit-mlo-host-summary
           path: |
             /tmp/cunit-hwsim-preflight.json
+            /tmp/cunit-hwsim-smoke/kernel.json
+            /tmp/cunit-hwsim-wide/kernel.json
             /tmp/cunit-hwsim-smoke/summary.json
             /tmp/cunit-hwsim-wide/summary.json
           if-no-files-found: ignore
