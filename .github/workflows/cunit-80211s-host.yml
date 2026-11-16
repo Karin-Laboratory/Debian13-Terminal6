@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Python syntax
         run: python3 -m compileall -q scripts/replay_80211s_kernel_source.py scripts/verify_80211s_config.py tests
       - name: Mesh unit tests
