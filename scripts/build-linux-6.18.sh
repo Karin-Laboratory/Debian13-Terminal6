@@ -110,10 +110,14 @@ export KBUILD_BUILD_USER=terminal6 KBUILD_BUILD_HOST=source-build
 export KBUILD_BUILD_TIMESTAMP='Thu Jan  1 00:00:00 UTC 1970'
 export SOURCE_DATE_EPOCH=0
 make ARCH=arm64 -j"${JOBS:-4}" Image modules
+module_name="terminal6-lean-modules.tar"
+if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
+  module_name="terminal6-capable-modules.tar"
+fi
 if [[ "${KERNEL_PROFILE:-generic}" = terminal6-lean || "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
   make ARCH=arm64 INSTALL_MOD_PATH="$WORKDIR/output/module-tree" modules_install
   test -d "$WORKDIR/output/module-tree/lib/modules"
-  (cd "$WORKDIR/output/module-tree" && tar -cf "$WORKDIR/output/terminal6-lean-modules.tar" lib/modules)
+  (cd "$WORKDIR/output/module-tree" && tar -cf "$WORKDIR/output/$module_name" lib/modules)
 fi
 test -s arch/arm64/boot/Image
 mkdir -p "$WORKDIR/output"
@@ -136,8 +140,8 @@ if [[ "${KERNEL_PROFILE:-generic}" = terminal6-lean || "${KERNEL_PROFILE:-generi
   }
   size vmlinux > "$WORKDIR/output/vmlinux-size.txt"
   test -s "$WORKDIR/output/vmlinux-size.txt"
-  test -s "$WORKDIR/output/terminal6-lean-modules.tar"
-  sha256sum "$WORKDIR/output/terminal6-lean-modules.tar" >> "$WORKDIR/output/SHA256SUMS"
+  test -s "$WORKDIR/output/$module_name"
+  sha256sum "$WORKDIR/output/$module_name" >> "$WORKDIR/output/SHA256SUMS"
   printf 'TERMINAL6_%s_UNCOMPRESSED_IMAGE_SIZE_PASS bytes=%s max=%s\n' "${KERNEL_PROFILE#terminal6-}" "$image_bytes" "$image_max"
 fi
 if [[ -n "${DTB_PATH:-}" ]]; then
