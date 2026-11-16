@@ -170,14 +170,44 @@ fi
 echo 'HWSIM_B_DOWN_AC_UNREACHABLE=PASS'
 ip -n "$b" link set meshB up
 recovered=0
-for _ in $(seq 1 90); do
+recovery_mode=AUTO
+# First try actual unassisted reconvergence after B interface comes back.
+for _ in $(seq 1 20); do
     if ip netns exec "$a" ping -c 1 -W 1 10.253.16.3 >/dev/null 2>&1 &&
        ip netns exec "$c" ping -c 1 -W 1 10.253.16.1 >/dev/null 2>&1; then
         recovered=1; break
     fi
     sleep 1
 done
-((recovered)) || { echo 'FAIL: no A-C recovery through B' >&2; exit 1; }
+if (( ! recovered )); then
+    # A netdev DOWN/UP may not restart userspace SAE mesh on its own.
+    # Do not label this as automatic reconvergence.
+    echo 'HWSIM_B_AUTO_RECOVERY=NOT_PROVEN'
+    recovery_mode=ASSISTED_B_RECONNECT
+    action=$(ip netns exec "$b" wpa_cli -p "$tmp/ctrl-b" -i meshB reconnect)
+    echo "HWSIM_B_WPA_CLI_RECONNECT=$action"
+    for _ in $(seq 1 40); do
+        if ip netns exec "$a" ping -c 1 -W 1 10.253.16.3 >/dev/null 2>&1 &&
+           ip netns exec "$c" ping -c 1 -W 1 10.253.16.1 >/dev/null 2>&1; then
+            recovered=1; break
+        fi
+        sleep 1
+    done
+fi
+if (( ! recovered )); then
+    for item in a b c; do
+        case $item in
+            a) ns=$a; iface=meshA ;; b) ns=$b; iface=meshB ;; c) ns=$c; iface=meshC ;;
+        esac
+        state=$(ip netns exec "$ns" wpa_cli -p "$tmp/ctrl-$item" -i "$iface" status 2>/dev/null | grep '^wpa_state=' || true)
+        peers=$(ip netns exec "$ns" iw dev "$iface" station dump 2>/dev/null | grep -c '^Station ' || true)
+        [[ -n "$state" ]] || state=unknown
+        echo "HWSIM_RECOVERY_DIAG_$item=state:$state peers:$peers" >&2
+    done
+    echo 'FAIL: no A-C recovery through B after auto + controlled B reconnect' >&2
+    exit 1
+fi
+echo "HWSIM_B_RECOVERY_MODE=$recovery_mode"
 # Verify the recovered route, not merely IP reachability.
 path_a=$(ip netns exec "$a" iw dev meshA mpath dump)
 grep -Eiq "^$mac_c[[:space:]]+$mac_b[[:space:]]" <<<"$path_a" ||
