@@ -78,6 +78,34 @@ class LabTests(unittest.TestCase):
             module.run_container("agent", "isolated", "image:1", "start-agent",
                                  amx_ubus=True)
 
+    def test_private_platform_db_is_staged_only_in_container_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "private.conf"
+            dest = root / "stage"
+            source.write_text("backhaul_wire_iface=eth0\nwireless_interface_2=lab2\n")
+            source.chmod(0o600)
+            module.stage_private_platform_db(source, dest)
+            output = dest / "lab/prplmesh_platform_db"
+            self.assertTrue(output.is_file())
+            self.assertEqual(output.read_bytes(), source.read_bytes())
+            self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(source.stat().st_mode & 0o777, 0o600)
+
+    def test_private_platform_db_rejects_host_interface_and_bad_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "private.conf"
+            dest = root / "stage"
+            source.write_text("backhaul_wire_iface=eth1\n")
+            source.chmod(0o600)
+            with self.assertRaisesRegex(module.LabError, "Docker eth0"):
+                module.stage_private_platform_db(source, dest)
+            source.write_text("backhaul_wire_iface=eth0\n")
+            source.chmod(0o644)
+            with self.assertRaisesRegex(module.LabError, "mode 0600"):
+                module.stage_private_platform_db(source, dest)
+
     @patch.object(module, "command", return_value="02:00:00:00:00:0b")
     def test_real_bridge_address_is_read_from_container(self, command):
         verifier = module.load_verifier()
