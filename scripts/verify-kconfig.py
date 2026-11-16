@@ -39,6 +39,30 @@ LEAN_MODULES = (
 )
 
 
+# Extended source-only profile. These gates are build contracts, not proof of
+# MT7990 firmware calibration, physical PCIe/USB, C-unit LK or P44 boot.
+FULL35_BUILTINS = (
+    "CONFIG_VIRTUALIZATION", "CONFIG_KVM", "CONFIG_PCI",
+    "CONFIG_PCIE_MEDIATEK_GEN3", "CONFIG_USB_SUPPORT", "CONFIG_USB",
+    "CONFIG_WIRELESS", "CONFIG_WLAN", "CONFIG_FW_LOADER",
+)
+FULL35_MODULES = (
+    "CONFIG_CFG80211", "CONFIG_MAC80211", "CONFIG_MT76",
+    "CONFIG_MT76_CONNAC_LIB", "CONFIG_MT7996E",
+    "CONFIG_USB_XHCI_HCD", "CONFIG_USB_XHCI_PLATFORM",
+    "CONFIG_USB_SERIAL", "CONFIG_USB_SERIAL_CH341",
+)
+
+
+def full35_problems(text):
+    options = dict(line.split("=", 1) for line in text.splitlines()
+                   if line.startswith("CONFIG_") and "=" in line)
+    failures = lean_problems(text)
+    failures += [key for key in FULL35_BUILTINS if options.get(key) != "y"]
+    failures += [f"{key}=m" for key in FULL35_MODULES if options.get(key) != "m"]
+    return failures
+
+
 def lean_problems(text):
     options = dict(line.split("=", 1) for line in text.splitlines()
                    if line.startswith("CONFIG_") and "=" in line)
@@ -60,15 +84,20 @@ if __name__ == "__main__":
     p.add_argument("config", type=Path)
     p.add_argument("--terminal6", action="store_true")
     p.add_argument("--lean", action="store_true")
+    p.add_argument("--full35", action="store_true")
     a = p.parse_args()
-    if a.lean and not a.terminal6:
-        p.error("--lean requires --terminal6")
+    if (a.lean or a.full35) and not a.terminal6:
+        p.error("--lean/--full35 require --terminal6")
+    if a.lean and a.full35:
+        p.error("--lean and --full35 are mutually exclusive")
     cfg = a.config.read_text()
     absent = missing(cfg, a.terminal6)
     if a.lean:
         absent += lean_problems(cfg)
+    if a.full35:
+        absent += full35_problems(cfg)
     if absent:
-        if a.lean:
+        if a.lean or a.full35:
             # Fail-closed troubleshooting without exposing kernel binaries,
             # serial identifiers, credentials or private build inputs.
             keys = ("ARM64_VA_BITS", "ARM64_VA_BITS_39", "ARM64_VA_BITS_48",
@@ -82,4 +111,6 @@ if __name__ == "__main__":
     print("DEBIAN_T6_REQUIRED_KCONFIG_PASS")
     if a.lean:
         print("DEBIAN_T6_LEAN_BUILTIN_AND_MODULE_CONFIG_PASS")
+    if a.full35:
+        print("DEBIAN_T6_FULL35_KVM_PCIE_MT7990_USB_CONFIG_PASS_NOT_HARDWARE_VALIDATED")
     print("Kconfig presence does not prove DT-compatible driver bindings or physical boot")
