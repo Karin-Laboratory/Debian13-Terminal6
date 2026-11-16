@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -97,6 +98,50 @@ def stage_private_platform_db(source: Path, destination_install: Path) -> None:
     target.chmod(0o600)
 
 
+def validate_native_ubus_stage(path: Path) -> Path:
+    """Verify exact native build receipt before creating any Docker resources."""
+    if path.is_symlink():
+        raise LabError("UBus stage cannot be a symlink")
+    try:
+        root = path.resolve(strict=True)
+        receipt = json.loads((root.parent / "receipt.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise LabError("missing or invalid Debian 13 arm64 UBus receipt") from None
+    if (not root.is_dir() or receipt.get("os") != "Debian 13" or
+            receipt.get("arch") != "arm64" or
+            receipt.get("actual_ubusd_ubus_ipc") != "PASS" or
+            receipt.get("ambiorix_backend_loaded") is not False or
+            receipt.get("prplmesh_1905") != "NOT_PROVEN"):
+        raise LabError("UBus receipt lacks actual native IPC confirmation")
+    digests = receipt.get("binary_sha256")
+    if not isinstance(digests, dict):
+        raise LabError("UBus receipt lacks SHA256 inventory")
+    for rel in ("lib/libubox.so", "lib/libubus.so", "lib/libblobmsg_json.so",
+                "sbin/ubusd", "bin/ubus"):
+        item = root / rel
+        if not item.is_file() or not item.resolve().is_relative_to(root):
+            raise LabError("UBus runtime component missing or escapes stage")
+        if hashlib.sha256(item.read_bytes()).hexdigest() != digests.get(rel):
+            raise LabError("UBus stage SHA256 mismatch")
+    return root
+
+
+def copy_native_ubus_into_node(ubus: Path, dest: Path) -> None:
+    """Stage public OpenWrt ABI-compatible runtime to one disposable node."""
+    entries = [ubus / "bin/ubus", ubus / "sbin/ubusd"]
+    entries += [p for p in sorted((ubus / "lib").glob("*.so*"))
+                if p.name.startswith(("libubox.so", "libubus.so",
+                                     "libblobmsg_json.so", "libjson_script.so"))]
+    for src in entries:
+        if not src.is_file() or not src.resolve().is_relative_to(ubus):
+            raise LabError("invalid UBus runtime source")
+        target = dest / src.relative_to(ubus)
+        if target.exists() or target.is_symlink():
+            raise LabError("refusing to overwrite staged prplMesh runtime")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, target, follow_symlinks=True)
+
+
 def stage_architecture(root: Path) -> str:
     """Prevent feeding an AArch64 cross-build to an x86 Docker runner (or vice versa)."""
     if not shutil.which("readelf"):
@@ -108,6 +153,9 @@ def stage_architecture(root: Path) -> str:
     if amx_module.is_file():
         # The backend is dlopen()'d at runtime; its machine type must agree.
         binaries.append(amx_module)
+    if (root / "sbin/ubusd").is_file():
+        binaries += [root / "sbin/ubusd", root / "bin/ubus",
+                     root / "lib/libubox.so", root / "lib/libubus.so"]
     for binary in binaries:
         result = command(["readelf", "-h", str(binary)])
         match = re.search(r"(?m)^\s*Machine:\s*(.+?)\s*$", result)
@@ -175,8 +223,9 @@ def run_container(name: str, network: str, image: str, startup: str,
                 '/tmp/beerocks/prplmesh_platform_db && '
                 'chmod 600 /tmp/beerocks/prplmesh_platform_db && '
                 'test -r "$INSTALL_DIR/lib/amxb/mod-amxb-ubus.so" && '
-                'command -v ubusd >/dev/null && '
-                '(ubusd -s /var/run/ubus.sock >/dev/null 2>&1 &) && '
+                'test -x "$INSTALL_DIR/sbin/ubusd" && '
+                'export LD_LIBRARY_PATH="$INSTALL_DIR/lib" && '
+                '("$INSTALL_DIR/sbin/ubusd" -s /var/run/ubus.sock >/dev/null 2>&1 &) && '
                 'sleep 1 && test -S /var/run/ubus.sock && ')
         else:
             command_prefix = 'ip link set dev br-lan address "$T6_AL_MAC" && '
@@ -313,7 +362,12 @@ def lab(args) -> dict:
     source_tree = validate_install_tree(args.install_tree) if args.install_tree else None
     if source_tree is not None:
         validate_install_target(args.install_target)
+    if args.ubus_stage is not None and not args.amx_ubus:
+        raise LabError("--ubus-stage requires --amx-ubus")
+    ubus_root = validate_native_ubus_stage(args.ubus_stage) if args.ubus_stage else None
     if args.amx_ubus:
+        if ubus_root is None:
+            raise LabError("--amx-ubus requires --ubus-stage (Debian13 arm64)")
         if source_tree is None:
             raise LabError("--amx-ubus requires --install-tree")
         backend = source_tree / "lib/amxb/mod-amxb-ubus.so"
@@ -351,6 +405,8 @@ def lab(args) -> dict:
         shutil.copytree(source_tree, controller_tree, symlinks=True)
         shutil.copytree(source_tree, agent_tree, symlinks=True)
         if args.amx_ubus:
+            copy_native_ubus_into_node(ubus_root, controller_tree)
+            copy_native_ubus_into_node(ubus_root, agent_tree)
             stage_private_platform_db(args.controller_platform_db, controller_tree)
             stage_private_platform_db(args.agent_platform_db, agent_tree)
     tag = secrets.token_hex(3)
@@ -496,6 +552,8 @@ def main() -> int:
     ap.add_argument("--controller-db-command", help="optional in-container CLI command, e.g. beerocks_cli -c bml_conn_map")
     ap.add_argument("--amx-ubus", action="store_true",
                     help="isolated lab: require staged backend and per-node ubusd")
+    ap.add_argument("--ubus-stage", type=Path,
+                    help="verified Debian13 arm64 UBus install prefix and receipt")
     ap.add_argument("--controller-platform-db", type=Path,
                     help="private controller node DB; copied to disposable container tree")
     ap.add_argument("--agent-platform-db", type=Path,
