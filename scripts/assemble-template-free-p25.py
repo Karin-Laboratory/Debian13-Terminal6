@@ -4,7 +4,7 @@
 
 Uses the SHA-pinned upstream MT6990 boot-v2 packer. This removes the private
 unsigned-P25 *template* as a manufacturing input, but does NOT establish that
-the public board DTS, boot addresses or raw-DTB layout satisfy SBA6D LK.
+the public board DTS and boot addresses satisfy SBA6D LK.
 Never signs, flashes, or marks a candidate safe to boot.
 """
 from __future__ import annotations
@@ -36,6 +36,37 @@ def sha(data: bytes) -> str:
 
 def git_blob_sha(data: bytes) -> str:
     return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+
+
+def aosp_dtb_table(fdt: bytes, page_size: int = PAGE) -> bytes:
+    """Public AOSP dt_table_header + single dt_table_entry, big-endian.
+
+    No OEM bytes are read or copied. All sizes are derived from the FDT.
+    RC16's published one-entry format uses zero id/rev/custom fields.
+    """
+    if page_size != PAGE or len(fdt) < 40 or fdt[:4] != b"\\xd0\\x0d\\xfe\\xed":
+        raise ValueError("invalid FDT or page size")
+    size = struct.unpack_from(">I", fdt, 4)[0]
+    if size != len(fdt) or size > 0xFFFFFFFF - 64:
+        raise ValueError("FDT totalsize mismatch")
+    return (struct.pack(">8I", 0xd7b7ab1e, size + 64, 32, 32, 1, 32,
+                        page_size, 0)
+            + struct.pack(">8I", size, 64, 0, 0, 0, 0, 0, 0)
+            + fdt)
+
+
+def validate_aosp_dtb_table(table: bytes, fdt: bytes) -> None:
+    """Second-path strict parser for generated metadata and payload."""
+    if len(table) != len(fdt) + 64:
+        raise ValueError("AOSP DT table length mismatch")
+    header = struct.unpack_from(">8I", table)
+    entry = struct.unpack_from(">8I", table, 32)
+    if header != (0xd7b7ab1e, len(table), 32, 32, 1, 32, PAGE, 0):
+        raise ValueError("AOSP DT header mismatch")
+    if entry != (len(fdt), 64, 0, 0, 0, 0, 0, 0):
+        raise ValueError("AOSP DT entry mismatch")
+    if table[64:] != fdt:
+        raise ValueError("AOSP DT table FDT payload mismatch")
 
 
 def check_meta(doc: object) -> None:
@@ -78,6 +109,7 @@ def verify_image(raw: bytes, kernel: bytes, dtb: bytes, profile: dict) -> None:
         raise ValueError("incorrect raw DTB section size")
     if struct.unpack_from("<Q", raw, 1652)[0] != profile["dtb_addr"]:
         raise ValueError("incorrect DTB load address")
+    validate_aosp_dtb_table(dtb, dtb[64:])
     dtboff = PAGE + ((header[0] + PAGE - 1) // PAGE) * PAGE
     if raw[dtboff:dtboff + len(dtb)] != dtb:
         raise ValueError("DTB payload mismatch")
@@ -112,19 +144,22 @@ def build(stage: Path, profile_path: Path, image_path: Path, initramfs_path: Pat
         raise ValueError("Debian P44 initramfs is not embedded exactly once")
     if len(dtb) < 40 or dtb[:4] != b"\xd0\x0d\xfe\xed":
         raise ValueError("raw DTB FDT magic missing")
-    if struct.unpack_from(">I", dtb, 4)[0] not in range(40, len(dtb) + 1):
-        raise ValueError("DTB total size invalid")
+    if struct.unpack_from(">I", dtb, 4)[0] != len(dtb):
+        raise ValueError("DTB total size must equal exact source FDT length")
+    wrapped_dtb = aosp_dtb_table(dtb)
     temp = Path(tempfile.mkdtemp(prefix=".p25-public-candidate-", dir=output.parent))
     try:
         temp_profile = temp / "profile.json"
         temp_profile.write_bytes(profile_bytes)
         rawpath = temp / "unpacked.img"
+        wrapped_path = temp / "aosp-dtb-table.bin"
+        wrapped_path.write_bytes(wrapped_dtb)
         subprocess.run([sys.executable, str(packer), "--meta", str(temp_profile),
-                        "--kernel", str(image_path), "--dtb", str(dtb_path),
+                        "--kernel", str(image_path), "--dtb", str(wrapped_path),
                         "--out", str(rawpath)], check=True, stdout=subprocess.PIPE,
                        stderr=subprocess.PIPE, timeout=120)
         raw = require_file(rawpath, SIZE)
-        verify_image(raw, kernel, dtb, profile)
+        verify_image(raw, kernel, wrapped_dtb, profile)
         p25 = raw + bytes(SIZE - len(raw))
         (temp / "p25-unsigned.img").write_bytes(p25)
         rawpath.unlink()
@@ -132,8 +167,10 @@ def build(stage: Path, profile_path: Path, image_path: Path, initramfs_path: Pat
                "unsigned_p25_bytes": SIZE, "unsigned_p25_sha256": sha(p25),
                "kernel_image_sha256": sha(kernel),
                "initramfs_sha256": sha(cpio), "dtb_sha256": sha(dtb),
+               "aosp_dtb_table_sha256": sha(wrapped_dtb),
+               "aosp_dtb_table_prefix_sha256": sha(wrapped_dtb[:64]),
                "profile_sha256": sha(profile_bytes), "upstream_packer_blob": PACKER_BLOB,
-               "note": "Raw DTB, no private template/vendor64, no boot/compatibility proof"}
+               "note": "AOSP DT table v0 + FDT, no private template/vendor64; not LK boot proven"}
         (temp / "p25-receipt.json").write_text(json.dumps(rec, indent=2) + "\n")
         os.replace(temp, output)
         return rec
