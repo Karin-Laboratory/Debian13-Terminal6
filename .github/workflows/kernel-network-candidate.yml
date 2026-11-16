@@ -61,7 +61,7 @@ jobs:
           bash scripts/build-linux-6.18.sh
           cat "$WORKDIR/output/SHA256SUMS"
           cat "$WORKDIR/output/STATUS.txt"
-          wc -c "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/terminal6-debian-ethernet-experimental.dtb"
+          wc -c "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/terminal6-debian-experimental.dtb"
           echo 'PUBLIC_NETWORK_P25_COMPILATION_ONLY_CUNIT_LK_UNPROVEN'
       - name: Construct 32MiB unsigned P25 from real publicly built Linux Image
         shell: bash
