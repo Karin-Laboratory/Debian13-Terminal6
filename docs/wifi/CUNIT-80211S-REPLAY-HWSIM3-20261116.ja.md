@@ -1,0 +1,61 @@
+# C号機802.11s: ソース再現と3ノード仮想試験の実行手順（2026-11-16）
+
+## 判定
+
+- 既存ARM64 Image/modulesと2ノードhwsim成功は記録済み。ただし**既存成果物のハッシュ一致は、ビルドの再現性を証明しない**。
+- 標準Linux 6.18.63のtarにはMT6990 vendor sourceが足りない。既存private treeに相当する完全な差分・ライセンス確認済みのpatch seriesが必要。**現時点で完備していない**。
+- このPRでソース再生ゲートと厳格な3ノード試験を追加したが、どちらもこの変更時点では**未実行・未合格**。実機試験も未実施。
+- PR #9の[OTP/EEPROM修正](../../patches/0001-mt7996-eeprom-calfree-timeout.patch)を最後に適用する。PR #6の6GHz/P25領域は操作しない。
+
+## 第1ゲート: private tree と独立再生源を一致させる
+
+実行場所はソースとクロスコンパイラが存在する**所有者のprivate build host**に限定する。全patchは合法的に再頒布できるか個別に確認し、vendor blob・EEPROM・鍵・端末識別情報をGitHubへ持ち出さない。
+
+1. 元のLinux 6.18.63 tarballのSHA256を検証する。記録値は `81764a545072d160748beff4d9de2e7d95aa9f16e8261110288f067a2cc61d71`。
+2. 現行private treeとLinux stableの全**ソースファイル**を比較し、MT6990のclk/pinctrl/DTS/Kconfig/Makefile等を含む差分を独立したパッチ列として整理する。build outputを入力ソースとして扱わない。
+3. 再配布権限が確認できたパッチを、必要な順に用意する。**最後はPR #9パッチ**。この差分がまだ揃わなければ再現性はBLOCKED。
+4. `python3 -m scripts.replay_80211s_kernel_source` で、標準tarから一時ディレクトリへ展開、全パッチを順番に適用、private treeとのファイル単位SHA256を照合する。
+5. 同じツールの `--build-artifacts` を指定した場合のみ、すべてのソースが一致した**別の隔離ディレクトリ**で `olddefconfig; Image modules` を実行。終了後、Imageとmt76関連AArch64 modulesをprivate領域に保存する。実機へは送らない。
+6. config、コンパイラ、リンカ、パッチ列、ソースツリー、生成物のハッシュを所有者専用JSONに残す。ツールはvendor/privateファイル名を結果に含む可能性があるため、**JSONを公開しない**。公開するのは承認した非機密の照合結果と判定のみ。
+
+引数例（`--patch` は**実在するすべてのvendor/board差分**に対して繰り返す。以下の<...>は未取得入力の指定欄であり、そのまま実行しても成功しない）：
+
+```bash
+python3 -m scripts.replay_80211s_kernel_source \
+  --upstream-tar /home/masataka/private/debian13-proto3-build-20261112/source/linux-6.18.63.tar.xz \
+  --upstream-sha256 81764a545072d160748beff4d9de2e7d95aa9f16e8261110288f067a2cc61d71 \
+  --private-tree /home/masataka/private/cunit-80211s-build-20261115/kernel-src \
+  --patch <first-approved-vendor-or-board.patch> \
+  --patch <next-approved-vendor-or-board.patch> \
+  --patch patches/0001-mt7996-eeprom-calfree-timeout.patch \
+  --final-config /home/masataka/private/cunit-80211s-build-20261115/kernel-src/.config \
+  --cc "$(command -v aarch64-linux-gnu-gcc)" \
+  --ld "$(command -v aarch64-linux-gnu-ld)" \
+  --build-artifacts /home/masataka/private/cunit-80211s-replayed-artifacts \
+  --output /home/masataka/private/cunit-80211s-replay-report.json
+```
+
+`--build-artifacts`を省略したときはソース照合だけを実施する。**SOURCE_REPLAY_MATCH≠BUILD_PASS**。ビルド後は `CONFIG_MAC80211_MESH=y` と `CONFIG_MT7996E=m` を要求する。パッチが部分的しか存在しない場合、ツールは失敗として終了し、候補Imageは生成しない。
+
+## 第2ゲート: A-B-C の仮想無線で真の中継を検証
+
+Linuxホストの隔離VM（既存の物理PHY・hwsim・wmediumdが存在しない環境）で、`iw`、`ip`、`ping`、`openssl`、`wpa_supplicant`、`wpa_cli`、`mac80211_hwsim`、`wmediumd`を用意して実行する。
+
+```bash
+sudo bash scripts/run_80211s_hwsim_3node.sh
+```
+
+- wmediumdはA↔B、B↔Cを損失率0%、A↔Cとその他すべてを100%にする。単なる3 PHY起動をもって中継成功とは呼ばない。
+- 3ノードにランダムな共有SAEパスフレーズを設定して、各peerのESTAB状態とA-C直接peeringが無いことを照合する。
+- A→C・C→A pingの後、AのHWMP pathの`destination=C, next_hop=B`と逆方向も検査する。
+- B停止でA-Cが通信不能になること、B復帰でHWMPの次hopがBに戻ることを検査する。
+- 20パケットの損失率とRTTを記録する。試験終了時には生成したnetwork namespace、hwsim、wmediumd、supplicantを片付ける。
+- SAE設定と接続ログだけではフレーム暗号化を独立立証できないため、**AMPEの無線フレーム保護は別途capture/解析するまで未検証**と記録する。実機でのSAE/AMPEも未検証。
+
+参考：[wmediumdの確率ベースリンク遮断](https://github.com/ramonfontes/wmediumd#per-link-loss-probability-model)。
+
+## 第3ゲート: 署名・C号機書込み前の受け入れ条件
+
+ソース再生＋独立ビルド成功、PR #9の校正修正保持、eMMC 100MHz/CQE無効、最終configとfirmware整合性、管理LAN/SSH/UART保護、実機操作権の確保が必要。6GHz・MLO・EasyMesh担当の変更領域へ介入しない。PHYのmesh capability広告だけでは成功としない。
+
+最初の実機2ノード試験は許可済みの2.4GHzまたは5GHzで、別途IEEE 802.11s対応peerを準備する。A号機の純正EasyMeshは802.11s peerとして扱わない。P25署名・書込みは6GHz担当の権限引渡し後でなければ行わない。
