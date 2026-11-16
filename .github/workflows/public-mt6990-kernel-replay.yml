@@ -41,7 +41,7 @@ jobs:
           import json,sys
           d=json.load(open(sys.argv[1]))
           assert d["status"] == "PUBLIC_KERNEL_PATCHES_APPLIED_NOT_BUILT"
-          assert len(d["patches"]) == 3
+          assert len(d["patches"]) == 4
           print("PUBLIC_MT6990_CORE_SOURCE_REPLAY_PASS")
           PY
       # Build and device hardware validation remain separately gated.
