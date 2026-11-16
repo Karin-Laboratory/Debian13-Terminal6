@@ -23,6 +23,16 @@ class Stage4Tests(unittest.TestCase):
         self.assertEqual(d["ap_enabled_events"], 1)
         self.assertNotIn("aa:bb", str(d))
 
+    def test_classify_upstream_wpa_socket_failure_without_mac_or_path_output(self):
+        raw = ("Could not connect to /tmp/wpas-wlan0\\n"
+               "wpa_supplicant failed: No such file or directory\\n"
+               "MAC 02:00:00:00:00:01\\n")
+        observed = stage.classify_startup_errors(raw)
+        self.assertIn("wpa_control_socket", observed["error_classes"])
+        self.assertIn("missing_command_or_file", observed["error_classes"])
+        self.assertNotIn("02:00:00", str(observed))
+        self.assertNotIn("/tmp/wpas-wlan", str(observed))
+
     def create_fake_suite(self, root, *, fail_test=None):
         suite = Path(root) / "hostap/tests/hwsim"
         suite.mkdir(parents=True)
