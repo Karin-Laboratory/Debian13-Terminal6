@@ -17,7 +17,8 @@ test -f /bin/busybox || { echo 'Install busybox-static' >&2; exit 2; }
 umask 077
 mkdir -m 0700 "$out"
 python3 -m unittest discover -s "$root/tests" -p 'test_terminal6_lean_config.py' -v
-bash "$root/scripts/make-initramfs.sh" /bin/busybox "$out/initramfs.cpio.gz"
+TERMINAL6_REPRODUCIBLE_INITRAMFS=1 SOURCE_DATE_EPOCH=0 \
+  bash "$root/scripts/make-initramfs.sh" /bin/busybox "$out/initramfs.cpio.gz"
 bash "$root/scripts/stage-experimental-dtb.sh" "$out/dtb"
 python3 "$root/scripts/stage-public-mt6990-sources.py" --output "$out/stage"
 KERNEL_PROFILE=terminal6-lean PUBLIC_MT6990_SCOPE=network \
