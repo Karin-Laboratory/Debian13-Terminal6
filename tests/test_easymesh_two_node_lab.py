@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import tempfile
 import types
 import unittest
 from unittest.mock import patch
@@ -33,6 +34,38 @@ class LabTests(unittest.TestCase):
         self.assertIn("net", argv)
         self.assertIn("--pull=never", argv)
         self.assertNotIn("--privileged", argv)
+
+    def test_upstream_install_tree_requires_real_agent_controller_and_script(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "bin").mkdir()
+            (root / "scripts").mkdir()
+            with self.assertRaisesRegex(module.LabError, "install tree requires"):
+                module.validate_install_tree(root)
+            for path in ("bin/beerocks_agent", "bin/beerocks_controller",
+                         "scripts/prplmesh_utils.sh"):
+                (root / path).touch()
+            self.assertEqual(module.validate_install_tree(root), root)
+
+    @patch.object(module, "command")
+    def test_upstream_runner_mounts_install_and_pins_bridge_before_start(self, command):
+        module.run_container("node", "net", "prplmesh:6.0.1", "start-agent",
+                             Path("/tmp/scratch-agent"), bytes.fromhex("02000000000b"))
+        argv = command.call_args.args[0]
+        self.assertIn("--mount", argv)
+        self.assertIn("type=bind,source=/tmp/scratch-agent,target=/opt/t6-prplmesh", argv)
+        self.assertIn("INSTALL_DIR=/opt/t6-prplmesh", argv)
+        self.assertIn("T6_AL_MAC=02:00:00:00:00:0b", argv)
+        self.assertEqual(argv[-3:], ["prplmesh:6.0.1", "-c",
+                                     'ip link set dev br-lan address "$T6_AL_MAC" && exec start-agent'])
+        self.assertNotIn("--privileged", argv)
+
+    @patch.object(module, "command", return_value="02:00:00:00:00:0b")
+    def test_real_bridge_address_is_read_from_container(self, command):
+        verifier = module.load_verifier()
+        self.assertEqual(module.bridge_al_mac("node", verifier), bytes.fromhex("02000000000b"))
+        command.assert_called_once_with(
+            ["docker", "exec", "node", "cat", "/sys/class/net/br-lan/address"])
 
     @patch.object(module.shutil, "which", return_value=None)
     def test_no_docker_fails_before_side_effect(self, which):
