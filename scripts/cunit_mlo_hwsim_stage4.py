@@ -50,6 +50,11 @@ def phase_markers(output: str) -> dict:
         "failure_line_seen": bool(re.search(r"(?m)^(?:FAIL|SKIP) (?:eht_mld_|cunit_mlo_|ap_open)", output)),
         "association_events": output.count("CTRL-EVENT-CONNECTED"),
         "ap_enabled_events": output.count("AP-ENABLED"),
+        "observed_mlo_link_bitmaps": [
+            "0x" + m.lower() for m in
+            re.findall(r"(?:valid_links|active_links)=0x([0-9a-fA-F]+) via MLO_STATUS:",
+                       output)[-4:]
+        ],
     }
 
 
@@ -128,6 +133,28 @@ def kernel_info() -> dict:
     }
 
 
+def virtual_runtime_inventory() -> dict:
+    """Observe simulator state via counts, never expose actual interface identifiers."""
+    commands = {
+        "phy_count": (["iw", "phy"], r"(?m)^Wiphy\s+"),
+        "netdev_count": (["iw", "dev"], r"(?m)^\s*Interface\s+"),
+        "hostapd_processes": (["pgrep", "-xc", "hostapd"], None),
+        "wpa_supplicant_processes": (["pgrep", "-xc", "wpa_supplicant"], None),
+    }
+    data = {"hwsim_module_loaded": Path("/sys/module/mac80211_hwsim").exists()}
+    for name, (argv, pattern) in commands.items():
+        try:
+            p = subprocess.run(argv, text=True, capture_output=True, timeout=5,
+                               check=False)
+            if pattern:
+                data[name] = len(re.findall(pattern, p.stdout)) if p.returncode == 0 else None
+            else:
+                data[name] = int(p.stdout.strip()) if p.stdout.strip().isdigit() else 0
+        except (OSError, subprocess.TimeoutExpired):
+            data[name] = None
+    return data
+
+
 def run_isolated(hostap_tree: Path, output_dir: Path, tests: list[str],
                  sim_country: str | None = None) -> dict:
     if os.environ.get("CUNIT_MLO_ISOLATED_VM") != "YES" or os.geteuid() != 0:
@@ -164,6 +191,7 @@ def run_isolated(hostap_tree: Path, output_dir: Path, tests: list[str],
             phases.append(info)
             if rc == 0:
                 started = True
+                info["post_start_inventory"] = virtual_runtime_inventory()
             else:
                 diagnostics["start"] = common.sanitized_failure_diagnostics(output, rc)
         if started:
