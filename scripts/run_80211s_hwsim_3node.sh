@@ -103,10 +103,15 @@ if [[ ${CUNIT_MESH_CAPTURE_AUDIT:-0} == 1 ]]; then
         command -v "$tool" >/dev/null || { echo "missing tool: $tool" >&2; exit 2; }
     done
     ip link show dev hwsim0 >/dev/null || { echo 'hwsim0 monitor absent' >&2; exit 1; }
-    tcpdump -i hwsim0 -p -U -s 0 -w "$tmp/mesh.pcap" >"$tmp/tcpdump.log" 2>&1 &
+    ip link set dev hwsim0 up
+    tcpdump -i hwsim0 -U -s 0 -w "$tmp/mesh.pcap" >"$tmp/tcpdump.log" 2>&1 &
     sniffer_pid=$!
     sleep 2
-    kill -0 "$sniffer_pid" || { echo 'hwsim monitor capture failed' >&2; exit 1; }
+    if ! kill -0 "$sniffer_pid" 2>/dev/null; then
+        echo 'FAIL: virtual monitor tcpdump stopped before mesh start' >&2
+        sed -n '1,8p' "$tmp/tcpdump.log" | sed -E 's/[[:xdigit:]]{2}(:[[:xdigit:]]{2}){5}/[REDACTED]/g' >&2
+        exit 1
+    fi
 fi
 
 ssid="cunit-three-${BASHPID}"
