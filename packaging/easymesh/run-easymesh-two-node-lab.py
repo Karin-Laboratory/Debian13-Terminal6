@@ -59,6 +59,24 @@ def validate_install_tree(path: Path) -> Path:
     return root
 
 
+def stage_architecture(root: Path) -> str:
+    """Prevent feeding an AArch64 cross-build to an x86 Docker runner (or vice versa)."""
+    if not shutil.which("readelf"):
+        raise LabError("readelf required for runner/ELF architecture preflight")
+    machines = set()
+    for binary in ("beerocks_agent", "beerocks_controller", "ieee1905_transport"):
+        result = command(["readelf", "-h", str(root / "bin" / binary)])
+        match = re.search(r"(?m)^\\s*Machine:\\s*(.+?)\\s*$", result)
+        if not match:
+            raise LabError("ELF machine unavailable from staged prplMesh binary")
+        machines.add(match.group(1))
+    if machines == {"AArch64"}:
+        return "arm64"
+    if machines == {"Advanced Micro Devices X86-64"}:
+        return "amd64"
+    raise LabError("mixed or unsupported prplMesh install-tree ELF architecture")
+
+
 def validate_install_target(target: str) -> str:
     """Preserve an upstream binary's compiled CMAKE_INSTALL_PREFIX in its container."""
     path = PurePosixPath(target)
@@ -238,6 +256,14 @@ def lab(args) -> dict:
     args.output = args.output.resolve(strict=True)
     for probe in plan_images(args.controller_image, args.agent_image):
         command(probe)
+    runner_arch = None
+    if source_tree is not None:
+        runner_arch = stage_architecture(source_tree)
+        for image in (args.controller_image, args.agent_image):
+            image_arch = command(["docker", "image", "inspect", "--format",
+                                  "{{.Architecture}}", image])
+            if image_arch != runner_arch:
+                raise LabError("prplMesh install ELF and runner image architecture mismatch")
     # Keep upstream-installed binaries and config independent per node. The
     # caller's original (possibly private) build tree is never mounted mutable.
     controller_tree = agent_tree = None
@@ -253,6 +279,7 @@ def lab(args) -> dict:
     result = {
         "environment": "dedicated-container-lab",
         "network_isolation": "docker-internal",
+        "runner_binary_architecture_match": runner_arch is not None,
         "real_prplmesh_binary_confirmed": False,
         "controller_processes_running": False,
         "agent_processes_running": False,
