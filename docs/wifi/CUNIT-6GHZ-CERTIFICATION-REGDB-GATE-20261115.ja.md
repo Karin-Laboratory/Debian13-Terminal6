@@ -54,3 +54,9 @@ PR #6/ #9にある最後のC号機測定では、Linux 6.18.63、global regulato
 3. 上記不足物を解消して正規署名し、既知のstock slot recoveryを維持できると確認した後にのみ候補を起動する。
 4. まずregdb署名読込、global/local regulatory、全チャネルdisabled flagsをread-onlyで確認。6GHz送信は別ゲートとして維持。
 5. 認証資料が改造後構成のチャネル幅・周波数・電力条件を保証できない限り、6GHz RF試験を行わない。少なくとも現時点では320MHzを無効とする。  
+
+## 2026-11-16 実機適用準備の再開
+
+raspi4 (`192.168.0.38`) からC号機の既存SSH経路を再確認した。slot A/Debian 13の起動時点でboot_aの全量SHA-256は既知の100MHz/no-CQE P25 `dd9238441761e5896d78bf9553d2d5731ed04bcc6d603bf70a064ba620beabeb` と一致。MMC debugfsはHS400、8-bit、1.8V、actual 94,999,965Hz、`cmdq_en=0`。misc全体はraspi4の既存private backupと一致した。署名済みregdb候補もraspi4へ転送し、32MiBとSHA-256を照合した。
+
+既存の純正経路どおり、rootfs Bをread-onlyでマウントしたchrootから純正`quec_bootctrl -F`を実行し、misc readback `0e000100000f00010000` を確認した。その後の再起動ではC号機IPがpingに応答する一方、SSH/HTTPはConnection refusedとなり、raspi4 UARTの読み取りキャプチャも空だった。slot BのOS起動をSSH/UARTで確認できていないため、署名済みregdb候補のboot_a書込みは未実施。100MHz/no-CQEのboot_aは保持されている。次はユーザーによる電源サイクル後に管理経路と実起動slotを確認し、復帰してから再開する。
