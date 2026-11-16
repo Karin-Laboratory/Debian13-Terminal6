@@ -1,5 +1,8 @@
 # C号機 Debian 13 / Wi-Fi統合 Codexランブック
 
+**最新Stage 6:** [Debian 13 AArch64 UBus実ビルド・IPC、AMXRT/SSH/802.11s/MLOゲート](CUNIT-WIFI-STAGE6-20261116.ja.md)を最初に参照する。Stage 5の成功は保持し、未達ゲートを繰り返し試験せず実装で解消する。AMXRT backend・実1905・Controller DBとC号機SSHの新たな実証はまだない。
+
+
 **最新Stage 5:** [PR #16・#17・#18の統合と受入記録](CUNIT-WIFI-STAGE5-20261116.ja.md)を先に参照する。下の時点別記録を現在の実機状態と混同しない。
 
 更新基準: 2026-11-16 JST。対象: `Karin-Laboratory/Debian13-Terminal6`、統合PR #13、C号機（Debian 13 / Linux 6.18.63）。**この文書は作業の入口であり、最新の実機事実を自動保証するものではない。** 各実行でPR/Actions/機器状態の差分だけ確認し、ここに記録済みの調査を漫然と繰り返さない。
