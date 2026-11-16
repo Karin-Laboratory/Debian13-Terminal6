@@ -2,7 +2,7 @@
 """Fail-closed 802.11s host PCAP summary. No packet bytes or secrets are printed.
 
 Recognizes classic libpcap with Radiotap (DLT 127) or IEEE 802.11 (DLT 105).
-AMPE uses a 16-byte MIC IE (EID 76) followed by AES-SIV ciphertext within
+AMPE uses a 16-byte MIC IE (EID 140) followed by AES-SIV ciphertext within
 mesh peering management action frames. Seeing a MIC does *not* independently
 validate its cryptographic authenticity. SAE auth and protected data are
 separate mandatory observations. This is a safe PCAP summary, not decryption.
@@ -80,15 +80,15 @@ def audit(data: bytes) -> dict:
             totals["action_category_" + str(payload[24])] += 1
             if payload[24] == 15:
                 totals["self_protected_action_" + str(payload[25])] += 1
-                if payload.find(b"\x4c\x10", 26) != -1:
+                if payload.find(b"\x8c\x10", 26) != -1:
                     totals["self_protected_mic_markers"] += 1
             # IEEE 802.11 Self-protected category=15, Mesh Peer Open/Confirm.
             if payload[24] == 15 and payload[25] in (1, 2):
-                # EID_MIC=76, len=16; following body is AES-SIV ciphertext.
+                # EID_MIC=140, len=16; following body is AES-SIV ciphertext.
                 # A MIC marker in a random byte string is not a valid proof
                 # of authenticity: the protected-data and peer/IP gates are
                 # separately required by the enclosing runtime test.
-                mic = payload.find(b"\x4c\x10", 26)
+                mic = payload.find(b"\x8c\x10", 26)
                 if mic != -1 and len(payload) - (mic + 18) >= 20:
                     category = ("ampe_open" if payload[25] == 1
                                 else "ampe_confirm")
