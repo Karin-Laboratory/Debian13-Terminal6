@@ -142,12 +142,19 @@ clock/power routing, DRAM reserved memory and a working NETSYS/SGMII1 path.
 `SIGNED_BY_OWNER` -> `C_UNIT_BOOT_ETHERNET_SSH_P44_PASS` ->
 `INDEPENDENT_PUBLIC_BUILD_PASS`.
 
-The public-source input stage and template-free **synthetic** unsigned P25
-assembly are implemented. Actual compatible board kernel/DTB, Air6 boot-v2
-profile, independent full source replay and physical boot remain blocked. The others must
-remain explicitly BLOCKED/NOT TESTED until supported by real build and physical
-measurements. The owner-private success is a reference, **not proof of public
-reproduction**.
+The public source stage, template-free synthetic unsigned P25 assembler,
+independent readback verifier and **public RC16-derived boot-v2 numeric profile**
+are implemented. Both MT6990 **core source** and **NETSYS/PCS source** replay
+have passed on official Linux 6.18.63. The public, SHA-pinned Air6
+eMMC+NETSYS/SGMII1 DTB variant also compiles.
+
+What is still NOT proved: MT6990 ARM64 object/whole-kernel compilation with
+all required drivers, full real public-source unsigned P25 readback, safe
+electrical/clock/SerDes routing in the proposed board DTB, owner signing, and
+C-unit P44/Ethernet/SSH/UART runtime. These must stay NOT TESTED/BLOCKED
+until evidenced by real build and hardware. A syntax-valid public DTB is not
+a C-unit validated board FDT, and owner-private success does not prove
+public reproduction.
 
 No OEM signing keys, signing bypass, device write, radio transmission, or
 automatic change to C-unit boot slots is performed.
@@ -155,3 +162,12 @@ automatic change to C-unit boot slots is performed.
 ### HWV-only clock mux correction
 
 The pinned GPL donor patch `0956-clk-mediatek-add-real-hwv-only-mux-ops.patch` implements the missing MT6990 14-argument HWV-only mux operations with its actual hardware-voter status/set/clear interface. The upstream stable FENC-only macro has different parameters and must **not** be used with invented FENC monitor registers. This patch is now required before building the public top-clock provider; source/CI acceptance is still distinct from C-unit runtime evidence.
+
+## November 16 reproducibility evidence (latest verified state)
+
+- [Core public clock/MMC source replay PASS](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43798338728).
+- [Full public NETSYS, SGMII PHY and PCS source replay PASS](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43801904698). The exact donor PCS 974 patch targets another OpenWrt PCS ABI; `scripts/port-public-mt6990-pcs.py` deliberately ports its MT6990 init algorithm to the stable Linux 6.18 API rather than force-applying wrong context.
+- [Public Air6 eMMC + optional SGMII1/MT7531 DTB source compile PASS](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43802218224). The Ethernet variant is staged but not selected for automatic flashing or declared cold-boot-safe.
+- Actual ARM64 compile and real 32MiB P25 production are verified only by inspecting the latest `public-mt6990-network-replay.yml` and `kernel-integrated.yml` run outcomes. In particular `CONFIG_NET_DSA=y` must be satisfied before insisting on built-in `CONFIG_NET_MEDIATEK_SOC=y`; a modular `m` result is not equivalent to a boot-available built-in driver.
+- The existing `scripts/start-management.sh` still requires owner-private `test23_*`/`test24_*` modules. Do **not** claim public LAN or SSH reproducibility until standard NETSYS/MT7531/SerDes kernel paths and public management startup are demonstrated.
+
