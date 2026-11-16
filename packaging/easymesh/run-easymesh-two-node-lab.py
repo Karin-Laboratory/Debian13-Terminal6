@@ -166,6 +166,13 @@ def wait_for_processes(container: str, expected: tuple[str, ...], *, seconds: fl
         time.sleep(0.5)
 
 
+def running_elf_names(container: str) -> set[str]:
+    """Inspect the actual /proc executable targets, not names in ps arguments."""
+    listing = command(["docker", "exec", container, "sh", "-c",
+                       'for p in /proc/[0-9]*; do readlink "$p/exe" 2>/dev/null || :; done'])
+    return {Path(path).name for path in listing.splitlines() if path.startswith("/")}
+
+
 def agent_in_controller_db(controller: str, cli_args: str, agent_al: bytes) -> bool:
     """Check a fresh controller query, never report the raw topology or MAC."""
     argv = shlex.split(cli_args)
@@ -254,6 +261,13 @@ def lab(args) -> dict:
                 agent, ("ieee1905_transport", "beerocks_agent"))
             if not (result["controller_processes_running"] and result["agent_processes_running"]):
                 raise LabError("prplMesh processes not observed in both independent nodes")
+            ctrl_exes = running_elf_names(controller)
+            agent_exes = running_elf_names(agent)
+            result["real_prplmesh_binary_confirmed"] = (
+                {"ieee1905_transport", "beerocks_controller", "beerocks_agent"} <= ctrl_exes
+                and {"ieee1905_transport", "beerocks_agent"} <= agent_exes)
+            if not result["real_prplmesh_binary_confirmed"]:
+                raise LabError("actual prplMesh executable paths missing from /proc")
             actual_ctrl = bridge_al_mac(controller, verifier)
             actual_agent = bridge_al_mac(agent, verifier)
             if args.auto_al:
@@ -288,6 +302,8 @@ def lab(args) -> dict:
             if not container_running(agent) or not wait_for_processes(
                     agent, ("ieee1905_transport", "beerocks_agent")):
                 raise LabError("agent process failed to restart")
+            if not {"ieee1905_transport", "beerocks_agent"} <= running_elf_names(agent):
+                raise LabError("prplMesh ELF processes missing after Agent restart")
             if bridge_al_mac(agent, verifier) != agent_al:
                 raise LabError("Agent AL MAC changed across restart; recovery cannot be proven")
 
@@ -350,6 +366,11 @@ def main() -> int:
         return 0 if result["node_recovery_verified"] else 1
     except (OSError, ValueError, LabError) as exc:
         print(f"EASYMESH_TWO_NODE_LAB=NOT_PROVEN reason={exc}", file=sys.stderr)
+        if args.output.is_dir() and not args.output.is_symlink():
+            failure = {"verdict": "NOT_PROVEN", "reason": str(exc),
+                       "real_prplmesh_1905_proven": False}
+            (args.output / "failure.json").write_text(
+                json.dumps(failure, indent=2, sort_keys=True) + "\n")
         return 2
 
 
