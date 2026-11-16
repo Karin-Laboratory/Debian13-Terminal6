@@ -5,10 +5,81 @@ EXPERIMENTAL virtual radio test, not proof of real device regulatory approval.
 Depends on hostap EHT test helpers from the pinned source checkout.
 """
 
+from contextlib import contextmanager
+import re
+import subprocess
+import uuid
+
 from hwsim import HWSimRadio
 from wpasupplicant import WpaSupplicant
 from test_eht import (eht_mld_ap_wpa2_params, eht_mld_enable_ap,
                       eht_verify_status, traffic_test)
+
+
+def _command(*args, timeout=20, check=True):
+    result = subprocess.run(args, text=True, capture_output=True, timeout=timeout,
+                            check=False)
+    if check and result.returncode:
+        # Do not emit raw stderr: system output can include interface identifiers.
+        raise RuntimeError("isolated IP setup/check failed: " + args[0] +
+                           " exit=" + str(result.returncode))
+    return result
+
+
+@contextmanager
+def _ip_namespaces_over_mld(ap_iface, sta_iface):
+    """Two L3 namespaces via ipvlan L2, preserving parent Wi-Fi control sockets.
+
+    A STA cannot normally be enslaved to an Ethernet bridge (3-address mode).
+    ipvlan preserves the parent MAC and leaves hostapd/wpa_supplicant in place.
+    No IP is assigned to the parent interfaces in the shared/root namespace.
+    """
+    token = uuid.uuid4().hex[:7]
+    ap_ns, sta_ns = "ca" + token, "cs" + token
+    ap_child, sta_child = "cipap0", "cipsta0"
+    created = []
+    try:
+        for namespace in (ap_ns, sta_ns):
+            _command("ip", "netns", "add", namespace)
+            created.append(namespace)
+        for parent, child, namespace, address in (
+            (ap_iface, ap_child, ap_ns, "198.18.0.1/30"),
+            (sta_iface, sta_child, sta_ns, "198.18.0.2/30"),
+        ):
+            _command("ip", "link", "add", "link", parent, "name", child,
+                     "type", "ipvlan", "mode", "l2")
+            _command("ip", "link", "set", child, "netns", namespace)
+            _command("ip", "-n", namespace, "addr", "add", address,
+                     "dev", child)
+            _command("ip", "-n", namespace, "link", "set", "lo", "up")
+            _command("ip", "-n", namespace, "link", "set", child, "up")
+        yield (ap_ns, ap_child), (sta_ns, sta_child)
+    finally:
+        # Each namespace deletion also destroys its ipvlan child.
+        for namespace in reversed(created):
+            _command("ip", "netns", "del", namespace, check=False)
+
+
+def _ping_from_namespace(namespace, interface, destination):
+    result = _command("ip", "netns", "exec", namespace, "ping", "-n",
+                      "-I", interface, "-c", "6", "-i", "0.2",
+                      "-W", "2", destination, timeout=30, check=False)
+    match = re.search(r"(\\d+) packets transmitted, (\\d+) received",
+                      result.stdout)
+    if result.returncode or not match or int(match.group(2)) < 1:
+        raise RuntimeError("MLD IP traffic test failed: no confirmed reply")
+    return {"sent": int(match.group(1)), "received": int(match.group(2))}
+
+
+def cunit_bidirectional_ip(hapd, wpas):
+    """Real IPv4 packets between distinct netns, not host-local delivery."""
+    with _ip_namespaces_over_mld(hapd.ifname, wpas.ifname) as (ap, sta):
+        sta_to_ap = _ping_from_namespace(sta[0], sta[1], "198.18.0.1")
+        ap_to_sta = _ping_from_namespace(ap[0], ap[1], "198.18.0.2")
+        # No fabricated metrics: these are parsed from actual ping output.
+        print("CUNIT_MLO_IP_BIDIRECTIONAL_PASS tx_sta=%d rx_sta=%d tx_ap=%d rx_ap=%d" %
+              (sta_to_ap["sent"], sta_to_ap["received"],
+               ap_to_sta["sent"], ap_to_sta["received"]))
 
 
 def cunit_5g160_params(ssid):
@@ -53,3 +124,4 @@ def test_cunit_mlo_5g160_6g160(dev, apdev):
         # Upstream test_connectivity actually sends frames and checks replies.
         traffic_test(wpas, hapd0)
         traffic_test(wpas, hapd1)
+        cunit_bidirectional_ip(hapd0, wpas)
