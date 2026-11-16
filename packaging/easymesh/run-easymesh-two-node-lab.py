@@ -102,8 +102,14 @@ def stage_architecture(root: Path) -> str:
     if not shutil.which("readelf"):
         raise LabError("readelf required for runner/ELF architecture preflight")
     machines = set()
-    for binary in ("beerocks_agent", "beerocks_controller", "ieee1905_transport"):
-        result = command(["readelf", "-h", str(root / "bin" / binary)])
+    binaries = [root / "bin" / name for name in
+                ("beerocks_agent", "beerocks_controller", "ieee1905_transport")]
+    amx_module = root / "lib/amxb/mod-amxb-ubus.so"
+    if amx_module.is_file():
+        # The backend is dlopen()'d at runtime; its machine type must agree.
+        binaries.append(amx_module)
+    for binary in binaries:
+        result = command(["readelf", "-h", str(binary)])
         match = re.search(r"(?m)^\s*Machine:\s*(.+?)\s*$", result)
         if not match:
             raise LabError("ELF machine unavailable from staged prplMesh binary")
