@@ -5,6 +5,7 @@
   "branch": "codex/cunit-kvm-qemu-20261116",
   "base_commit": "a05b39e162bbd044fa0d083ded81129e2e3bbc24",
   "device_action": "NONE",
+  "last_update": "2026-11-16 host-side C-unit KVM Image/modules build complete; no signing, flashing, or target boot",
   "observed_kernel_release": "6.18.63-debian-t6-proto2",
   "matched_build_config_sha256": "a96a7d4f563f828df8b81a1f305c24e37443c1c63be149cf6c894772aacdb9b9",
   "current_config_virtualization": "n",
@@ -26,6 +27,53 @@
   "generic_arm64_image_build": {
     "status": "FAIL",
     "reason": "unrelated clk-mt7987-apmixed.c passes struct device_node* to mtk_clk_register_plls(struct device*, ...)"
+  },
+  "cunit_target_style_host_build": {
+    "status": "PASS_HOST_BUILD_PRIVATE_SOURCE_LIMITATION",
+    "source_provenance": "isolated copy of owner-private cunit-80211s-build-20261115 source tree; original untouched; not reproducible from PR14 public inputs alone",
+    "kernel_release": "6.18.63-debian-t6-proto2",
+    "config_baseline_sha256": "a96a7d4f563f828df8b81a1f305c24e37443c1c63be149cf6c894772aacdb9b9",
+    "resolved_config_sha256": "d5c4ac7b7f7d9da9f3fbbd62cb1e8dcf16284faa17e07877c844f76a0f1a53b8",
+    "config_virtualization": "y",
+    "config_kvm": "y",
+    "image_sha256": "dd077159730686875a5dbffe3853bff5e23043cb22087546192cb42321d31ce1",
+    "image_bytes": 18790408,
+    "vmlinux_sha256": "05cdc5753a24cf04ca64b3aae0772be3b4b6c49d86c006f88d92499205c73e5a",
+    "system_map_sha256": "c56e7603496592503093779585d1639d0b5885d7d64678440d2eaffbea95328c",
+    "module_symvers_sha256": "383f51f6843225b55a3db5e32550f96952eeea1855b11f2da7a7d4da475efb62",
+    "built_modules": 105,
+    "elapsed_seconds": 1578.845,
+    "kvm_symbols": ["kvm_init", "__kvm_nvhe___kvm_hyp_init"]
+  },
+  "pr14_latest_public_replay": {
+    "head": "e05811f8d4d3ee2606f44f27218ef59132a39a5f",
+    "kernel_source_commit": "1cdda838e8475edf89b73ff0cc952005dd0b1fa7",
+    "kernel_archive_sha256": "c0127d88bdf6cb7a6ff9c81563f17dc059ace870c0e1a10e87dee5a1904158f8",
+    "workflow_runs": [43812124223, 43812124224, 43812124243, 43812124230, 43812124232, 43812124333],
+    "status": "ALL_PASS"
+  },
+  "kvm_candidate_dtb": {
+    "status": "PASS_PROPERTY_DIFF_ONLY",
+    "base_no_cqe_sha256": "fb20c141ef71833cac20cd1deb13161c338ceac41843ad94fb5c81f4e1f0f6e9",
+    "candidate_sha256": "a6bef90e18c0a16934e6c4196fea60408a1fed08b6ef9b62c7fbe5d7c5632d91",
+    "change": "/mmc@11230000/max-frequency: 200000000 -> 100000000",
+    "supports_cqe": false,
+    "comparison_to_signed_pr3_dtb": "NOT_BYTE_COMPARED"
+  },
+  "unsigned_p25_candidate": {
+    "status": "INDEPENDENT_STRUCTURE_READBACK_PASS_UNSIGNED_NOT_LK_TESTED",
+    "stored_private": true,
+    "signed": false,
+    "lk_boot_tested": false,
+    "sha256_publicly_recorded": false
+  },
+  "allowed_hardware_access": {
+    "gateway": "raspi2 codex non-root only",
+    "gateway_route_to_192_168_3_0_24": "PRESENT",
+    "target_private_key_available": false,
+    "serial_device_available": false,
+    "device_runtime_state": "NOT_OBSERVED_THIS_SESSION",
+    "reason": "No permitted target key/agent key or UART device available through allowed gateway"
   },
   "openwrt_tcg_boot": {
     "status": "PASS_TO_PROCD_CONSOLE_READY",
@@ -74,7 +122,7 @@
     "number": 19,
     "url": "https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/19",
     "draft": true,
-    "head_commit": "255d1c4314b49ccd98312a61b7b0f21f4097503f",
-    "checks": "NONE_REPORTED_AT_CREATION"
+    "head_commit": "5bf30f28634b5455f1ccd9bf7aeab489a9b6b8ff",
+    "checks": "PENDING_LOCAL_DOC_UPDATE_AND_CONFIG_CI"
   }
 }
