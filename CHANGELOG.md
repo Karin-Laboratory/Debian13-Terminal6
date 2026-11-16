@@ -2,6 +2,8 @@
 
 ## 2026-11-16
 
+- Created a main-based integration branch containing PRs #6, #9, #10, #11 and #12; recorded exact source heads, merge handling, C-unit baseline and per-feature acceptance gaps in `docs/integration/CUNIT-WIFI-INTEGRATION-20261116.ja.md`.
+- Combined host validation: 137 Python unit tests, compileall and shell syntax PASS. Real C-unit Wi-Fi links remain separately gated by kernel MESH config, trusted regdb signing, unavailable supplicant/hostapd and independent peers; no new RF was sent.
 - Added a sanitized, non-mutating C-unit STA verification helper for per-band association/security, gateway ping, DNS, route invariance, link counters, and optional owner-managed iperf3 measurement.
 - Added an explicit transient reconnect option guarded by the wired management default route. At the time of the initial helper work, C-unit live Wi-Fi tests were not performed because authorized SSH authentication was unavailable and the UART broker was active.
 - Recorded exact next gates for WPA3 STA/AP, reconnect, reboot recovery, and independent AP client validation without overstating existing STA/AP evidence.
