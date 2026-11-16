@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Narrow stable-6.18 MT6990 top-clock source adaptation, fail closed.
 
-The public MT6990 donor's obsolete clkdbg.h include has NO callsites,
+The public MT6990 donor's obsolete clkdbg.h is only used by LDVT commands,
 and stable PLL registration accepts device rather than device_node.
 Do not substitute clock/PLL register layouts or disable safety checks.
 """
@@ -30,6 +30,24 @@ def port(path: Path):
         "\t\treturn r;\n"
         "\t}"
     )
+    # Donor bringup-only LDVT requires undefined cmd_fn and set_custom_cmds.
+    # It can forcibly power down active PLLs and is not a Debian prerequisite.
+    start = "/* for suspend LDVT only */"
+    end = "static const struct of_device_id of_match_clk_mt6990[] = {"
+    if src.count(start)!=1 or src.count(end)!=1:
+        raise ValueError("expected donor LDVT block missing")
+    pre, tail = src.split(start, 1)
+    unwanted, post = tail.split(end, 1)
+    if (unwanted.count("static const struct cmd_fn cmds[]")!=1
+            or unwanted.count("CMDFN(")!=5
+            or "pll_force_off(" not in unwanted
+            or "subsys_force_off(" not in unwanted):
+        raise ValueError("donor LDVT block changed shape")
+    src = pre + end + post
+    callback = "#ifdef CONFIG_MTK_CLK_CHECK\\n\\tset_custom_cmds(cmds);\\n#endif\\n"
+    if src.count(callback)!=1:
+        raise ValueError("LDVT-only probe hook missing")
+    src = src.replace(callback, "")
     out=src.replace(header,'').replace(old,replacement)
     if out==src or 'mtk_clk_register_plls(node,' in out:
         raise ValueError("MT6990 clock stable API conversion not applied")
