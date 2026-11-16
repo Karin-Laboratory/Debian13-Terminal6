@@ -54,7 +54,7 @@ def check(config: Path, image: Path | None = None) -> None:
         raw = image.open("rb")
         with raw:
             raw.seek(56)
-            if raw.read(4) != b"ARM\\x64":
+            if raw.read(4) != b"ARM\x64":
                 raise SystemExit("TERMINAL6_CAPABLE_IMAGE_AARCH64_MAGIC_FAIL")
         print(f"TERMINAL6_CAPABLE_IMAGE_35M_PASS {size}")
     print("TERMINAL6_CAPABLE_CONFIG_CONTRACT_PASS_KVM_PCIE_MT7996_USB_P44")
