@@ -62,3 +62,14 @@ python3 packaging/easymesh/verify-arm64-linker.py \
 7. IEEE 1905.1 packet capture、topology、backhaul、実端末association/IPを分けて確認する。
 
 実機に入る前に、管理SSHから復旧できることと既存LAN/無線起動状態を確認する。現在はraspi4認証が通らず、これらの実機条件は満たしていない。
+
+
+## 第2段階：独立2ノードの隔離試験（実行は任意）
+
+Controller+Agentと別Agentの独立コンテナ起動、起動前からの1905実PCAP採取、Agent停止・再起動の手順、証拠条件は[第2段階2ノードラボ手順](../../docs/easymesh/TWO-NODE-LAB-20261116.ja.md)を参照。コマンドは次の通り。
+
+~~~sh
+python3 packaging/easymesh/run-easymesh-two-node-lab.py   --controller-image <prebuilt-prplmesh-6.0.1-controller-runner>   --agent-image <prebuilt-prplmesh-6.0.1-agent-runner>   --controller-al <controller-AL-MAC> --agent-al <agent-AL-MAC>   --output <new-private-directory> --execute
+~~~
+
+専用Linux VMとprebuilt runner imageが必要。サービスやC号機設定を変更しない。capture検査のみの場合は `verify-ieee1905-pcap.py` を使用。出力PCAPはprivate保管、公開GitHubには追加しない。合成テストのPASSは実1905通信のPASSではない。
