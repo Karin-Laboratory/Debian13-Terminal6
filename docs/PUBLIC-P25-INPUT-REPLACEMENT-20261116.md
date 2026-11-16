@@ -14,7 +14,7 @@ driver sources, bindings, and kernel patches from a pinned public OSS donor.
 
 - Run `python3 scripts/stage-public-mt6990-sources.py --output /absolute/new-directory`.
 - The machine-readable input lock is
-  `configs/public-mt6990-sources.json`: 16 known **public text** inputs from
+  `configs/public-mt6990-sources.json`: 17 known **public text** inputs from
   `13179415360/openwrt-mt6990-lg6851f` revision
   `a40df9a5afb46716dea799acea69f17480df4d82`.
 - Source set: core MT6990 clock providers, clock and power bindings, analog
@@ -30,7 +30,7 @@ driver sources, bindings, and kernel patches from a pinned public OSS donor.
   review remains necessary.
 - Offline fail-closed tests cover identity mismatch, unsafe paths, duplicate
   inputs, non-text and oversize data, existing destinations and symlink
-  ancestors. CI stages and verifies the exact 16 donor blobs temporarily
+  ancestors. CI stages and verifies the exact 17 donor blobs temporarily
   without uploading them.
 
 
@@ -121,7 +121,7 @@ clock/power routing, DRAM reserved memory and a working NETSYS/SGMII1 path.
    clocks, pinctrl, power, GIC, reserved memory, Ethernet routing, P44 and
    eMMC 100 MHz/no-CQE. The LG6851F board DTS is not interchangeable.
 2. **Other MT6990 board/kernel deltas:** the current private source tree
-   contains extra implementation beyond the 16 selected donor inputs.
+   contains extra implementation beyond the 17 selected donor inputs.
    Independently stage any further licensed upstream source/patches as needed.
    Existing `scripts/configure-board-kernel.sh` requires an already working
    MT6990 tree. The PR #13 replay currently fails reverse-application of
@@ -151,3 +151,7 @@ reproduction**.
 
 No OEM signing keys, signing bypass, device write, radio transmission, or
 automatic change to C-unit boot slots is performed.
+
+### HWV-only clock mux correction
+
+The pinned GPL donor patch `0956-clk-mediatek-add-real-hwv-only-mux-ops.patch` implements the missing MT6990 14-argument HWV-only mux operations with its actual hardware-voter status/set/clear interface. The upstream stable FENC-only macro has different parameters and must **not** be used with invented FENC monitor registers. This patch is now required before building the public top-clock provider; source/CI acceptance is still distinct from C-unit runtime evidence.
