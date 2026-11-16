@@ -33,7 +33,7 @@ jobs:
           }
           fetch_pin target/linux/generic/pending-6.18/739-03-net-pcs-pcs-mtk-lynxi-add-platform-driver-for-MT7988.patch 7093797af7c4ea04b714fdd4b2729d9a7c0016fe /tmp/pcs739.patch
           fetch_pin target/linux/generic/backport-6.18/785-v7.0-09-net-pcs-pcs-mtk-lynxi-pass-SGMIISYS-OF-node-to-PCS.patch 9d88ac8af8c1a2750508459953f5f06560a9a804 /tmp/pcs785.patch
-          fetch_pin target/linux/mediatek/patches-6.18/974-net-pcs-mtk-lynxi-add-mt6990-variant.patch "$(curl -fsSL https://api.github.com/repos/13179415360/openwrt-mt6990-lg6851f/contents/target/linux/mediatek/patches-6.18/974-net-pcs-mtk-lynxi-add-mt6990-variant.patch?ref=a40df9a5afb46716dea799acea69f17480df4d82 | python3 -c 'import json,sys;print(json.load(sys.stdin)["sha"])')" /tmp/pcs974.patch
+          fetch_pin target/linux/mediatek/patches-6.18/974-net-pcs-mtk-lynxi-add-mt6990-variant.patch 9e9c8c398d50fe20435882ef35a92850cee3b266 /tmp/pcs974.patch
           for pair in '739:/tmp/pcs739.patch' '785:/tmp/pcs785.patch' '974:/tmp/pcs974.patch'; do
             name="${pair%%:*}"; f="${pair#*:}"
             echo "::group::PATCH_${name}"
