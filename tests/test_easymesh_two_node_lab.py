@@ -68,7 +68,7 @@ class LabTests(unittest.TestCase):
         argv = command.call_args.args[0]
         self.assertIn("INSTALL_DIR=/tmp/build/install", argv)
         self.assertIn("mod-amxb-ubus.so", argv[-1])
-        self.assertIn("ubusd -s /var/run/ubus.sock", argv[-1])
+        self.assertIn('"$INSTALL_DIR/sbin/ubusd" -s /var/run/ubus.sock', argv[-1])
         self.assertIn('test -S /var/run/ubus.sock', argv[-1])
         self.assertNotIn("--privileged", argv)
         self.assertNotIn("--network=host", argv)
