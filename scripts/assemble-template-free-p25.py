@@ -44,7 +44,7 @@ def aosp_dtb_table(fdt: bytes, page_size: int = PAGE) -> bytes:
     No OEM bytes are read or copied. All sizes are derived from the FDT.
     RC16's published one-entry format uses zero id/rev/custom fields.
     """
-    if page_size != PAGE or len(fdt) < 40 or fdt[:4] != b"\\xd0\\x0d\\xfe\\xed":
+    if page_size != PAGE or len(fdt) < 40 or fdt[:4] != b"\xd0\x0d\xfe\xed":
         raise ValueError("invalid FDT or page size")
     size = struct.unpack_from(">I", fdt, 4)[0]
     if size != len(fdt) or size > 0xFFFFFFFF - 64:
