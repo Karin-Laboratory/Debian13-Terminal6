@@ -16,6 +16,11 @@ scripts/config --enable ARM64 --enable ARM64_4K_PAGES --enable ARM64_VA_BITS_39 
   --enable PINCTRL --enable PINCTRL_MTK --enable REGULATOR \
   --enable GPIOLIB --enable GENERIC_PHY --enable PHY_MTK_MT6990_SGMII \
   --enable PM --enable MODULES --enable MODULE_UNLOAD
+# ARM64 VA width is a Kconfig 'choice' with a 52-bit default. Disable all
+# other choices explicitly, including any carried forward by tinyconfig.
+scripts/config --disable ARM64_VA_BITS_52 --disable ARM64_VA_BITS_48 \
+  --disable ARM64_VA_BITS_47 --disable ARM64_VA_BITS_42 \
+  --disable ARM64_VA_BITS_36 --enable ARM64_VA_BITS_39
 # First-boot requirements must not depend on a P44 module loader.
 scripts/config --enable PRINTK --enable PRINTK_TIME \
   --enable BINFMT_ELF --enable BINFMT_SCRIPT \
