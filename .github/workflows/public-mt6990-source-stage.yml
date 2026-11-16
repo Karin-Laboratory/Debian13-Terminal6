@@ -90,7 +90,7 @@ jobs:
             --initramfs-cpio-gz "$RUNNER_TEMP/synthetic-p25/initramfs.cpio.gz" \
             --profile "$RUNNER_TEMP/synthetic-p25/profile.json" \
             --receipt "$RUNNER_TEMP/synthetic-p25/candidate/p25-receipt.json"
-                    # Synthetic image is ephemeral; no artifact upload, signing or device access.
+          # Synthetic image is ephemeral; no artifact upload, signing or device access.
       - name: Independently read PUBLIC RC16 boot-v2 profile, no image retention
         shell: bash
         run: |
