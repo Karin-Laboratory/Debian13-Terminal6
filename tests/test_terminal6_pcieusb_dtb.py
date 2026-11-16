@@ -16,7 +16,7 @@ verify = load("pcieusb_verify", ROOT / "scripts/verify-terminal6-pcieusb-config.
 
 class ExperimentalDTBTests(unittest.TestCase):
     def test_overlay_enables_complete_tree(self):
-        out = dtb.make_overlay(dtb.BASE_INCLUDE + "\n&eth { status = \"okay\"; };\n")
+        out = dtb.make_overlay(dtb.SOURCE_BASE_INCLUDE + "\n&eth { status = \"okay\"; };\n")
         for node in ("pcie0","pcie1","pcie2","pciephy0","pciephy1","pciephy2",
                      "usb","xsphy","xhci"):
             self.assertIn("&" + node + " {", out)
@@ -29,7 +29,7 @@ class ExperimentalDTBTests(unittest.TestCase):
 
     def test_preexisting_phy_override_fails_closed(self):
         with self.assertRaises(ValueError):
-            dtb.make_overlay(dtb.BASE_INCLUDE + '\n&eth { status = "okay"; };\n&pciephy0 { status = "okay"; };\n')
+            dtb.make_overlay(dtb.SOURCE_BASE_INCLUDE + '\n&eth { status = "okay"; };\n&pciephy0 { status = "okay"; };\n')
 
 class FeatureConfigTests(unittest.TestCase):
     def config(self):
