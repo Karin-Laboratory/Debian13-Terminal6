@@ -44,7 +44,8 @@
       "procd: - init -",
       "Please press Enter to activate this console."
     ],
-    "stop": "external 120s timeout after reaching interactive console prompt"
+    "stop": "external 120s timeout after reaching interactive console prompt",
+    "private_log_sha256": "b7db982a0ae56cecfa9e7ce5772f29a952e053020b0284cde3b5e4f5cd02d5c8"
   },
   "c_unit_kvm_runtime": "NOT_TESTED",
   "openwrt_guest_with_kvm": "NOT_TESTED",
@@ -68,5 +69,12 @@
       "head": "6948df2747fe57f89e7d8b4701324d8eeeb0dee3",
       "checks": "ALL_SUCCESS"
     }
+  },
+  "pull_request": {
+    "number": 19,
+    "url": "https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/19",
+    "draft": true,
+    "head_commit": "255d1c4314b49ccd98312a61b7b0f21f4097503f",
+    "checks": "NONE_REPORTED_AT_CREATION"
   }
 }
