@@ -59,29 +59,29 @@ class SourceReplayTests(unittest.TestCase):
             upstream = root / "linux-6.18.63"
             vendor_path = upstream / "drivers" / "clk" / "clk-mt6990.c"
             vendor_path.parent.mkdir(parents=True)
-            vendor_path.write_text("original\\n")
+            vendor_path.write_text("original\n")
             tarpath = root / "source.tar"
             with tarfile.open(tarpath, "w") as archive:
                 archive.add(upstream, arcname=upstream.name)
             patch = root / "0001-demo-vendor.patch"
             patch.write_text(
-                "--- a/drivers/clk/clk-mt6990.c\\n"
-                "+++ b/drivers/clk/clk-mt6990.c\\n"
-                "@@ -1 +1 @@\\n"
-                "-original\\n"
-                "+approved vendor change\\n"
+                "--- a/drivers/clk/clk-mt6990.c\n"
+                "+++ b/drivers/clk/clk-mt6990.c\n"
+                "@@ -1 +1 @@\n"
+                "-original\n"
+                "+approved vendor change\n"
             )
             snapshot = root / "snapshot"
             changed = snapshot / "drivers" / "clk" / "clk-mt6990.c"
             changed.parent.mkdir(parents=True)
-            changed.write_text("approved vendor change\\n")
+            changed.write_text("approved vendor change\n")
             config = root / ".config"
-            config.write_text("CONFIG_MAC80211_MESH=y\\n")
+            config.write_text("CONFIG_MAC80211_MESH=y\n")
             result = check_source_replay(tarpath, digest(tarpath), snapshot,
                                          [patch], config)
             self.assertEqual(result["status"], "SOURCE_REPLAY_MATCH")
             self.assertEqual(result["differences"]["content_mismatch"], [])
-            changed.write_text("unrecorded local edit\\n")
+            changed.write_text("unrecorded local edit\n")
             result = check_source_replay(tarpath, digest(tarpath), snapshot,
                                          [patch], config)
             self.assertEqual(result["status"], "SOURCE_REPLAY_MISMATCH")
