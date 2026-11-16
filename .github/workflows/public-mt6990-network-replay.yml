@@ -59,12 +59,13 @@ jobs:
           cd "$RUNNER_TEMP/linux"
           export ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
           make -s defconfig
+          scripts/config --disable HSR
           scripts/config --enable ARCH_MEDIATEK --enable COMMON_CLK_MT6990 \
             --enable COMMON_CLK_MEDIATEK --enable NET_VENDOR_MEDIATEK \
             --enable NET_DSA --enable BRIDGE --enable NET_MEDIATEK_SOC \
             --enable PCS_MTK_LYNXI
           make -s olddefconfig prepare
-          grep -E '^CONFIG_(ARCH_MEDIATEK|NET|NETDEVICES|NET_VENDOR_MEDIATEK|NET_MEDIATEK_SOC|COMMON_CLK_MEDIATEK|COMMON_CLK_MT6990|PCS_MTK_LYNXI)=' .config || :
+          grep -E '^CONFIG_(ARCH_MEDIATEK|NET|NETDEVICES|NET_DSA|HSR|BRIDGE|NET_VENDOR_MEDIATEK|NET_MEDIATEK_SOC|COMMON_CLK_MEDIATEK|COMMON_CLK_MT6990|PCS_MTK_LYNXI)=' .config || :
           grep -qx 'CONFIG_NET_MEDIATEK_SOC=y' .config
           grep -qx 'CONFIG_COMMON_CLK_MT6990=y' .config
           make -j4 drivers/clk/mediatek/clk-mt6990.o \
