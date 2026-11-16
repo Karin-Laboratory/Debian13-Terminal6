@@ -64,7 +64,7 @@ def _ping_from_namespace(namespace, interface, destination):
     result = _command("ip", "netns", "exec", namespace, "ping", "-n",
                       "-I", interface, "-c", "6", "-i", "0.2",
                       "-W", "2", destination, timeout=30, check=False)
-    match = re.search(r"(\\d+) packets transmitted, (\\d+) received",
+    match = re.search(r"(\d+) packets transmitted, (\d+) received",
                       result.stdout)
     if result.returncode or not match or int(match.group(2)) < 1:
         raise RuntimeError("MLD IP traffic test failed: no confirmed reply")
