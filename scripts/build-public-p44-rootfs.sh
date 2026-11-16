@@ -97,8 +97,9 @@ if mountpoint -q "$out/proc" || mountpoint -q "$out/sys" || mountpoint -q "$out/
   echo "Refusing archive while bootstrap mounts exist" >&2
   exit 1
 fi
-dpkg-query --admindir="$out/var/lib/dpkg" -W -f='${Package} ${Version} ${Architecture}\n' \
+chroot "$out" /usr/bin/dpkg-query -W -f='${Package} ${Version} ${Architecture}\n' \
   > "$dest/debian-package-manifest.txt"
+test -s "$dest/debian-package-manifest.txt" || { echo "empty Debian package manifest" >&2; exit 1; }
 (cd "$out" && tar --numeric-owner --sort=name -czf "$dest/debian13-p44-rootfs.tar.gz" .)
 sha256sum "$dest/debian13-p44-rootfs.tar.gz" "$dest/debian-package-manifest.txt" \
   > "$dest/SHA256SUMS"
