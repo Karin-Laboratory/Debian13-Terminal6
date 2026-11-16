@@ -36,8 +36,8 @@ jobs:
           import json, sys
           d=json.load(open(sys.argv[1], encoding="utf-8"))
           assert d["status"] == "PUBLIC_TEXT_STAGED_NOT_BOOT_VALIDATED"
-          assert len(d["files"]) == 16
-          print("PUBLIC_MT6990_SOURCE_BLOBS_16_VERIFIED")
+          assert len(d["files"]) == 17
+          print("PUBLIC_MT6990_SOURCE_BLOBS_17_VERIFIED")
           print("NO_KERNEL_BUILD_NO_P25_NO_DEVICE_BOOT")
           PY
           # No GitHub Actions upload, caches, firmware, signer or device access.
