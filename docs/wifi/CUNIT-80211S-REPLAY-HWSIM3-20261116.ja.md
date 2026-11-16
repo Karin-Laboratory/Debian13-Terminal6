@@ -74,6 +74,22 @@ sudo bash scripts/run_80211s_hwsim_3node.sh
 
 参考：[wmediumdの確率ベースリンク遮断](https://github.com/ramonfontes/wmediumd#per-link-loss-probability-model)。
 
+## 第3段階: C号機へ統合する最小差分（準備のみ、実機未操作）
+
+この節は **PR #6担当から実機引渡しがあった後**の手順書であり、今回のホスト試験を物理C号機の合格証拠に転用しない。
+
+1. **ビルド入力**: 権利確認済みLinux 6.18.63 + private MT6990 vendor/board source + PR #9 EEPROM/OTP修正の順に再構成し、全ソースのSHA256一致、独立`Image modules`ビルド、toolchain/config/成果物SHA256をowner-private領域に保存する。現状、この実再構成はBLOCKED。
+2. **kernel差分**: IEEE 802.11sに必要な追加変更は原則`CONFIG_MAC80211_MESH=y`のconfig fragmentと既存wpa_supplicantのmesh設定だけ。HWMP、SAE、AMPEの独自実装は作らない。`CONFIG_MT7996E=m`およびPR #9の校正修正が残ることを確認する。
+3. **既存の起動・管理基盤**: eMMCの100MHz制限とCQE無効化、既存DTB・firmware、管理LAN/IPv4・SSH・UART・復旧用slot Bの構成を変更しない。ビルドconfig上の設定だけでなく、実機のdmesg/sysfsと通信で有効性を後日確認する。
+4. **無線実機の順序**: 適法な2.4GHzまたは5GHzチャネルでmesh point capability → peer/SAE → 2ノードIP → 独立した3ノードHWMP → 障害復帰を逐次確認する。既存の管理用無線IFを勝手にdownしない。A号機は読み取り専用で、純正EasyMeshを802.11s peerと見なさない。
+5. **役割分離**: PR #6のP25、署名、regdb・6GHz送信、MLO、EasyMeshに手を入れない。事前に引渡しとrollbackが確認できなければ物理C号機への適用を止める。320MHzおよび6GHz RF送信は対象外。
+
+引渡し直後の非破壊ベースライン採取例（通信経路・MAC・個体識別情報を公開ログに貼らない）:
+
+`uname -r; ip -br link; ip -4 route; iw phy; lsmod | grep -E 'mt7996|mt76|mac80211'; cat /proc/cmdline`
+
+初回の実機試験で必要な最小変更、復帰操作、ログ採取範囲はPR #6担当との引継ぎ時に最終確定する。現時点で署名・書込み・RF実験は実施していない。
+
 ## 第3ゲート: 署名・C号機書込み前の受け入れ条件
 
 ソース再生＋独立ビルド成功、PR #9の校正修正保持、eMMC 100MHz/CQE無効、最終configとfirmware整合性、管理LAN/SSH/UART保護、実機操作権の確保が必要。6GHz・MLO・EasyMesh担当の変更領域へ介入しない。PHYのmesh capability広告だけでは成功としない。
