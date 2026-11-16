@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 CORE_PATCHES = [
     "0956-clk-mediatek-add-real-hwv-only-mux-ops.patch",
@@ -86,6 +87,11 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
         source = stage / "patches" / p
         if not source.is_file():
             raise ValueError("required pinned public patch missing: " + p)
+        if p == "972-net-ethernet-mediatek-add-mt6990-support.patch":
+            subprocess.run([sys.executable,
+                            str(Path(__file__).with_name("port-public-mt6990-ethernet.py")),
+                            "--stage", str(stage), "--linux", str(kernel)], check=True)
+            continue
         patch_text = source.read_text()
         if p == "823-mmc-mtk-sd-add-mt6990-compatible.patch":
             # The donor's third hunk forces an LG6851F fixed-rail OCR.
