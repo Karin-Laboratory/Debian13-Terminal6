@@ -10,6 +10,7 @@ Enabling a DT node does NOT constitute physical LK/PCI/USB boot validation.
 from pathlib import Path
 import sys
 
+SOURCE_BASE_INCLUDE = '#include "terminal6-debian-experimental.dts"'
 BASE_INCLUDE = '#include "terminal6-debian-ethernet-experimental.dts"'
 HEADER = """// SPDX-License-Identifier: GPL-2.0-only
 /*
@@ -52,7 +53,7 @@ BLOCKS.extend([
 ])
 
 def make_overlay(source: str) -> str:
-    if source.count(BASE_INCLUDE) != 1:
+    if source.count(SOURCE_BASE_INCLUDE) != 1:
         raise ValueError("BASE_ETHERNET_INCLUDE_MUST_BE_EXACTLY_ONE")
     if any(tag in source for tag in ("&pciephy0 {", "&pciephy1 {", "&pciephy2 {", "&xhci {")):
         raise ValueError("BASE_CONTAINS_UNEXPECTED_PCIE_PHY_OR_XHCI_OVERRIDE")
