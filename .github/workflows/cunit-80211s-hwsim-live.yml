@@ -53,22 +53,8 @@ jobs:
           grep -qx 'HWSIM_B_RECOVERY_HWMP=PASS' "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
           grep -qx 'HWSIM_HWMP_AC_VIA_B=PASS' "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
           grep -qx 'HWSIM_3NODE_BIDIRECTIONAL_IP=PASS' "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
-          grep -Eq '^HWSIM_B_RECOVERY_MODE=(AUTO|WPA_CLI_RECONNECT|ASSISTED_B_NETWORK_REJOIN|ASSISTED_B_MESH_GROUP_REJOIN|ASSISTED_B_SUPPLICANT_RESTART)      - name: Upload sanitized result summary
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cunit-80211s-3node-summary-${{ matrix.trial }}
-          if-no-files-found: ignore
-          path: ${{ runner.temp }}/cunit-80211s-3node-results.txt
- "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
-          grep -Eq '^HWSIM_B_RECOVERY_MS=[0-9]+      - name: Upload sanitized result summary
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cunit-80211s-3node-summary-${{ matrix.trial }}
-          if-no-files-found: ignore
-          path: ${{ runner.temp }}/cunit-80211s-3node-results.txt
- "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
+          grep -Eq '^HWSIM_B_RECOVERY_MODE=(AUTO|WPA_CLI_RECONNECT|ASSISTED_B_NETWORK_REJOIN|ASSISTED_B_MESH_GROUP_REJOIN|ASSISTED_B_SUPPLICANT_RESTART)$' "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
+          grep -Eq '^HWSIM_B_RECOVERY_MS=[0-9]+$' "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
           grep -qx 'HWSIM_AMPE_FRAME_PROTECTION=NOT_INDEPENDENTLY_VERIFIED' "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
       - name: Upload sanitized result summary
         if: always()
