@@ -7,6 +7,8 @@ on:
       - 'tests/test_stage_public_mt6990_sources.py'
       - 'scripts/assemble-template-free-p25.py'
       - 'tests/test_assemble_template_free_p25.py'
+      - 'scripts/derive-public-boot-v2-profile.py'
+      - 'tests/test_derive_public_boot_v2_profile.py'
       - '.github/workflows/public-mt6990-source-stage.yml'
   workflow_dispatch:
 permissions:
@@ -23,6 +25,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p 'test_stage_public_mt6990_sources.py' -v
           python3 -m unittest discover -s tests -p 'test_assemble_template_free_p25.py' -v
+          python3 -m unittest discover -s tests -p 'test_derive_public_boot_v2_profile.py' -v
       - name: Stage SHA-pinned PUBLIC source files into ephemeral runner only
         shell: bash
         run: |
@@ -80,3 +83,16 @@ jobs:
           print("SYNTHETIC_TEMPLATE_FREE_32M_P25_PASS_NOT_BOOT_VALIDATED")
           PY
           # Synthetic image is ephemeral; no artifact upload, signing or device access.
+      - name: Independently read PUBLIC RC16 boot-v2 profile, no image retention
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 2 --max-time 120 \
+            'https://github.com/Karin-Laboratory/openwrt-terminal-6/releases/download/sba6d-nora2-rc16-20261110-r1/sba6d-nora2-rc16-20261110-r1-p25-boot-signed.img' \
+            --output "$RUNNER_TEMP/public-rc16-reference.img"
+          python3 scripts/derive-public-boot-v2-profile.py \
+            --public-reference "$RUNNER_TEMP/public-rc16-reference.img" \
+            --output "$RUNNER_TEMP/public-rc16-boot-profile.json"
+          cat "$RUNNER_TEMP/public-rc16-boot-profile.json"
+          rm -f "$RUNNER_TEMP/public-rc16-reference.img"
+          echo "PUBLIC_RC16_HEADER_PROFILE_ONLY_NOT_OWNER_PRIVATE_TEMPLATE"
