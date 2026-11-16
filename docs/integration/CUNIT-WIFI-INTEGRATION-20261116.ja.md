@@ -143,4 +143,11 @@ module rollback copyとP44のチェックサム一覧、およびslot/P25 backup
 
 - C号機の実radioは引き続きDOWNで、独立mesh peerはこの実行環境から用意できていない。802.11s capability/interface PASSは維持するが、peer discovery、SAE/AMPE、HWMP、双方向IP、再接続はNOT TESTED。
 - 6GHz送信なし。C号機SSH/有線route/eMMC状態はread-only再確認で維持。UARTシリアル出力はこの更新では未採取。
-- host unit suiteは`TMPDIR=/var/tmp python3 -m unittest discover -s tests -p 'test_*.py' -v`: 139 tests PASS。デフォルト`/tmp`は環境内`.git`配置のため2 private-source testsが誤ってcheckout内扱いとなる既知のローカル一時ディレクトリ問題。
+- host unit suiteは`TMPDIR=/var/tmp python3 -m unittest discover -s tests -p 'test_*.py' -v`: 当時139 tests PASS。デフォルト`/tmp`は環境内`.git`配置のため2 private-source testsが誤ってcheckout内扱いとなる既知のローカル一時ディレクトリ問題。
+
+## 2026-11-16 04:47 UTC: PR #13 続行受入
+
+- `docs/integration/CUNIT-CODEX-RUNBOOK.ja.md`のPR/CI現状をPR #13の実際のheadと最新runへ更新。確認head `ad0a955d92bbf68c36982e32eb127575cfb154fe`、PRはDraftでmain未マージ。host-tests run `43805581113` PASS。
+- hwsim run `43805577351`はkernel `7.0.0-1014-aws`でprobe/build PASS後、`eht_mld_owe_two_links`が250秒のtest limitでFAILED。safe artifactはassociation event 0、例外/assertionなし、MLO status bitmapなし、acceptance `NOT_PROVEN`。ログにはraw出力がなく、timeout前の内部停止点は特定不能。後続smokeおよび5/6GHz 160MHz hwsim fixtureは未実行。これはrunner/hwsim failureで、C号機の実RF結果ではない。
+- 次回にtimeoutを曖昧にしないよう、runnerのsanitized diagnosticsへreturn codeと`timed_out` flagを追加し、unit regressionを追加。既知の開発VM `6.12.101+deb13-amd64`でのsmoke 3件PASSと、AWS runner上の今回の失敗は環境を区別して記録する。実機MLO受入は引き続きNOT TESTED。
+- EasyMesh隔離2-node実験は前述の通り不成立。独立802.11s peerも未準備。C号機の無線は使用せず、A号機、raspi4、管理LANへの変更なし。

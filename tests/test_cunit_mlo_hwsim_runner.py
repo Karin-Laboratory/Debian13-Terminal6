@@ -90,6 +90,12 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(details["failure_assertion"], "unexpected_valid_links")
         self.assertNotIn("02:00:00", str(details))
 
+    def test_failure_diagnostics_report_timeout_without_raw_output(self):
+        details = sanitized_failure_diagnostics("", 124)
+        self.assertEqual(details["returncode"], 124)
+        self.assertTrue(details["timed_out"])
+        self.assertEqual(details["association_events"], 0)
+
     def test_missing_one_smoke_blocks(self):
         p = {'status':'READY','kernel':'test'}
         self.assertEqual(sanitized_summary(p, {'a':'SMOKE_PASS','b':'FAILED'})['status'],

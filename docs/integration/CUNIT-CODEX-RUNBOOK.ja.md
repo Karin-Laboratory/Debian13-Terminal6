@@ -14,7 +14,7 @@
 
 | 対象 | 最後に裏付けられた状態 | 次のゲート |
 |---|---|---|
-| PR #13 | 5 PRの祖先関係を保持して統合。head `643033d9dae1020acdaf606b6587e5c1831e3428`、host CI run `43802059437` PASS。main未マージ、Draft | 802.11s実peer、EasyMesh Controller/Agent、MLO実機対向試験 |
+| PR #13 | 2026-11-16 04:47 UTC確認。直近確認head `ad0a955d92bbf68c36982e32eb127575cfb154fe`、PR Draft、main未マージ。host-tests run `43805581113` PASS。hwsim run `43805577351` FAIL | 802.11s実peer、EasyMesh Controller/Agent、MLO実機対向試験。hwsimのrunner環境差を解決する |
 | kernel source | 正規6.18.63 tarball→private snapshotの**全ファイル再生一致**を達成（`.gitignore`除外88ファイル問題を修正）。private差分の来歴分離、公開再現性、ライセンス適合までは証明していない | 変更後再生receiptを保持 |
 | ARM64 | `CONFIG_MAC80211_MESH=y`、`CONFIG_MT7996E=m`、署名regdb必須、160MHz/no-320のImageとmt76系moduleビルドPASS | **実機適用は別判定** |
 | 統合P25 | unsigned SHA `83478d8804172777c9dc69fd35a1e3931257a130a5c803e588b6e286c390cd2e`。署名済みSHA `ae65d0c28c5d3c6a0189193c70f3783c142da3c97553bb8fe80059569046dea0`、RSA-PSS独立検証PASS、boot_a全32MiB readback一致、slot A起動PASS | 実機の起動受入済み。slot B保持 |
@@ -22,7 +22,7 @@
 | 2.4/5GHz | 過去のSTA+WPA2+DHCP+IP/TLS PASS。統合PRの新環境では対向機・userspace不足で未再試験 | 既存成功を保持、必要なら差分試験 |
 | 6GHz | no-320/160MHz能力広告は実機PASS、RFは未送信。現行regdb署名不一致、global `00`、6GHz disabled | trusted regdbの起動読込確認。**技適の個体照合・運用条件を別に確認するまで送信禁止** |
 | 802.11s | C号機は`mesh point` capabilityとDOWN interface作成・削除PASS。peer/SAE/AMPE/HWMP/IPはNOT TESTED。独立peer未準備 | 次は実peerで2.4GHz SAE/AMPE、双方向IP、切断/再接続 |
-| MLO | isolated VM, kernel `6.12.101+deb13-amd64`, pinned hostap `f1e9b508…`で修正版upstream hwsim smoke 3件PASS。さらにsynthetic 5/6GHz 160MHz fixtureは`WIDE_MLD_IP_PASS`、ping 6/6両方向。Acceptance v2はNOT_PROVEN。実C号機RFではない | 実対向端末・実機radioでMLD/link countersとIP継続を確認 |
+| MLO | 開発VM kernel `6.12.101+deb13-amd64`では修正版upstream hwsim smoke 3件PASS、synthetic 5/6GHz 160MHz fixtureは双方向ping 6/6。GitHub runner kernel `7.0.0-1014-aws`ではrun `43805577351`の最初の試験が250秒でtimeout、association event 0、後続試験は未実行。Acceptance v2はNOT_PROVEN。いずれもC号機RFではない | GitHub runnerのhwsim初期化/試験停止原因をsafe diagnosticsで切り分け、実対向端末・実機radioでMLD/link countersとIP継続を確認 |
 | EasyMesh | prplMesh 6.0.1 ARM64 loader/library resolution PASS。QEMU-user isolated two-netns試行ではControllerがAMXRT `No backends specified`で停止、Agentはradio mapping 2/3不足、transportはinterfaceをuntrackedとして無視。PCAPは空(24-byte header)、1905実通信FAIL/未成立 | AMXRT backend/configとradio mappingを構成し、独立2ノードの1905 Discovery/Topologyを再試行 |
 
 **注意**：PR本文や一部時系列ドキュメントには「P25未署名」など**過去の時点**の文章がある。判断は候補SHA・計測日・実行IDで行う。「signed」は「Release保管済み」「実機書込み済み」「起動成功」「RF送信許可」と同義ではない。
@@ -33,6 +33,7 @@
 - agent-101-vm kernel `6.12.101+deb13-amd64`のMLO対応`mac80211_hwsim` (`mlo`, `multi_radio`, `channels`)を使った隔離hwsimで`eht_mld_owe_two_links`, `eht_mld_link_removal`, `eht_mld_disassociate`の3件がPASS。`cunit_mlo_5g160_6g160`もsynthetic hwsim-only regulatory設定下でPASS、bidirectional pingはSTA→AP 6/6、AP→STA 6/6。これは仮想radioのupstream/hwsim実験であり、C号機実通信や法的な6GHz送信許可ではない。Accept evidence v2は`NOT_PROVEN`のまま。
 - EasyMesh loader-only checkは、既存ARM64 build, private sysroot, Debian arm64 dependency packagesを一時stageに合わせて4 executableのtarget loader resolutionを確認した。続く完全隔離netns/bridge試験ではprplMesh transport processは起動したが、ControllerがAMXRT backend不在、Agentが`wireless_interface_0/1` radio mapping不在、transportが`eth1`/`br-lan`をuntrackedとして無視。PCAPはglobal headerのみで、Topology Discovery/Query/Responseなし。netns・プロセスはすべて停止・削除し、管理IF・C号機は変更なし。次はAMXRT plugin/configのstageとprivate platform DBのradio mappingを整え、2-node wire testを再試行する。
 - 2026-11-16午後のC号機read-only確認ではslot A、signed P25 SHA一致、kernel `#2`、eMMC 100MHz上限/actual 94,999,965Hz/CQE off、`wlp1s0` DOWN、MMC/ext4 error count 0。Ethernet default routeとSSHは現行維持。UARTは今回未採取。6GHz RFは送信なし。
+- 最新host-only CI `43805581113` はhead `ad0a955d…`でPASS。hwsim run `43805577351`はGitHub runner kernel `7.0.0-1014-aws`上でpreflight・build後、`eht_mld_owe_two_links`がrunnerの250秒制限に達しFAILED。sanitized artifactはexception/assertionなし、association event 0、MLO bitmapなし、acceptance `NOT_PROVEN`を示す。ログにraw test outputがないため、ハングした内部箇所は未特定。5/6GHz 160MHz hwsim試験は未実行。runner診断には次回からreturn code/timeout flagを含める変更を追加。
 
 ## 2. 判定ゲート（順番を飛ばさない）
 

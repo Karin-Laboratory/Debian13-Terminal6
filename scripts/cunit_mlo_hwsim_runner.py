@@ -130,7 +130,7 @@ def parse_ip_ping_marker(output):
             "ap_to_sta": {"sent": sent_ap, "received": received_ap}}
 
 
-def sanitized_failure_diagnostics(output):
+def sanitized_failure_diagnostics(output, returncode=None):
     """Retain only safe MLO milestone data; never publish the raw test log."""
     classes = re.findall(
         r"(?m)^(AssertionError|Exception|RuntimeError|TimeoutError|"
@@ -139,6 +139,8 @@ def sanitized_failure_diagnostics(output):
         r"(?m)(?:valid_links|active_links)=0x([0-9a-fA-F]+) via MLO_STATUS:", output)
     association_events = len(re.findall(r"CTRL-EVENT-CONNECTED", output))
     return {
+        "returncode": returncode,
+        "timed_out": returncode == 124,
         "exception_class": classes[-1] if classes else None,
         "association_events": association_events,
         "mlo_status_bitmaps": ["0x" + value.lower() for value in bitmaps[-4:]],
@@ -204,7 +206,8 @@ def run_tests(hostap_tree, output_dir, tests, fixture_source, sim_country=None):
         results[test] = ("SMOKE_PASS" if completed_test(result.stdout, test,
                                                        result.returncode) else "FAILED")
         if results[test] == "FAILED":
-            diagnostics[test] = sanitized_failure_diagnostics(result.stdout)
+            diagnostics[test] = sanitized_failure_diagnostics(result.stdout,
+                                                              result.returncode)
         if test == WIDE_TEST and results[test] == "SMOKE_PASS":
             ip_ping = parse_ip_ping_marker(result.stdout)
         if results[test] == "FAILED":
