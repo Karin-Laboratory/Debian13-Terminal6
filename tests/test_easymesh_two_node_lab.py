@@ -164,6 +164,20 @@ class LabTests(unittest.TestCase):
         with self.assertRaisesRegex(module.LabError, "unsupported"):
             module.stage_architecture(Path("/private/install"))
 
+    @patch.object(module.shutil, "which", return_value="/usr/bin/readelf")
+    @patch.object(module, "command")
+    def test_ambiorix_backend_elf_must_match_native_runtime(self, command, which):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plugin = root / "lib/amxb/mod-amxb-ubus.so"
+            plugin.parent.mkdir(parents=True)
+            plugin.write_bytes(b"test-module-marker")
+            command.side_effect = (["Machine: AArch64"] * 3 +
+                                   ["Machine: Advanced Micro Devices X86-64"])
+            with self.assertRaisesRegex(module.LabError, "mixed or unsupported"):
+                module.stage_architecture(root)
+            self.assertEqual(command.call_count, 4)
+
     @patch.object(module.shutil, "which", return_value=None)
     def test_no_docker_fails_before_side_effect(self, which):
         args = types.SimpleNamespace(execute=True, controller_image="x", agent_image="y",
