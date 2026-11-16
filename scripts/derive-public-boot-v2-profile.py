@@ -45,7 +45,7 @@ def public_profile(raw: bytes, expected_sha: str = RC16_SHA256) -> dict:
         raise ValueError("reference AOSP DT-table header mismatch")
     if entry != (dtbsize - 64, 64, 0, 0, 0, 0, 0, 0):
         raise ValueError("reference AOSP DT-table entry mismatch")
-    if table[64:68] != b"\\xd0\\x0d\\xfe\\xed":
+    if table[64:68] != b"\xd0\x0d\xfe\xed":
         raise ValueError("reference FDT magic mismatch")
     if struct.unpack_from(">I", table, 68)[0] != dtbsize - 64:
         raise ValueError("reference FDT total size mismatch")
