@@ -20,9 +20,9 @@ from scripts.replay_80211s_kernel_source import (
 )
 
 
-def git(source: Path, *args: str, capture: bool = False) -> str:
+def git(source: Path, *args: str, capture: bool = False) -> str | bytes:
     command = ["git", "-C", str(source), *args]
-    proc = subprocess.run(command, check=True, text=True,
+    proc = subprocess.run(command, check=True,
                           stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
                           stderr=subprocess.PIPE)
     return proc.stdout if capture else ""
@@ -54,7 +54,8 @@ def check_private_output(output: Path) -> None:
 
 
 def reconstruct(upstream_tar: Path, expected_sha: str, snapshot: Path,
-                pr9_patch: Path, output: Path) -> dict[str, object]:
+                pr9_patch: Path, output: Path,
+                include_pr9_in_private_snapshot: bool = False) -> dict[str, object]:
     if digest(upstream_tar) != expected_sha:
         raise ValueError("upstream Linux tar SHA mismatch")
     if not snapshot.is_dir() or not pr9_patch.is_file():
@@ -68,20 +69,25 @@ def reconstruct(upstream_tar: Path, expected_sha: str, snapshot: Path,
             "-c", "user.email=cunit-replay@localhost",
             "commit", "-qm", "upstream tar")
         match_source_files(snapshot, baseline)
-        # Owner snapshot already includes PR #9; remove that change so
-        # vendor patch and PR #9 patch can be applied independently.
-        git(baseline, "apply", "--check", "-R", str(pr9_patch.resolve()))
-        git(baseline, "apply", "-R", str(pr9_patch.resolve()))
+        # Prefer separable vendor and PR #9 patches. If the exact PR #9
+        # reverse patch no longer matches the private snapshot, an explicitly
+        # requested private-only full snapshot patch can still establish exact
+        # upstream-to-snapshot replay without claiming independent provenance.
+        if not include_pr9_in_private_snapshot:
+            git(baseline, "apply", "--check", "-R", str(pr9_patch.resolve()))
+            git(baseline, "apply", "-R", str(pr9_patch.resolve()))
         git(baseline, "add", "-A")
         vendor_diff = git(baseline, "diff", "--cached",
                           "--binary", "--full-index", capture=True)
-        if not vendor_diff.strip():
+        if not isinstance(vendor_diff, bytes) or not vendor_diff.strip():
             raise ValueError("no vendor source delta found")
         with tempfile.TemporaryDirectory(prefix="cunit-80211s-confirm-") as confirm:
             replayed = replay_tarball(upstream_tar, Path(confirm))
             patch = Path(temp) / "vendor-private.patch"
-            patch.write_text(vendor_diff, encoding="utf-8")
-            apply_patches(replayed, [patch, pr9_patch.resolve()])
+            patch.write_bytes(vendor_diff)
+            replay_series = ([patch] if include_pr9_in_private_snapshot else
+                             [patch, pr9_patch.resolve()])
+            apply_patches(replayed, replay_series)
             expected_inv = source_inventory(snapshot)
             actual_inv = source_inventory(replayed)
             differences = compare_inventories(expected_inv, actual_inv)
@@ -94,8 +100,11 @@ def reconstruct(upstream_tar: Path, expected_sha: str, snapshot: Path,
                 os.chmod(output, 0o700)
             else:
                 output.mkdir(parents=True, mode=0o700)
-            out_patch = output / "PRIVATE-MT6990-vendor-board-source.patch"
-            with out_patch.open("x", encoding="utf-8") as f:
+            out_patch = output / (
+                "PRIVATE-MT6990-complete-source-snapshot.patch"
+                if include_pr9_in_private_snapshot else
+                "PRIVATE-MT6990-vendor-board-source.patch")
+            with out_patch.open("xb") as f:
                 f.write(vendor_diff)
             os.chmod(out_patch, 0o600)
             receipt = {
@@ -104,14 +113,21 @@ def reconstruct(upstream_tar: Path, expected_sha: str, snapshot: Path,
                 "upstream_tar_sha256": digest(upstream_tar),
                 "snapshot_source_tree_sha256": inventory_digest(expected_inv),
                 "replay_source_tree_sha256": inventory_digest(actual_inv),
-                "ordered_patches": [
+                "ordered_patches": ([
+                    {"name": out_patch.name, "sha256": digest(out_patch),
+                     "role": "complete_private_snapshot_including_pr9"},
+                ] if include_pr9_in_private_snapshot else [
                     {"name": out_patch.name, "sha256": digest(out_patch),
                      "role": "private_vendor_board"},
                     {"name": pr9_patch.name, "sha256": digest(pr9_patch),
                      "role": "pr9_eeprom_otp"},
-                ],
+                ]),
+                "pr9_patch_separate_reverse_apply": not include_pr9_in_private_snapshot,
                 "publication_allowed": False,
-                "scope": "byte-for-byte source replay; no license, build or RF claim",
+                "scope": ("byte-for-byte upstream-to-private-snapshot replay; PR #9 and "
+                          "vendor changes are not separated; no license/build/RF claim"
+                          if include_pr9_in_private_snapshot else
+                          "byte-for-byte source replay; no license, build or RF claim"),
             }
             out_receipt = output / "PRIVATE-MT6990-source-manifest.json"
             with out_receipt.open("x", encoding="utf-8") as f:
@@ -129,10 +145,14 @@ def main() -> int:
     parser.add_argument("--pr9-patch", type=Path, required=True)
     parser.add_argument("--private-output-dir", type=Path, required=True)
     parser.add_argument("--ack-private-only", action="store_true", required=True)
+    parser.add_argument("--include-pr9-in-private-snapshot", action="store_true",
+                        help="replay one complete private snapshot patch; does not "
+                             "separate PR #9 from vendor changes")
     args = parser.parse_args()
     try:
         result = reconstruct(args.upstream_tar, args.upstream_sha256.lower(),
-                             args.private_tree, args.pr9_patch, args.private_output_dir)
+                             args.private_tree, args.pr9_patch, args.private_output_dir,
+                             args.include_pr9_in_private_snapshot)
         print("CUNIT_SOURCE_RECONSTRUCTION=" + result["status"])
         print("PRIVATE_OUTPUT_DIR=" + str(args.private_output_dir))
         return 0
