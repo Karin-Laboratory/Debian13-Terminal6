@@ -1,0 +1,50 @@
+name: C-unit 802.11s three-node hwsim runtime
+
+on:
+  push:
+    branches:
+      - codex/cunit-80211s-mesh-20261115
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hwsim-three-node:
+    # GitHub-hosted disposable VM; never run on a physical C/A unit.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install wireless simulation dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential git pkg-config libnl-3-dev libnl-genl-3-dev \
+            libconfig-dev iw iproute2 iputils-ping kmod wpasupplicant openssl
+      - name: Build pinned wmediumd
+        run: |
+          git clone https://github.com/bcopeland/wmediumd.git "$RUNNER_TEMP/wmediumd"
+          git -C "$RUNNER_TEMP/wmediumd" checkout 717e5d7fcc23eecbc8e32bd897a8fd4b1e3ba640
+          make -C "$RUNNER_TEMP/wmediumd"
+          echo "$RUNNER_TEMP/wmediumd/wmediumd" >> "$GITHUB_PATH"
+      - name: Check isolated simulation prerequisites
+        run: |
+          echo "kernel=$(uname -r)"
+          test -d "/lib/modules/$(uname -r)"
+          sudo modprobe -n -v mac80211_hwsim
+          sudo test -d /proc/sys/net/ipv4
+          test -x "$RUNNER_TEMP/wmediumd/wmediumd/wmediumd"
+      - name: Execute A-B-C HWMP and B failure/recovery
+        run: |
+          sudo env PATH="$RUNNER_TEMP/wmediumd/wmediumd:$PATH" \
+            timeout --signal=TERM --kill-after=5s 420 \
+            bash scripts/run_80211s_hwsim_3node.sh \
+            | tee "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
+      - name: Upload sanitized result summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cunit-80211s-3node-summary
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/cunit-80211s-3node-results.txt
