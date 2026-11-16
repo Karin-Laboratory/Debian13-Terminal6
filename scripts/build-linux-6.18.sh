@@ -122,11 +122,21 @@ export KBUILD_BUILD_USER=terminal6 KBUILD_BUILD_HOST=source-build
 export KBUILD_BUILD_TIMESTAMP='Thu Jan  1 00:00:00 UTC 1970'
 export SOURCE_DATE_EPOCH=0
 if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
-  # Source code patches dirty the disposable clone. Do not let Kbuild append
-  # a variable '-dirty' suffix to the installed P44 module release string.
-  : > .scmversion
+  # Linux 6.18 scripts/setlocalversion appends '+' for a dirty source when
+  # LOCALVERSION is unset, even if CONFIG_LOCALVERSION_AUTO is disabled.
+  # Setting it to an explicit EMPTY string preserves only our distinct
+  # CONFIG_LOCALVERSION=-t6-public-capable without disguising private ABI.
+  export LOCALVERSION=""
 fi
 make ARCH=arm64 -j"${JOBS:-4}" Image modules
+if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
+  release="$(make -s ARCH=arm64 kernelrelease)"
+  test "$release" = '6.18.63-t6-public-capable' || {
+    echo "TERMINAL6_CAPABLE_MODULE_RELEASE_MISMATCH: $release" >&2
+    exit 42
+  }
+  echo "TERMINAL6_CAPABLE_EXACT_KERNELRELEASE_PASS $release"
+fi
 module_name="terminal6-lean-modules.tar"
 if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
   module_name="terminal6-capable-modules.tar"
