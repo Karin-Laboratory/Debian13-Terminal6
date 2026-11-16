@@ -8,7 +8,7 @@ test "$(make -s kernelversion)" = 6.18.63
 # Keep boot memory layout aligned to the observed C-unit family, rather than
 # accepting tinyconfig's default VA geometry.
 scripts/config --enable ARM64 --enable ARM64_4K_PAGES --enable ARM64_VA_BITS_39 \
-  --enable MMU --enable SMP --enable BLOCK --enable MULTIUSER \
+  --enable PAGE_SIZE_4KB --enable MMU --enable SMP --enable BLOCK --enable MULTIUSER \
   --enable TTY --enable SHMEM --enable OF --enable ARCH_MEDIATEK \
   --enable COMMON_CLK --enable COMMON_CLK_MEDIATEK \
   --enable COMMON_CLK_MT6990 --enable COMMON_CLK_MT6990_PERI \
@@ -30,7 +30,7 @@ scripts/config --enable PRINTK --enable PRINTK_TIME \
 scripts/config --enable FUTEX --enable EPOLL --enable SIGNALFD \
   --enable TIMERFD --enable INOTIFY_USER --enable UNIX \
   --enable INET --enable NET --enable CGROUPS \
-  --enable NAMESPACES --enable UTS_NS --enable IPC_NS \
+  --enable SYSVIPC --enable NAMESPACES --enable UTS_NS --enable IPC_NS \
   --enable PID_NS --enable NET_NS --enable FHANDLE \
   --enable TMPFS_POSIX_ACL --enable EXT4_FS_POSIX_ACL \
   --enable SECCOMP --enable SECCOMP_FILTER \
