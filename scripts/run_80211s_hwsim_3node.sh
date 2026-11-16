@@ -28,6 +28,8 @@ mac_b=42:00:00:00:00:02
 mac_c=42:00:00:00:00:03
 module_loaded=0
 medium_pid=''
+supervisor_pid=''
+sniffer_pid=''
 cleanup() {
     for node in a b c; do
         if [[ -s "$tmp/$node.pid" ]]; then
@@ -36,6 +38,8 @@ cleanup() {
         fi
     done
     [[ -z "$medium_pid" ]] || kill "$medium_pid" 2>/dev/null || true
+    [[ -z "$supervisor_pid" ]] || kill "$supervisor_pid" 2>/dev/null || true
+    [[ -z "$sniffer_pid" ]] || kill -INT "$sniffer_pid" 2>/dev/null || true
     sleep 1
     for ns in "$a" "$b" "$c"; do ip netns del "$ns" 2>/dev/null || true; done
     if ((module_loaded)); then modprobe -r mac80211_hwsim 2>/dev/null || true; fi
@@ -91,6 +95,19 @@ wmediumd -c "$tmp/medium.cfg" >"$tmp/medium.log" 2>&1 &
 medium_pid=$!
 sleep 2
 kill -0 "$medium_pid" || { echo 'wmediumd failed to start' >&2; exit 1; }
+
+# Capturing mac80211_hwsim's virtual monitor is safe only inside the isolated
+# radio-owned runner; the raw PCAP is private temporary data and never uploaded.
+if [[ ${CUNIT_MESH_CAPTURE_AUDIT:-0} == 1 ]]; then
+    for tool in tcpdump python3; do
+        command -v "$tool" >/dev/null || { echo "missing tool: $tool" >&2; exit 2; }
+    done
+    ip link show dev hwsim0 >/dev/null || { echo 'hwsim0 monitor absent' >&2; exit 1; }
+    tcpdump -i hwsim0 -p -U -s 0 -w "$tmp/mesh.pcap" >"$tmp/tcpdump.log" 2>&1 &
+    sniffer_pid=$!
+    sleep 2
+    kill -0 "$sniffer_pid" || { echo 'hwsim monitor capture failed' >&2; exit 1; }
+fi
 
 ssid="cunit-three-${BASHPID}"
 secret=$(openssl rand -hex 16)
@@ -215,6 +232,25 @@ recovery_diag() {
         echo "HWSIM_DIAG_$item=$state peers:$peers estab:$established" >&2
     done
 }
+# In supervised mode a separate host process watches B's down/up event and
+# uses upstream wpa_cli mesh_group_* commands. Native recovery is not measured
+# in this mode, and may not be labelled an automatic native-supplicant PASS.
+if [[ ${CUNIT_MESH_SUPERVISOR:-0} == 1 ]]; then
+    command -v python3 >/dev/null || { echo 'python3 missing' >&2; exit 2; }
+    python3 scripts/mesh_peer_autorejoin.py \
+        --namespace "$b" --interface meshB --ctrl "$tmp/ctrl-b" \
+        --ready-file "$tmp/supervisor.ready" --receipt-file "$tmp/supervisor.receipt" \
+        >"$tmp/supervisor.log" 2>&1 &
+    supervisor_pid=$!
+    ready=0
+    for _ in $(seq 1 40); do
+        if [[ -s "$tmp/supervisor.ready" ]]; then ready=1; break; fi
+        kill -0 "$supervisor_pid" 2>/dev/null || break
+        sleep 0.1
+    done
+    ((ready)) || { echo 'FAIL: auto-rejoin watcher failed to arm' >&2; exit 1; }
+    echo 'HWSIM_B_AUTO_SUPERVISOR_ARMED=PASS'
+fi
 ip -n "$b" link set meshB down
 sleep 3
 if ip netns exec "$a" ping -n -c 3 -W 1 10.253.16.3 >/dev/null 2>&1; then
@@ -227,12 +263,27 @@ recovered=0
 recovery_mode=NONE
 # Phase 1: no intervention after netdev UP.
 if wait_recovery 20; then
-    echo 'HWSIM_B_AUTO_RECOVERY=PASS'
-    recovery_mode=AUTO
+    if [[ ${CUNIT_MESH_SUPERVISOR:-0} == 1 ]]; then
+        grep -qx 'SUPERVISOR_REJOIN=PASS' "$tmp/supervisor.receipt" || {
+            echo 'FAIL: no supervised mesh rejoin receipt; cannot claim supervised auto' >&2
+            exit 1
+        }
+        echo 'HWSIM_B_NATIVE_AUTO_RECOVERY=NOT_TESTED_WITH_WATCHER'
+        echo 'HWSIM_B_SUPERVISED_AUTO_RECOVERY=PASS'
+        recovery_mode=SUPERVISED_AUTO
+    else
+        echo 'HWSIM_B_AUTO_RECOVERY=PASS'
+        recovery_mode=AUTO
+    fi
     recovered=1
 else
     echo 'HWSIM_B_AUTO_RECOVERY=FAIL'
     recovery_diag
+fi
+if [[ ${CUNIT_MESH_SUPERVISOR:-0} == 1 && $recovered == 0 ]]; then
+    echo 'FAIL: supervised auto-rejoin did not restore the HWMP/IP mesh' >&2
+    [[ ! -f "$tmp/supervisor.receipt" ]] || cat "$tmp/supervisor.receipt" >&2
+    exit 1
 fi
 # Phase 2: wpa_cli reconnect (may not rejoin an already-started mesh).
 if (( ! recovered )); then
@@ -321,6 +372,13 @@ echo 'HWSIM_B_RECOVERY_HWMP=PASS'
 ip netns exec "$a" ping -c 20 -i 0.1 -W 2 10.253.16.3 > "$tmp/metrics"
 grep -E 'packet loss|rtt min/avg/max|round-trip min/avg/max' "$tmp/metrics"
 echo 'HWSIM_LATENCY_LOSS=MEASURED_ABOVE'
+if [[ ${CUNIT_MESH_CAPTURE_AUDIT:-0} == 1 ]]; then
+    kill -INT "$sniffer_pid"
+    wait "$sniffer_pid" 2>/dev/null || true
+    sniffer_pid=''
+    python3 scripts/mesh_peer_capture_audit.py --pcap "$tmp/mesh.pcap" \
+        --output "$tmp/pcap-summary.json"
+fi
 echo 'HWSIM_SAE=CONFIGURED_AND_PEERING_OBSERVED'
 echo 'HWSIM_AMPE_FRAME_PROTECTION=NOT_INDEPENDENTLY_VERIFIED'
 echo 'HWSIM_REBOOT_PERSISTENCE=NOT_TESTED'
