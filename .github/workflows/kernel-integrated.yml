@@ -12,6 +12,8 @@ on:
       - scripts/apply-public-mt6990-kernel.py
       - scripts/assemble-template-free-p25.py
       - scripts/derive-public-boot-v2-profile.py
+      - scripts/verify-public-unsigned-p25.py
+      - scripts/port-public-mt6990-clock.py
       - configs/public-mt6990-sources.json
       - configs/public-air6-boot-v2-profile.json
   workflow_dispatch:
@@ -91,5 +93,12 @@ jobs:
           print("P25_SHA256",r["unsigned_p25_sha256"])
           print("BOARD_DTB_EXPERIMENTAL_NOT_BOOT_VALIDATED")
           PY
+          python3 scripts/verify-public-unsigned-p25.py \
+            --p25 "$RUNNER_TEMP/debian-source-p25/p25-unsigned.img" \
+            --kernel-image "$RUNNER_TEMP/debian-t6-linux/output/Image" \
+            --dtb "$RUNNER_TEMP/dtb/board/terminal6-debian-experimental.dtb" \
+            --initramfs-cpio-gz "$RUNNER_TEMP/p44-initramfs.cpio.gz" \
+            --profile "$GITHUB_WORKSPACE/configs/public-air6-boot-v2-profile.json" \
+            --receipt "$RUNNER_TEMP/debian-source-p25/p25-receipt.json"
       # No artifact upload, release, signing, device action or RF access.
 
