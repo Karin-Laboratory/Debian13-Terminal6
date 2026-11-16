@@ -46,9 +46,9 @@ jobs:
           from pathlib import Path
           import gzip, json, struct, sys
           p=Path(sys.argv[1])
-          cpio=gzip.compress(b"rootfs_data\\0synthetic-test-only", mtime=0)
+          cpio=gzip.compress(b"rootfs_data\0synthetic-test-only", mtime=0)
           image=bytearray(8192)
-          image[56:60]=b"ARM\\x64"
+          image[56:60]=b"ARM\x64"
           image[1024:1024+len(cpio)]=cpio
           (p/"Image").write_bytes(image)
           (p/"initramfs.cpio.gz").write_bytes(cpio)
