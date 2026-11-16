@@ -97,6 +97,8 @@ def validate(config: dict[str, str], sysfs: Path, socket_root: Path, address_pro
         raise PreflightError("station_ifaces is required for prplMesh backhaul control")
     if len(radios) != 2:
         raise PreflightError("this prplMesh Linux BPL build supports exactly two configured radios")
+    if len(stations) != 2:
+        raise PreflightError("this prplMesh Linux BPL build requires exactly two station interfaces")
     groups = (management, wired_backhaul, radios, stations)
     if any(set(left) & set(right) for index, left in enumerate(groups) for right in groups[index + 1:]):
         raise PreflightError("management/wired-backhaul/AP-radio/STA interfaces must be disjoint")
@@ -153,6 +155,10 @@ def validate_platform_db(path: Path, config: dict[str, str], socket_root: Path =
     radios = split_names(config.get("radio_ifaces", ""))
     if len(radios) != 2:
         raise PreflightError("this prplMesh Linux BPL build supports exactly two configured radios")
+    stations = split_names(config.get("station_ifaces", ""))
+    if len(stations) != 2:
+        raise PreflightError("this prplMesh Linux BPL build requires exactly two station interfaces")
+    used_station_sockets: set[str] = set()
     for index, iface in enumerate(radios):
         if values.get(f"wireless_interface_{index}") != iface:
             raise PreflightError(f"platform DB radio {index} mapping differs from node.conf")
@@ -161,7 +167,7 @@ def validate_platform_db(path: Path, config: dict[str, str], socket_root: Path =
             raise PreflightError(f"private wireless credentials are incomplete: {iface}")
         if "#" in fields["ssid"] or not 1 <= len(fields["ssid"].encode("utf-8")) <= 32:
             raise PreflightError(f"SSID is invalid for platform database parsing: {iface}")
-        if fields["security_mode"] not in {"wpa2", "wpa2-psk", "wpa3-sae", "wpa2-wpa3-transition"}:
+        if fields["security_mode"] not in {"wpa2", "wpa2-psk", "wpa3-sae", "wpa2-wpa3-psk-sae"}:
             raise PreflightError("unsupported wireless security mode")
         psk = fields["psk"]
         valid_passphrase = psk.isascii() and 8 <= len(psk) <= 63 and all(0x20 <= ord(c) <= 0x7e for c in psk)
@@ -173,8 +179,8 @@ def validate_platform_db(path: Path, config: dict[str, str], socket_root: Path =
         if not hostap_path.startswith(hostap_prefix):
             raise PreflightError(f"invalid hostapd control path for {iface}")
         hostap_leaf = hostap_path[len(hostap_prefix):]
-        if not IFNAME_RE.fullmatch(hostap_leaf) or not (socket_root / "hostapd" / hostap_leaf).exists():
-            raise PreflightError(f"hostapd control socket is absent for {iface}")
+        if hostap_leaf != iface or not is_unix_socket(socket_root / "hostapd" / hostap_leaf):
+            raise PreflightError(f"hostapd control socket must match configured radio: {iface}")
 
         station_path = values.get(f"wpa_supplicant_ctrl_path_{iface}", "")
         station_prefix = "/run/wpa_supplicant/"
@@ -182,9 +188,12 @@ def validate_platform_db(path: Path, config: dict[str, str], socket_root: Path =
             raise PreflightError(f"invalid wpa_supplicant control path for {iface}")
         station_leaf = station_path[len(station_prefix):]
         if (not IFNAME_RE.fullmatch(station_leaf)
-                or station_leaf not in split_names(config.get("station_ifaces", ""))
+                or station_leaf not in stations
                 or not is_unix_socket(socket_root / "wpa_supplicant" / station_leaf)):
             raise PreflightError(f"wpa_supplicant station control socket is absent for {iface}")
+        if station_leaf in used_station_sockets:
+            raise PreflightError("wpa_supplicant station control socket reused across radios")
+        used_station_sockets.add(station_leaf)
 
 
 def main() -> int:

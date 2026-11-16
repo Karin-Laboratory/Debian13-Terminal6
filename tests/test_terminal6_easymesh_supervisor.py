@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 SCRIPT = Path(__file__).parents[1] / "packaging/easymesh/terminal6-easymesh-supervisor.py"
 spec = importlib.util.spec_from_file_location("easymesh_supervisor", SCRIPT)
@@ -13,6 +13,21 @@ spec.loader.exec_module(module)
 
 
 class SupervisorTests(unittest.TestCase):
+    @patch.object(module, "safe_file")
+    def test_direct_supervisor_launch_requires_private_opt_in_marker(self, safe_file):
+        config = Path("/tmp/node.conf")
+        database = Path("/tmp/platform.db")
+        marker = Path("/tmp/enabled")
+        module.validate_launch(config, database, marker)
+        self.assertEqual(safe_file.call_args_list, [
+            call(config, 0o022), call(database, 0o077), call(marker, 0o077)
+        ])
+
+    def test_absent_opt_in_marker_is_rejected(self):
+        with patch.object(module, "safe_file", side_effect=[None, None, FileNotFoundError("marker absent")]):
+            with self.assertRaises(FileNotFoundError):
+                module.validate_launch(Path("/tmp/node"), Path("/tmp/db"), Path("/tmp/enabled"))
+
     def test_runtime_database_is_copied_atomically_with_private_mode(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

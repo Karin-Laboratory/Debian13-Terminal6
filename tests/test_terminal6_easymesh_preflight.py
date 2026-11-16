@@ -75,6 +75,11 @@ class PreflightTests(unittest.TestCase):
         with self.assertRaisesRegex(module.PreflightError, "hostapd control socket"):
             module.validate(self.config, self.sysfs, self.run, address_probe=lambda _: True)
 
+    def test_only_one_station_interface_fails(self):
+        self.config["station_ifaces"] = "sta24"
+        with self.assertRaisesRegex(module.PreflightError, "exactly two station"):
+            module.validate(self.config, self.sysfs, self.run, address_probe=lambda _: True)
+
     def test_empty_radio_list_fails(self):
         self.config["radio_ifaces"] = ""
         with self.assertRaisesRegex(module.PreflightError, "radio_ifaces"):
@@ -115,8 +120,11 @@ wireless.wlan2.psk=not-a-real-secret
             module.validate_platform_db(path, self.config, self.run)
         path.write_text(path.read_text().replace("wireless.wlan0.security_mode=sae", "wireless.wlan0.security_mode=wpa3-sae"))
         module.validate_platform_db(path, self.config, self.run)
-        path.write_text(path.read_text().replace("wireless.wlan0.security_mode=wpa3-sae", "wireless.wlan0.security_mode=wpa2-wpa3-transition"))
+        path.write_text(path.read_text().replace("wireless.wlan0.security_mode=wpa3-sae", "wireless.wlan0.security_mode=wpa2-wpa3-psk-sae"))
         module.validate_platform_db(path, self.config, self.run)
+        path.write_text(path.read_text().replace("wireless.wlan0.security_mode=wpa2-wpa3-psk-sae", "wireless.wlan0.security_mode=wpa2-wpa3-transition"))
+        with self.assertRaisesRegex(module.PreflightError, "unsupported wireless security mode"):
+            module.validate_platform_db(path, self.config, self.run)
 
     def test_platform_db_checks_separate_station_socket(self):
         path = self.root / "platform.db"
@@ -136,6 +144,16 @@ wireless.wlan2.security_mode=wpa2-psk
 wireless.wlan2.psk=not-a-real-secret
 """)
         module.validate_platform_db(path, self.config, self.run)
+        valid = path.read_text()
+        path.write_text(valid.replace("hostapd_ctrl_path_wlan0=/run/hostapd/wlan0",
+                                      "hostapd_ctrl_path_wlan0=/run/hostapd/wlan2"))
+        with self.assertRaisesRegex(module.PreflightError, "must match configured radio"):
+            module.validate_platform_db(path, self.config, self.run)
+        path.write_text(valid.replace("wpa_supplicant_ctrl_path_wlan2=/run/wpa_supplicant/sta5",
+                                      "wpa_supplicant_ctrl_path_wlan2=/run/wpa_supplicant/sta24"))
+        with self.assertRaisesRegex(module.PreflightError, "reused across radios"):
+            module.validate_platform_db(path, self.config, self.run)
+        path.write_text(valid)
         (self.run / "wpa_supplicant" / "sta5").unlink()
         with self.assertRaisesRegex(module.PreflightError, "station control socket"):
             module.validate_platform_db(path, self.config, self.run)

@@ -14,6 +14,7 @@ import sys
 import time
 
 
+ENABLED_MARKER = Path("/etc/terminal6-easymesh/enabled")
 CHILDREN: list[subprocess.Popen] = []
 STOP = False
 
@@ -50,11 +51,16 @@ def process_names(role: str) -> list[str]:
 
 
 def safe_file(path: Path, max_mode: int) -> None:
-    st = path.stat()
-    if st.st_uid != 0 or st.st_mode & max_mode:
-        raise ValueError(f"unsafe owner or mode: {path.name}")
-    if not path.is_file() or path.is_symlink():
-        raise ValueError(f"not a regular file: {path.name}")
+    st = path.lstat()
+    if not stat.S_ISREG(st.st_mode) or st.st_uid != 0 or st.st_mode & max_mode:
+        raise ValueError(f"unsafe owner, mode or type: {path.name}")
+
+
+def validate_launch(config: Path, platform_db: Path, enabled: Path = ENABLED_MARKER) -> None:
+    """Require opt-in even when the supervisor is run outside systemd."""
+    safe_file(config, 0o022)
+    safe_file(platform_db, 0o077)
+    safe_file(enabled, 0o077)
 
 
 def copy_runtime_db(source: Path, destination: Path) -> None:
@@ -123,8 +129,7 @@ def main() -> int:
 
     rule_owned = False
     try:
-        safe_file(args.config, 0o022)
-        safe_file(args.platform_db, 0o077)
+        validate_launch(args.config, args.platform_db)
         role = read_role(args.config)
         db_runtime = Path("/tmp/beerocks/prplmesh_platform_db")
         copy_runtime_db(args.platform_db, db_runtime)

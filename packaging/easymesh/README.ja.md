@@ -6,7 +6,7 @@
 
 ビルドrunnerはターゲットAMX-prefix内のAmbiorix共有ライブラリを検出し、ビルド出力のprivate `lib/`へコピーする。インストール済みバイナリは`$ORIGIN/../lib`だけをRUNPATHに持つ。installerは実行ファイルと同梱共有ライブラリすべてのELF Machineを検査する。
 
-ローカルパッチ`patches/prplmesh/0001-linux-bpl-configurable-radios-and-secure-security-modes.patch`は、Linux BPLのAP radio index 0/1をprivate platform DBから読み、WPA2-PSK/WPA3-SAE/transition以外の認証値を拒否する。radio/stationの実netdev対応を調べる前にserviceをenableしない。
+ローカルパッチ`patches/prplmesh/0001-linux-bpl-configurable-radios-and-secure-security-modes.patch`は、Linux BPLのAP radio index 0/1をprivate platform DBから読み、WPA2-PSK/WPA3-SAE/transition以外の認証値を拒否する。radio/stationの実netdev対応を調べる前にserviceをenableしない。WPA2/WPA3移行モードの設定値は上流パッチと一致する`wpa2-wpa3-psk-sae`のみ受理し、`wpa2-wpa3-transition`は拒否する。APとhostapd制御ソケットは同名、STAの制御ソケットは各radioに一対一で対応させる。supervisorの直接実行でもroot所有のopt-in markerが必要。
 
 ## 再現ビルド
 
