@@ -67,6 +67,24 @@ class LabTests(unittest.TestCase):
         command.assert_called_once_with(
             ["docker", "exec", "node", "cat", "/sys/class/net/br-lan/address"])
 
+    @patch.object(module, "command", return_value="/usr/bin/beerocks_agent\\n/usr/sbin/ieee1905_transport")
+    def test_elf_identity_checks_proc_executable_targets(self, command):
+        self.assertEqual(module.running_elf_names("agent"),
+                         {"beerocks_agent", "ieee1905_transport"})
+        command.assert_called_once_with(["docker", "exec", "agent", "sh", "-c",
+            'for p in /proc/[0-9]*; do readlink "$p/exe" 2>/dev/null || :; done'])
+
+    @patch.object(module, "command")
+    def test_compiled_prefix_can_be_mounted_at_exact_target(self, command):
+        module.run_container("agent", "net", "img:1", "start-agent",
+                             Path("/tmp/agent-stage"), bytes.fromhex("02000000000b"),
+                             "/home/build/prplmesh/install")
+        argv = command.call_args.args[0]
+        self.assertIn("type=bind,source=/tmp/agent-stage,target=/home/build/prplmesh/install", argv)
+        self.assertIn("INSTALL_DIR=/home/build/prplmesh/install", argv)
+        with self.assertRaisesRegex(module.LabError, "unsafe absolute install target"):
+            module.validate_install_target("/../../proc")
+
     @patch.object(module.shutil, "which", return_value=None)
     def test_no_docker_fails_before_side_effect(self, which):
         args = types.SimpleNamespace(execute=True, controller_image="x", agent_image="y",
