@@ -104,6 +104,12 @@ Classic Ethernet PCAP（VLAN可、pcapng不可）に対して、双方のAL MAC 
 
 **Wireの往復成功だけではController DB更新と喪失検出をPASSとしない。** Agent停止中にフレームがないだけでも喪失検出の証明ではない。合成PCAPは検証器の単体テストであり、実1905の成功ではない。
 
+## 2026-11-16 agent-101-vm runtime試行結果
+
+- private ARM64 prplMesh 6.0.1 install tree、Debian arm64 rootfs、同ビルドが使ったprivate AMX target librariesを隔離stageへ集め、`verify-arm64-linker.py`で4 executableのtarget loader dependency解決を確認した。QEMU-userで`ieee1905_transport`単独を起動し、SIGTERMによる終了も確認した。単独transportはTopology往復を意味しない。
+- 独立した一時netns/veth/bridgeで2-node runtimeを試したが、ControllerがAMXRT `No backends specified`で起動できず、Agentは未定義radio interface mappingによりretry、transportは`eth1`/`br-lan`をuntrackedとして扱った。PCAPはglobal headerのみで、Discovery/Query/Responseなし。verdictはFAILであり、EasyMesh通信PASSにしない。
+- 試験に使ったnetns/bridge/processはすべて削除した。次回はAMXRT backend/plugin/configの不足を満たし、`wireless_interface_0/1`などPR #12のplatform DB mappingとtest-only radio interfacesを構成して、再び隔離2-node captureを行う。C号機やraspi4上でこのQEMU実験は実施しない。
+
 ## この作業セッションの結果
 
 - 既存private ARM64 ELFとtarget sysrootはこの実行環境に存在せず、QEMU-userもないため**ARM64実行はNOT RUN**。

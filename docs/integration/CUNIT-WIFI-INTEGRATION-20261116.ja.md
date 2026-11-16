@@ -118,3 +118,29 @@
 module rollback copyとP44のチェックサム一覧、およびslot/P25 backupはraspi4のprivate directoryに保管。module差替え時に生成した`modules.*` indexはPCI modaliasによる早期自動ロードを避けるため削除した状態を維持する。`depmod`を実行せず、現行`terminal6-wifi-phy.service`がP26からfirmwareを`/run`へstageしてから手動`insmod`する順序を保つ。失敗時は保存済み旧module一式・旧checksumへ戻して再起動する。P25復旧は検証済みslot Bと純正`quec_bootctrl`を使う。
 
 したがってPR #13は引き続きDraftであり、mainへ統合できる実機受入完了状態ではない。今回完了したのは署名済みP25の実機起動と、mesh capability/interfaceの無送信試験まで。次の具体的な工程は、独立した802.11s peerを用いる2.4GHzまたは許可された5GHzでのpeer形成・保護・双方向通信、続いてEasyMeshの有線1905 discoveryとMLO対向機試験である。
+
+## 2026-11-16 午後: hwsim MLO再現とEasyMesh runtime試行
+
+### 現状・CI
+
+- この記録更新時、C号機をraspi4経由read-onlyで確認: slot A、kernel `6.18.63-debian-t6-proto2 #2`、`boot_a` SHA `ae65d0c28c5d3c6a0189193c70f3783c142da3c97553bb8fe80059569046dea0`。SSH/有線route維持、`wlp1s0` DOWN、eMMC HS400/8-bit/1.8V、clock `94,999,965 Hz`、100MHz制限、CQE無効。DATA TIMEOUT/CQE recovery/MMC/ext4 error grepは0件。RF送信なし。
+- PR #13 head `643033d9dae1020acdaf606b6587e5c1831e3428` のhost checks run `43802059437` PASS。main未マージ、Draft継続。
+
+### MLO hwsim失敗の原因と修正
+
+- 以前のMLO Actions run `43786976450`は`eht_mld_owe_two_links`で失敗し、後続試験を止めていた。pinned hostap commit `f1e9b5086718ad567dc40e3d5a1456534d51749f`をagent-101-vm kernel `6.12.101+deb13-amd64` (MLO対応`mac80211_hwsim`、`mlo`/`multi_radio`/`channels`)で再現した。
+- 最初の停止原因はworkflowのPython依存不足で、hostap test discoveryがPyCryptodome importに失敗していた。workflowへ`python3-pycryptodome`を追加し、`vm_probe`が依存不在を試験前に報告するよう修正した。
+- 依存追加後にMLD associationは成功した。次の失敗は、upstream `test_eht.py`が`CONFIG_MAC80211_DEBUGFS`なしの際、未定義`logger_info`を呼ぶことだった。さらにdebugfsの`valid_links` fileがないと、リンク状態のfallbackもなかった。`patches/hostap/0001-hwsim-use-MLO-STATUS-without-mac80211-debugfs.patch`でtypoを直し、wpa_supplicant `MLO_STATUS`からlink ID bitmapを読む局所fallbackを追加。workflowはpinned sourceへこのpatchを適用する。
+- 修正後の実hwsim smoke runで`eht_mld_owe_two_links`, `eht_mld_link_removal`, `eht_mld_disassociate`が3/3 `SMOKE_PASS`。`cunit_mlo_5g160_6g160`は隔離hwsim VMのみでsynthetic `CA` regdomainを使い、`WIDE_MLD_IP_PASS`、STA→AP 6/6、AP→STA 6/6。これはシミュレートradioでのhost/hwsim結果であり、C号機の実RF、国内認可、MLO acceptance v2を証明しない (`acceptance_v2=NOT_PROVEN`)。
+
+### EasyMesh有線1905 runtime試行
+
+- private prplMesh 6.0.1 ARM64 install tree、既存Debian arm64 sysrootとprivate target librariesを隔離stageにまとめ、`ieee1905_transport`, `beerocks_controller`, `beerocks_agent`, `beerocks_vendor_message`のtarget loader resolutionが4/4 PASS。QEMU-userではtransport process単体の起動・SIGTERM終了も確認した。
+- 続いてagent-101-vm内の一時network namespaces、veth、bridgeだけでController/Agentを分離し、C号機・raspi4・管理LANへ接続せず、EtherType 0x893a captureを試行した。ControllerはAMXRTの`No backends specified`で初期化失敗。Agentは設定されたradio index 2/3のinterface mappingがなくretryを続け、transportは`eth1`/`br-lan`をuntrackedとして無視した。PCAPは24-byte global headerのみで、IEEE1905 Discovery/Topology packetなし。**EasyMesh wire testはFAIL/未成立**。名前空間、process、captureは停止・削除済み。
+- 次の実装条件は、AMXRT backend/pluginとcontroller/agent runtime configをstageに含めること、private platform DBでradio index→test interface mappingを与えること。これらを揃えて再度2-node wire captureとController DBを観測する。wireは成立しても無線backhaul/fronthaul実通信とは区別する。
+
+### 802.11s peerと現在の次ゲート
+
+- C号機の実radioは引き続きDOWNで、独立mesh peerはこの実行環境から用意できていない。802.11s capability/interface PASSは維持するが、peer discovery、SAE/AMPE、HWMP、双方向IP、再接続はNOT TESTED。
+- 6GHz送信なし。C号機SSH/有線route/eMMC状態はread-only再確認で維持。UARTシリアル出力はこの更新では未採取。
+- host unit suiteは`TMPDIR=/var/tmp python3 -m unittest discover -s tests -p 'test_*.py' -v`: 139 tests PASS。デフォルト`/tmp`は環境内`.git`配置のため2 private-source testsが誤ってcheckout内扱いとなる既知のローカル一時ディレクトリ問題。

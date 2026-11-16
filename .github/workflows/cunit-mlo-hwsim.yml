@@ -32,9 +32,11 @@ jobs:
             libnl-route-3-dev libsqlite3-dev libpcap-dev libdbus-1-dev \
             libcurl4-openssl-dev libxml2-dev libreadline-dev binutils-dev libiberty-dev \
             python3 python3-pip python3-venv python3-setuptools \
+            python3-pycryptodome \
             iw iproute2 iputils-ping kmod
           git clone --no-checkout https://chromium.googlesource.com/chromiumos/third_party/hostap /tmp/cunit-hostap
           git -C /tmp/cunit-hostap checkout f1e9b5086718ad567dc40e3d5a1456534d51749f
+          git -C /tmp/cunit-hostap apply "$GITHUB_WORKSPACE/patches/hostap/0001-hwsim-use-MLO-STATUS-without-mac80211-debugfs.patch"
       - name: Inspect hwsim capability and driver sandbox
         run: |
           sudo python3 scripts/cunit_mlo_hwsim_runner.py probe --hostap-tree /tmp/cunit-hostap | tee /tmp/cunit-hwsim-preflight.json

@@ -85,7 +85,8 @@ class RunnerTests(unittest.TestCase):
 
     def test_probe_missing_module(self):
         p = vm_probe(module_info='not loaded', caps_text='CapEff:\t0000000000001000\n',
-                     osroot=Path('/dev/null'), which=lambda _: '/bin/mock')
+                     osroot=Path('/dev/null'), which=lambda _: '/bin/mock',
+                     crypto_available=True)
         self.assertEqual(p['status'], 'BLOCKED')
         self.assertEqual(len(p['reasons']),2)
 
@@ -93,8 +94,18 @@ class RunnerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             p = vm_probe(module_info='mlo:Support MLO\nmulti_radio:multiple\nchannels:number\n',
                          caps_text='CapEff:\t0000000000001000\n',
-                         osroot=Path(tmp), which=lambda _: '/bin/mock')
+                         osroot=Path(tmp), which=lambda _: '/bin/mock',
+                         crypto_available=True)
             self.assertEqual(p['status'], 'READY')
+
+    def test_probe_missing_crypto_dependency(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = vm_probe(module_info='mlo:Support MLO\nmulti_radio:multiple\nchannels:number\n',
+                         caps_text='CapEff:\t0000000000001000\n',
+                         osroot=Path(tmp), which=lambda _: '/bin/mock',
+                         crypto_available=False)
+            self.assertEqual(p['status'], 'BLOCKED')
+            self.assertTrue(any('PyCryptodome' in reason for reason in p['reasons']))
 
     def test_no_physical_in_empty_directory(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -9,6 +9,7 @@ No device-specific credentials, MACs or raw captures are published.
 import argparse
 import datetime as dt
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
@@ -45,8 +46,20 @@ def physical_wifi_present(root=Path("/sys/class/ieee80211")):
     return False
 
 
+def crypto_test_dependency_available():
+    """hostap's complete hwsim test discovery imports PyCryptodome modules."""
+    for name in ("Cryptodome.Cipher", "Crypto.Cipher"):
+        try:
+            importlib.import_module(name)
+            return True
+        except ImportError:
+            continue
+    return False
+
+
 def vm_probe(hostap_tree=None, *, module_info=None, caps_text=None,
-             osroot=Path("/sys/class/ieee80211"), which=shutil.which):
+             osroot=Path("/sys/class/ieee80211"), which=shutil.which,
+             crypto_available=None):
     """Read-only preflight. Structured BLOCKED rather than guessed success."""
     reasons = []
     module = (module_info if module_info is not None else
@@ -67,6 +80,10 @@ def vm_probe(hostap_tree=None, *, module_info=None, caps_text=None,
         reasons.append("CAP_NET_ADMIN unavailable; cannot configure virtual radios")
     if physical_wifi_present(osroot):
         reasons.append("physical/unknown Wi-Fi PHY detected: refuse simulated RF setup")
+    if crypto_available is None:
+        crypto_available = crypto_test_dependency_available()
+    if not crypto_available:
+        reasons.append("Python PyCryptodome dependency missing; install python3-pycryptodome")
     for cmd in ("ip", "modprobe", "iw"):
         if not which(cmd):
             reasons.append(f"required command missing: {cmd}")
