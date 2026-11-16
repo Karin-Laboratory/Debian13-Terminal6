@@ -1,0 +1,66 @@
+name: C-unit MLO hwsim isolated-VM experiment
+
+on:
+  push:
+    branches:
+      - codex/cunit-mlo-radio-map-20261115
+    paths:
+      - scripts/cunit_mlo_hwsim_runner.py
+      - scripts/hwsim/test_cunit_mlo.py
+      - tests/test_cunit_mlo_hwsim_runner.py
+      - .github/workflows/cunit-mlo-hwsim.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hwsim:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host-only Python regression
+        run: |
+          python3 -m compileall -q scripts tests
+          python3 -m unittest tests.test_cunit_mlo_hwsim_runner -v
+      - name: Prepare isolated VM dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            git gcc make pkg-config libssl-dev libnl-3-dev libnl-genl-3-dev \
+            libnl-route-3-dev libsqlite3-dev libpcap-dev libdbus-1-dev \
+            libcurl4-openssl-dev libxml2-dev libreadline-dev binutils-dev libiberty-dev \
+            python3 python3-pip python3-venv python3-setuptools \
+            iw iproute2 iputils-ping kmod
+          git clone --no-checkout https://chromium.googlesource.com/chromiumos/third_party/hostap /tmp/cunit-hostap
+          git -C /tmp/cunit-hostap checkout f1e9b5086718ad567dc40e3d5a1456534d51749f
+      - name: Inspect hwsim capability and driver sandbox
+        run: |
+          sudo python3 scripts/cunit_mlo_hwsim_runner.py probe --hostap-tree /tmp/cunit-hostap | tee /tmp/cunit-hwsim-preflight.json
+          sudo modinfo -p mac80211_hwsim | grep -E '^(mlo|multi_radio|channels):'
+      - name: Build upstream hostap test binaries
+        working-directory: /tmp/cunit-hostap/tests/hwsim
+        run: ./build.sh
+      - name: Execute real upstream MLD association and recovery tests
+        run: |
+          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_runner.py run \
+            --hostap-tree /tmp/cunit-hostap \
+            --output-dir /tmp/cunit-hwsim-smoke \
+            --tests eht_mld_owe_two_links eht_mld_link_removal eht_mld_disassociate
+      - name: Attempt real virtual 5GHz/6GHz 160MHz MLD association
+        run: |
+          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_runner.py run \
+            --hostap-tree /tmp/cunit-hostap \
+            --output-dir /tmp/cunit-hwsim-wide \
+            --sim-country CA --tests cunit_mlo_5g160_6g160
+      - name: Upload SANITIZED summary only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cunit-mlo-host-summary
+          path: |
+            /tmp/cunit-hwsim-preflight.json
+            /tmp/cunit-hwsim-smoke/summary.json
+            /tmp/cunit-hwsim-wide/summary.json
+          if-no-files-found: ignore

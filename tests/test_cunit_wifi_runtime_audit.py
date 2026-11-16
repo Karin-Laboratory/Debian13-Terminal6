@@ -84,6 +84,47 @@ class RuntimeAuditTests(unittest.TestCase):
         self.assertNotIn("02:aa:bb:cc:dd:ee", text)
         self.assertNotIn("secret-lab-name", text)
 
+    def test_radio_inventory_maps_bands_without_claiming_runtime_mlo(self):
+        runner = self.fixture()
+        def wrapped(argv):
+            rc, output = runner(argv)
+            if tuple(argv) == ("iw", "phy"):
+                output += """Radios:
+        * radio 0
+                Frequencies:
+                        * 2412 MHz [1] (20.0 dBm)
+                        * 5180 MHz [36] (20.0 dBm)
+                valid interface combinations:
+                        * #{ AP } <= 1, total <= 1, #channels <= 1
+        * radio 1
+                Frequencies:
+                        * 5955 MHz [1] (disabled)
+                valid interface combinations:
+                        * #{ AP } <= 1, total <= 1, #channels <= 1
+"""
+            return rc, output
+        report = audit.collect(wrapped, Path("/nonexistent/sys"))
+        self.assertTrue(report["radio_inventory_available"])
+        self.assertEqual(report["radio_inventory"][0]["bands_advertised"], ["2.4GHz", "5GHz"])
+        self.assertEqual(report["radio_inventory"][1]["bands_advertised"], ["6GHz"])
+        self.assertEqual(report["radio_inventory"][1]["max_different_channels"], [1])
+        self.assertFalse(report["wiphys"][0]["six_ghz_rf_start_permitted"])
+
+    def test_radio_inventory_missing_is_not_inferred(self):
+        report = audit.collect(self.fixture(), Path("/nonexistent/sys"))
+        self.assertFalse(report["radio_inventory_available"])
+        self.assertEqual(report["radio_inventory"], [])
+
+    def test_interfaces_are_mapped_to_reported_phy(self):
+        runner = self.fixture()
+        def wrapped(argv):
+            rc, output = runner(argv)
+            if tuple(argv) == ("iw", "dev"):
+                output = output.replace("phy#0", "phy#2")
+            return rc, output
+        report = audit.collect(wrapped, Path("/nonexistent/sys"))
+        self.assertEqual(report["interfaces"][0]["wiphy_index"], 2)
+
     def test_only_read_only_commands_are_used(self):
         calls = []
 

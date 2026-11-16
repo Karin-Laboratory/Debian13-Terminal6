@@ -3,8 +3,13 @@
 ## 2026-11-16
 
 - Added a sanitized, non-mutating C-unit STA verification helper for per-band association/security, gateway ping, DNS, route invariance, link counters, and optional owner-managed iperf3 measurement.
-- Added an explicit transient reconnect option guarded by the wired management default route; no C-unit changes or live Wi-Fi tests were performed because authorized C SSH authentication was unavailable and the UART broker was already active.
-- Recorded exact next gates for WPA3 STA/AP, reconnect, reboot recovery, and independent AP client validation without overstating the existing STA/AP evidence.
+- Added an explicit transient reconnect option guarded by the wired management default route. At the time of the initial helper work, C-unit live Wi-Fi tests were not performed because authorized SSH authentication was unavailable and the UART broker was active.
+- Recorded exact next gates for WPA3 STA/AP, reconnect, reboot recovery, and independent AP client validation without overstating existing STA/AP evidence.
+
+## 2026-11-15
+
+- Added C-unit MLO radio inventory and A/C evidence audit. The audit distinguishes driver advertisements and configured APs from a real two-link MLD data session; 6GHz RF remains gated by the exact unit authorization and regulatory DB.
+- Fixed the read-only `iw phy` parser to recognize fractional MHz output and added coverage for per-radio inventory, interface-to-wiphy mapping, and missing radio sections. No device or RF operation was performed.
 
 ## 2026-11-14
 
