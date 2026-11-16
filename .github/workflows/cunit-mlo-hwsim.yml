@@ -59,15 +59,28 @@ jobs:
             --hostap-tree /tmp/cunit-hostap \
             --output-dir /tmp/cunit-hwsim-wide \
             --sim-country CA --tests cunit_mlo_5g160_6g160
+      - name: Copy only readable SANITIZED evidence out of root-private output
+        if: always()
+        run: |
+          set -eu
+          dest="$RUNNER_TEMP/cunit-mlo-sanitized"
+          install -d -m 0700 "$dest"
+          for entry in \
+            "cunit-hwsim-preflight.json:preflight.json" \
+            "cunit-hwsim-smoke/kernel.json:smoke-kernel.json" \
+            "cunit-hwsim-wide/kernel.json:wide-kernel.json" \
+            "cunit-hwsim-smoke/summary.json:smoke-summary.json" \
+            "cunit-hwsim-wide/summary.json:wide-summary.json"; do
+            source_path="/tmp/\${entry%%:*}"
+            safe_name="\${entry#*:}"
+            if sudo test -f "$source_path"; then
+              sudo install -m 0644 "$source_path" "$dest/$safe_name"
+            fi
+          done
       - name: Upload SANITIZED summary only
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cunit-mlo-host-summary
-          path: |
-            /tmp/cunit-hwsim-preflight.json
-            /tmp/cunit-hwsim-smoke/kernel.json
-            /tmp/cunit-hwsim-wide/kernel.json
-            /tmp/cunit-hwsim-smoke/summary.json
-            /tmp/cunit-hwsim-wide/summary.json
+          path: \${{ runner.temp }}/cunit-mlo-sanitized/
           if-no-files-found: ignore
