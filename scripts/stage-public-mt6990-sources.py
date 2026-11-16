@@ -22,8 +22,9 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MANIFEST = ROOT / "configs/public-mt6990-sources.json"
 HEX40 = re.compile(r"[0-9a-f]{40}\Z")
 ALLOWED_SOURCE = ("target/linux/mediatek/files-6.18/",
-                  "target/linux/mediatek/patches-6.18/")
-ALLOWED_DEST = ("kernel/", "patches/")
+                  "target/linux/mediatek/patches-6.18/",
+                  "scripts/lg6851f_mkbootimg_v2.py")
+ALLOWED_DEST = ("kernel/", "patches/", "tools/public-donor/")
 MAX_BLOB = 524288
 
 
