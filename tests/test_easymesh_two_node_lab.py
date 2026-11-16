@@ -67,7 +67,7 @@ class LabTests(unittest.TestCase):
         command.assert_called_once_with(
             ["docker", "exec", "node", "cat", "/sys/class/net/br-lan/address"])
 
-    @patch.object(module, "command", return_value="/usr/bin/beerocks_agent\\n/usr/sbin/ieee1905_transport")
+    @patch.object(module, "command", return_value="/usr/bin/beerocks_agent\n/usr/sbin/ieee1905_transport")
     def test_elf_identity_checks_proc_executable_targets(self, command):
         self.assertEqual(module.running_elf_names("agent"),
                          {"beerocks_agent", "ieee1905_transport"})
