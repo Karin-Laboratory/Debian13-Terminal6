@@ -32,11 +32,11 @@ jobs:
           ssh-keygen -t ed25519 -N '' -q -f "$RUNNER_TEMP/ci-only-id_ed25519"
           sudo bash scripts/build-public-p44-rootfs.sh \
             "$RUNNER_TEMP/p44-public-smoke" "$RUNNER_TEMP/ci-only-id_ed25519.pub"
-          # Private CI key is never staged into P44 or uploaded as an artifact.
+          # Private CI key never enters P44 or an artifact upload.
           rm -f "$RUNNER_TEMP/ci-only-id_ed25519"
-      - name: Confirm software, services and no reused SSH host keys
+      - name: Verify archive and prove no private SSH keys are present
         run: |
-          # Builder uses a private (0700) rootfs directory so checks run as root.
+          # Output directory is intentionally root-owned mode 0700.
           sudo -E bash -euo pipefail <<'VERIFY_ROOTFS'
           out="$RUNNER_TEMP/p44-public-smoke"
           test -s "$out/debian13-p44-rootfs.tar.gz"
@@ -47,22 +47,10 @@ jobs:
           grep -Fx './etc/systemd/network/20-terminal6-lan2.network' "$RUNNER_TEMP/p44-filelist.txt"
           grep -Fx './etc/ssh/sshd_config.d/60-terminal6-secure.conf' "$RUNNER_TEMP/p44-filelist.txt"
           grep -Fx './root/.ssh/authorized_keys' "$RUNNER_TEMP/p44-filelist.txt"
-          if grep -E '/root/.ssh/id_|/etc/ssh/ssh_host_.*_key
-          if grep -E '/etc/ssh/ssh_host_.*_key$' "$RUNNER_TEMP/p44-filelist.txt"; then
-            echo 'FAIL: image includes an SSH host private key' >&2
+          if grep -E '/root/.ssh/id_|/etc/ssh/ssh_host_.*_key$' "$RUNNER_TEMP/p44-filelist.txt"; then
+            echo 'FAIL: rootfs archive contains a private SSH key' >&2
             exit 1
           fi
-          echo 'PUBLIC_DEBIAN13_P44_ROOTFS_ARCHIVE_SMOKE_PASS_NOT_DEVICE_BOOT_VALIDATED'
+          echo 'PUBLIC_DEBIAN13_P44_ROOTFS_ARCHIVE_WITH_PUBKEY_PASS_NOT_DEVICE_BOOT_VALIDATED'
           VERIFY_ROOTFS
-      # Intentionally no archive upload/release, no block device changes.
- "$RUNNER_TEMP/p44-filelist.txt"; then
-            echo 'FAIL: rootfs archive includes a private SSH key' >&2
-            exit 1
-          fi
-          if grep -E '/etc/ssh/ssh_host_.*_key$' "$RUNNER_TEMP/p44-filelist.txt"; then
-            echo 'FAIL: image includes an SSH host private key' >&2
-            exit 1
-          fi
-          echo 'PUBLIC_DEBIAN13_P44_ROOTFS_ARCHIVE_SMOKE_PASS_NOT_DEVICE_BOOT_VALIDATED'
-          VERIFY_ROOTFS
-      # Intentionally no archive upload/release, no block device changes.
+      # No archive release/upload, signing, block-device write or RF action.
