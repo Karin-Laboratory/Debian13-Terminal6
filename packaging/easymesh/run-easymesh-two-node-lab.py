@@ -8,7 +8,7 @@ import json
 import os
 import re
 import shlex
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import secrets
 import shutil
 import signal
@@ -59,8 +59,19 @@ def validate_install_tree(path: Path) -> Path:
     return root
 
 
+def validate_install_target(target: str) -> str:
+    """Preserve an upstream binary's compiled CMAKE_INSTALL_PREFIX in its container."""
+    path = PurePosixPath(target)
+    if (not target.startswith("/") or target == "/" or ".." in target.split("/")
+            or any(char in target for char in ",:\n") or
+            path.parts[1:2] in (("proc",), ("sys",), ("dev",))):
+        raise LabError("unsafe absolute install target inside container")
+    return str(path)
+
+
 def run_container(name: str, network: str, image: str, startup: str,
-                  install_tree: Path | None = None, bridge_al: bytes | None = None) -> str:
+                  install_tree: Path | None = None, bridge_al: bytes | None = None,
+                  install_target: str = "/opt/t6-prplmesh") -> str:
     argv = [
         "docker", "run", "--detach", "--rm", "--name", name,
         "--network", network, "--cap-add=NET_RAW", "--cap-add=NET_ADMIN",
@@ -71,8 +82,9 @@ def run_container(name: str, network: str, image: str, startup: str,
         # tree. Mount separate scratch copies, never the original build output.
         if any(char in str(install_tree) for char in ",:\n"):
             raise LabError("unsafe character in install tree mount path")
-        argv += ["--mount", f"type=bind,source={install_tree},target=/opt/t6-prplmesh",
-                 "--env", "INSTALL_DIR=/opt/t6-prplmesh"]
+        target = validate_install_target(install_target)
+        argv += ["--mount", f"type=bind,source={install_tree},target={target}",
+                 "--env", f"INSTALL_DIR={target}"]
     if bridge_al is not None:
         if install_tree is None:
             raise LabError("fixed bridge identity requires the upstream install-tree runner")
@@ -213,6 +225,8 @@ def lab(args) -> dict:
         if ctrl_al == agent_al or ctrl_al[0] & 1 or agent_al[0] & 1:
             raise LabError("two distinct unicast AL MACs are required")
     source_tree = validate_install_tree(args.install_tree) if args.install_tree else None
+    if source_tree is not None:
+        validate_install_target(args.install_target)
     os.umask(0o077)
     if args.output.exists() or args.output.is_symlink():
         raise LabError("choose a new private output directory")
@@ -260,10 +274,11 @@ def lab(args) -> dict:
         def start_pair():
             nonlocal ctrl_al, agent_al
             run_container(controller, network, args.controller_image, "start-controller-agent",
-                          controller_tree, ctrl_al if source_tree is not None else None)
+                          controller_tree, ctrl_al if source_tree is not None else None,
+                          args.install_target)
             resources["controller"] = True
             run_container(agent, network, args.agent_image, "start-agent", agent_tree,
-                          agent_al if source_tree is not None else None)
+                          agent_al if source_tree is not None else None, args.install_target)
             resources["agent"] = True
             if not (container_running(controller) and container_running(agent)):
                 raise LabError("at least one node stopped before initial capture")
@@ -365,6 +380,8 @@ def main() -> int:
                     help="derive AL MACs from the two live br-lan interfaces")
     ap.add_argument("--install-tree", type=Path,
                     help="existing prplMesh build/install; copied per node, never mounted directly")
+    ap.add_argument("--install-target", default="/opt/t6-prplmesh",
+                    help="in-container CMAKE_INSTALL_PREFIX; use the compiled path if absolute")
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--controller-db-command", help="optional in-container CLI command, e.g. beerocks_cli -c bml_conn_map")
     ap.add_argument("--duration", type=int, default=60)
