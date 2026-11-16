@@ -1,0 +1,35 @@
+name: Public MT6990 source-only staging
+on:
+  pull_request:
+    paths:
+      - 'scripts/stage-public-mt6990-sources.py'
+      - 'configs/public-mt6990-sources.json'
+      - 'tests/test_stage_public_mt6990_sources.py'
+      - '.github/workflows/public-mt6990-source-stage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify offline fail-closed behavior
+        run: python3 -m unittest discover -s tests -p 'test_stage_public_mt6990_sources.py' -v
+      - name: Stage SHA-pinned PUBLIC source files into ephemeral runner only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/stage-public-mt6990-sources.py --output "$RUNNER_TEMP/public-mt6990-stage"
+          python3 - "$RUNNER_TEMP/public-mt6990-stage/source-receipt.json" <<'PY'
+          import json, sys
+          d=json.load(open(sys.argv[1], encoding="utf-8"))
+          assert d["status"] == "PUBLIC_TEXT_STAGED_NOT_BOOT_VALIDATED"
+          assert len(d["files"]) == 15
+          print("PUBLIC_MT6990_SOURCE_BLOBS_15_VERIFIED")
+          print("NO_KERNEL_BUILD_NO_P25_NO_DEVICE_BOOT")
+          PY
+          # No GitHub Actions upload, caches, firmware, signer or device access.
