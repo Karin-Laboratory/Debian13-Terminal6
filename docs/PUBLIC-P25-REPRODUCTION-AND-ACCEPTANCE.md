@@ -78,6 +78,7 @@ sh scripts/verify-public-p25-cunit-readonly.sh
 ```
 
 It checks Linux release, `rootfs_data` ext4, `eth1`, `lan2`, carrier,
+lan2 IPv4, registered Wi-Fi PHY (the original C-unit third criterion),
 systemd-networkd, and SSH. Independently capture first-boot UART and
 raspi4-to-C SSH connectivity. A pass of the local helper is **not** proof
 of provenance or cold boot; both must be measured independently.
