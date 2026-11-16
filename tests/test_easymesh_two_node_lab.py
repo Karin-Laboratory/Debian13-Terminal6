@@ -60,6 +60,24 @@ class LabTests(unittest.TestCase):
                                      'ip link set dev br-lan address "$T6_AL_MAC" && exec start-agent'])
         self.assertNotIn("--privileged", argv)
 
+    @patch.object(module, "command")
+    def test_ambiorix_ubus_startup_is_isolated_and_explicit(self, command):
+        module.run_container("agent", "isolated", "prplmesh:6.0.1", "start-agent",
+                             Path("/tmp/agent-install"), bytes.fromhex("02000000000b"),
+                             "/tmp/build/install", amx_ubus=True)
+        argv = command.call_args.args[0]
+        self.assertIn("INSTALL_DIR=/tmp/build/install", argv)
+        self.assertIn("mod-amxb-ubus.so", argv[-1])
+        self.assertIn("ubusd -s /var/run/ubus.sock", argv[-1])
+        self.assertIn('test -S /var/run/ubus.sock', argv[-1])
+        self.assertNotIn("--privileged", argv)
+        self.assertNotIn("--network=host", argv)
+
+    def test_ambiorix_ubus_requires_private_stage_and_al_identity(self):
+        with self.assertRaisesRegex(module.LabError, "staged install"):
+            module.run_container("agent", "isolated", "image:1", "start-agent",
+                                 amx_ubus=True)
+
     @patch.object(module, "command", return_value="02:00:00:00:00:0b")
     def test_real_bridge_address_is_read_from_container(self, command):
         verifier = module.load_verifier()
