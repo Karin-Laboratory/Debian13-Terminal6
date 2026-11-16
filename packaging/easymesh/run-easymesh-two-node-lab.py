@@ -352,7 +352,8 @@ def lab(args) -> dict:
 
         def restart_agent():
             run_container(agent, network, args.agent_image, "start-agent", agent_tree,
-                          agent_al if source_tree is not None else None)
+                          agent_al if source_tree is not None else None,
+                          args.install_target)
             resources["agent"] = True
             if not container_running(agent) or not wait_for_processes(
                     agent, ("ieee1905_transport", "beerocks_agent")):
