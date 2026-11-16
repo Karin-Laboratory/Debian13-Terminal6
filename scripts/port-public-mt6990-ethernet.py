@@ -83,7 +83,14 @@ def apply(h: str, c: str, patch: str):
     h=after_once(h,"\tMTK_GMAC_EEE_BIT,\n",group(H,1))
     h=after_regex_once(h,r"^#define MTK_36BIT_DMA\s+BIT_ULL\(MTK_36BIT_DMA_BIT\)\n",group(H,2))
     h=before_once(h,"struct mtk_tx_dma_desc_info {",group(H,3))
-    c=before_once(c,"static const struct mtk_reg_map mt7988_reg_map = {",group(H,4))
+    regmap = group(H,4)
+    # The donor .page field has no equivalent in stable 6.18's QDMA ABI
+    # and no reader in the mainline driver. Keep the other exact registers.
+    unused_page = "\\t\\t.page\\t\\t= 0x45f0,\\n"
+    if regmap.count(unused_page)!=1:
+        raise ValueError("donor QDMA unused page register field changed")
+    regmap=regmap.replace(unused_page,"")
+    c=before_once(c,"static const struct mtk_reg_map mt7988_reg_map = {",regmap)
     c=after_once(c,'\t"top_netsys_warp_sel",\n',group(H,5))
     c=after_once(c,
         "\t\t   MAC_MCR_BACKOFF_EN | MAC_MCR_BACKPR_EN | MAC_MCR_RX_FIFO_CLR_DIS;\n",
