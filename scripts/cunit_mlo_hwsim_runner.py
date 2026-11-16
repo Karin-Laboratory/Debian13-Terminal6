@@ -97,19 +97,35 @@ def completed_test(output, test, returncode):
     return returncode == 0 and passline is not None and badline is None
 
 
-def sanitized_summary(probe, results):
+def parse_ip_ping_marker(output):
+    """Extract observed packets only from the fixture's explicit success line."""
+    marker = re.search(
+        r"(?m)^CUNIT_MLO_IP_BIDIRECTIONAL_PASS "
+        r"tx_sta=(\d+) rx_sta=(\d+) tx_ap=(\d+) rx_ap=(\d+)\s*$",
+        output)
+    if not marker:
+        return None
+    sent_sta, received_sta, sent_ap, received_ap = map(int, marker.groups())
+    if (not 0 < received_sta <= sent_sta <= 1000 or
+            not 0 < received_ap <= sent_ap <= 1000):
+        return None
+    return {"sta_to_ap": {"sent": sent_sta, "received": received_sta},
+            "ap_to_sta": {"sent": sent_ap, "received": received_ap}}
+
+
+def sanitized_summary(probe, results, ip_ping=None):
     """A summary with no identifiers or raw logs; NOT an HWSIM_PASS verdict."""
     if probe["status"] != "READY":
         state = "BLOCKED"
     elif all(value == "SMOKE_PASS" for value in results.values()) and results:
-        state = ("WIDE_MLD_SMOKE_PASS" if WIDE_TEST in results else
-                 "UPSTREAM_MLD_SMOKE_PASS")
+        state = (("WIDE_MLD_IP_PASS" if ip_ping else "WIDE_MLD_SMOKE_PASS")
+                 if WIDE_TEST in results else "UPSTREAM_MLD_SMOKE_PASS")
     else:
         state = "INCOMPLETE"
     return {"status": state, "kernel": probe["kernel"], "tests": results,
             "first_failed_test": next((name for name, state in results.items()
                                        if state != "SMOKE_PASS"), None),
-            "acceptance_v2": "NOT_PROVEN",
+            "acceptance_v2": "NOT_PROVEN", "ip_ping": ip_ping,
             "note": "No per-link counter/failure-cycle evidence; not HWSIM_PASS"}
 
 
@@ -135,6 +151,7 @@ def run_tests(hostap_tree, output_dir, tests, fixture_source, sim_country=None):
         if result.returncode:
             raise RuntimeError("simulated VM regulatory setup failed")
     results = {}
+    ip_ping = None
     for test in tests:
         # Bound each test including hostap startup/stop; preserve raw output locally.
         result = execute(["timeout", "--kill-after=5s", "240s",
@@ -145,10 +162,12 @@ def run_tests(hostap_tree, output_dir, tests, fixture_source, sim_country=None):
         logfile.write_text(result.stdout, encoding="utf-8")
         results[test] = ("SMOKE_PASS" if completed_test(result.stdout, test,
                                                        result.returncode) else "FAILED")
+        if test == WIDE_TEST and results[test] == "SMOKE_PASS":
+            ip_ping = parse_ip_ping_marker(result.stdout)
         if results[test] == "FAILED":
             # Stop at first failure instead of burning the CI job timeout.
             break
-    summary = sanitized_summary(probe, results)
+    summary = sanitized_summary(probe, results, ip_ping)
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     return summary
 
@@ -179,7 +198,8 @@ def main(argv=None):
         return 2
     print(json.dumps(summary, sort_keys=True))
     return 0 if summary["status"] in ("UPSTREAM_MLD_SMOKE_PASS",
-                                      "WIDE_MLD_SMOKE_PASS") else 2
+                                      "WIDE_MLD_SMOKE_PASS",
+                                      "WIDE_MLD_IP_PASS") else 2
 
 
 if __name__ == "__main__":
