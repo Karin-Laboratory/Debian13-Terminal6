@@ -42,21 +42,12 @@ fi
 if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-pcieusb" ]]; then
   # Public donor: 13179415360/openwrt-mt6990-lg6851f,
   # source commit a40df9a5afb46716dea799acea69f17480df4d82.
-  for p in mt6990-public-pcie-gen3.patch mt6990-public-pcie-phy.patch; do
-    test -s "$ROOT/patches/$p"
-    if [[ "$p" = mt6990-public-pcie-phy.patch ]]; then
-      # Donor PHY source patch uses a one-line hunk-position offset against
-      # pinned Linux 6.18.63. GNU patch accepts offsets with fuzz strictly
-      # zero; fail on any rejected/ambiguous context.
-      command -v patch >/dev/null
-      patch --batch --fuzz=0 --dry-run -p1 < "$ROOT/patches/$p"
-      patch --batch --fuzz=0 -p1 < "$ROOT/patches/$p"
-      test ! -e drivers/phy/mediatek/phy-mtk-pcie.c.rej
-    else
-      git apply --check "$ROOT/patches/$p"
-      git apply "$ROOT/patches/$p"
-    fi
-  done
+  test -s "$ROOT/patches/mt6990-public-pcie-gen3.patch"
+  git apply --check "$ROOT/patches/mt6990-public-pcie-gen3.patch"
+  git apply "$ROOT/patches/mt6990-public-pcie-gen3.patch"
+  python3 "$ROOT/scripts/port-mt6990-pcie-phy.py" \
+    "$ROOT/patches/mt6990-public-pcie-phy.patch" \
+    "$WORKDIR/drivers/phy/mediatek/phy-mtk-pcie.c"
   grep -Fq 'mediatek,mt6990-pcie' drivers/pci/controller/pcie-mediatek-gen3.c
   grep -Fq 'mediatek,mt6980-pcie-phy' drivers/phy/mediatek/phy-mtk-pcie.c
   echo 'PUBLIC_MT6990_PCIE_HOST_AND_PHY_PATCHES_APPLIED'
