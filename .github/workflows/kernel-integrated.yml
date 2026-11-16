@@ -9,6 +9,7 @@ on:
       - initramfs/init
       - .github/workflows/kernel-integrated.yml
       - scripts/stage-public-mt6990-sources.py
+      - scripts/apply-public-mt6990-kernel.py
       - scripts/assemble-template-free-p25.py
       - scripts/derive-public-boot-v2-profile.py
       - configs/public-mt6990-sources.json
@@ -42,9 +43,12 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/stage-experimental-dtb.sh "$RUNNER_TEMP/dtb"
-      - name: Compile stable ARM64 Image with embedded P44 initramfs
+      - name: Compile stable ARM64 Image with PUBLIC MT6990 clocks/eMMC and P44 initramfs
         run: |
           set -euo pipefail
+          python3 scripts/stage-public-mt6990-sources.py --output "$RUNNER_TEMP/public-donor-stage"
+          export PUBLIC_MT6990_STAGE="$RUNNER_TEMP/public-donor-stage"
+          export PUBLIC_MT6990_SCOPE=core
           export WORKDIR="$RUNNER_TEMP/debian-t6-linux"
           export INITRAMFS_ARCHIVE="$RUNNER_TEMP/p44-initramfs.cpio.gz"
           export DTB_PATH="$RUNNER_TEMP/dtb/board/terminal6-debian-experimental.dtb"
@@ -58,8 +62,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/stage-public-mt6990-sources.py \
-            --output "$RUNNER_TEMP/public-donor-stage"
           python3 scripts/assemble-template-free-p25.py \
             --source-stage "$RUNNER_TEMP/public-donor-stage" \
             --profile "$GITHUB_WORKSPACE/configs/public-air6-boot-v2-profile.json" \
