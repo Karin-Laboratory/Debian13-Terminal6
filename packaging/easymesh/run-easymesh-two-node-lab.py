@@ -45,12 +45,47 @@ def plan_images(controller_image: str, agent_image: str) -> list[list[str]]:
             for image in (controller_image, agent_image)]
 
 
-def run_container(name: str, network: str, image: str, startup: str) -> str:
-    return command([
+def validate_install_tree(path: Path) -> Path:
+    """Check a prebuilt upstream install tree before creating any Docker resources."""
+    try:
+        root = path.resolve(strict=True)
+    except OSError:
+        raise LabError("prplMesh install tree unavailable") from None
+    if (not root.is_dir()
+            or not (root / "scripts/prplmesh_utils.sh").is_file()
+            or not (root / "bin/beerocks_agent").is_file()
+            or not (root / "bin/beerocks_controller").is_file()):
+        raise LabError("prplMesh install tree requires scripts/prplmesh_utils.sh and agent/controller binaries")
+    return root
+
+
+def run_container(name: str, network: str, image: str, startup: str,
+                  install_tree: Path | None = None) -> str:
+    argv = [
         "docker", "run", "--detach", "--rm", "--name", name,
         "--network", network, "--cap-add=NET_RAW", "--cap-add=NET_ADMIN",
-        "--security-opt=no-new-privileges", "--pull=never", image, startup,
-    ])
+        "--security-opt=no-new-privileges", "--pull=never",
+    ]
+    if install_tree is not None:
+        # Upstream runner's entrypoint needs INSTALL_DIR and a mounted install
+        # tree. Mount separate scratch copies, never the original build output.
+        if any(char in str(install_tree) for char in ",:\\n"):
+            raise LabError("unsafe character in install tree mount path")
+        argv += ["--mount", f"type=bind,source={install_tree},target=/opt/t6-prplmesh",
+                 "--env", "INSTALL_DIR=/opt/t6-prplmesh"]
+    return command([*argv, image, startup])
+
+
+def bridge_al_mac(container: str, verifier) -> bytes:
+    """Read an independent container's actual br-lan identity, not a guessed MAC."""
+    value = command(["docker", "exec", container, "cat", "/sys/class/net/br-lan/address"])
+    try:
+        result = verifier.mac_bytes(value)
+    except verifier.CaptureError:
+        raise LabError("invalid br-lan MAC in running prplMesh container") from None
+    if result[0] & 1:
+        raise LabError("container br-lan MAC must be unicast")
+    return result
 
 
 def capture(bridge: str, path: Path, duration: int, *, during_capture=None):
@@ -137,10 +172,18 @@ def lab(args) -> dict:
     if not shutil.which("docker") or not shutil.which("tcpdump"):
         raise LabError("Docker and tcpdump are required on the designated lab host")
     verifier = load_verifier()
-    ctrl_al = verifier.mac_bytes(args.controller_al)
-    agent_al = verifier.mac_bytes(args.agent_al)
-    if ctrl_al == agent_al or ctrl_al[0] & 1 or agent_al[0] & 1:
-        raise LabError("two distinct unicast AL MACs are required")
+    if args.auto_al:
+        if args.controller_al or args.agent_al:
+            raise LabError("--auto-al cannot be combined with explicit AL MACs")
+        ctrl_al = agent_al = None
+    else:
+        if not args.controller_al or not args.agent_al:
+            raise LabError("both AL MACs required unless --auto-al is selected")
+        ctrl_al = verifier.mac_bytes(args.controller_al)
+        agent_al = verifier.mac_bytes(args.agent_al)
+        if ctrl_al == agent_al or ctrl_al[0] & 1 or agent_al[0] & 1:
+            raise LabError("two distinct unicast AL MACs are required")
+    source_tree = validate_install_tree(args.install_tree) if args.install_tree else None
     os.umask(0o077)
     if args.output.exists() or args.output.is_symlink():
         raise LabError("choose a new private output directory")
@@ -149,6 +192,14 @@ def lab(args) -> dict:
         raise LabError("unsafe output directory")
     for probe in plan_images(args.controller_image, args.agent_image):
         command(probe)
+    # Keep upstream-installed binaries and config independent per node. The
+    # caller's original (possibly private) build tree is never mounted mutable.
+    controller_tree = agent_tree = None
+    if source_tree is not None:
+        controller_tree = args.output / "controller-install"
+        agent_tree = args.output / "agent-install"
+        shutil.copytree(source_tree, controller_tree, symlinks=True)
+        shutil.copytree(source_tree, agent_tree, symlinks=True)
     tag = secrets.token_hex(3)
     network, bridge = "t6mesh-" + tag, "t6m" + tag
     controller, agent = network + "-c", network + "-a"
@@ -175,9 +226,11 @@ def lab(args) -> dict:
         resources["network"] = True
 
         def start_pair():
-            run_container(controller, network, args.controller_image, "start-controller-agent")
+            nonlocal ctrl_al, agent_al
+            run_container(controller, network, args.controller_image, "start-controller-agent",
+                          controller_tree)
             resources["controller"] = True
-            run_container(agent, network, args.agent_image, "start-agent")
+            run_container(agent, network, args.agent_image, "start-agent", agent_tree)
             resources["agent"] = True
             if not (container_running(controller) and container_running(agent)):
                 raise LabError("at least one node stopped before initial capture")
@@ -187,6 +240,11 @@ def lab(args) -> dict:
                 agent, ("ieee1905_transport", "beerocks_agent"))
             if not (result["controller_processes_running"] and result["agent_processes_running"]):
                 raise LabError("prplMesh processes not observed in both independent nodes")
+            if args.auto_al:
+                ctrl_al = bridge_al_mac(controller, verifier)
+                agent_al = bridge_al_mac(agent, verifier)
+                if ctrl_al == agent_al:
+                    raise LabError("both prplMesh bridges have the same AL MAC")
 
         capture(bridge, args.output / "initial.ieee1905.pcap", args.duration,
                 during_capture=start_pair)
@@ -207,7 +265,7 @@ def lab(args) -> dict:
                 controller, args.controller_db_command, agent_al)
 
         def restart_agent():
-            run_container(agent, network, args.agent_image, "start-agent")
+            run_container(agent, network, args.agent_image, "start-agent", agent_tree)
             resources["agent"] = True
             if not container_running(agent) or not wait_for_processes(
                     agent, ("ieee1905_transport", "beerocks_agent")):
@@ -251,8 +309,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--controller-image", required=True)
     ap.add_argument("--agent-image", required=True)
-    ap.add_argument("--controller-al", required=True)
-    ap.add_argument("--agent-al", required=True)
+    ap.add_argument("--controller-al", help="explicit Controller AL MAC")
+    ap.add_argument("--agent-al", help="explicit Agent AL MAC")
+    ap.add_argument("--auto-al", action="store_true",
+                    help="derive AL MACs from the two live br-lan interfaces")
+    ap.add_argument("--install-tree", type=Path,
+                    help="existing prplMesh build/install; copied per node, never mounted directly")
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--controller-db-command", help="optional in-container CLI command, e.g. beerocks_cli -c bml_conn_map")
     ap.add_argument("--duration", type=int, default=60)
