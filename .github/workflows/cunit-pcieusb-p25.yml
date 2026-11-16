@@ -1,0 +1,107 @@
+name: C-unit public P25 PCIe USB DTB experimental manufacture
+on:
+  push:
+    branches:
+      - codex/cunit-p25-pcie-usb-dtb-20261117
+    paths:
+      - '.github/workflows/cunit-pcieusb-p25.yml'
+      - 'scripts/configure-terminal6-pcieusb.sh'
+      - 'scripts/verify-terminal6-pcieusb-config.py'
+      - 'scripts/prepare-pcie-usb-experimental-dts.py'
+      - 'scripts/stage-pcie-usb-experimental-dtb.sh'
+      - 'scripts/build-linux-6.18.sh'
+      - 'tests/test_terminal6_pcieusb_dtb.py'
+      - 'patches/mt6990-public-pcie-gen3.patch'
+      - 'patches/mt6990-public-pcie-phy.patch'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cunit-public-pcieusb-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  manufacture:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Fail-closed source/DTB/config contract unit checks
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_terminal6_pcieusb_dtb.py' -v
+          python3 -m unittest discover -s tests -p 'test_terminal6_capable_config.py' -v
+          bash -n scripts/stage-pcie-usb-experimental-dtb.sh
+          bash -n scripts/configure-terminal6-pcieusb.sh
+          bash -n scripts/build-linux-6.18.sh
+      - name: Native ARM64 kernel tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq flex bison libssl-dev libelf-dev bc device-tree-compiler busybox-static cpio
+          test "$(uname -m)" = aarch64
+      - name: Assemble public MT6990 stage P44 handoff and enabled DTB
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          TERMINAL6_REPRODUCIBLE_INITRAMFS=1 SOURCE_DATE_EPOCH=0 \
+            bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/pcieusb-initramfs.cpio.gz" "$GITHUB_WORKSPACE/public-management"
+          bash scripts/stage-experimental-dtb.sh "$RUNNER_TEMP/pcieusb-dtb"
+          bash scripts/stage-pcie-usb-experimental-dtb.sh "$RUNNER_TEMP/pcieusb-dtb"
+          python3 scripts/stage-public-mt6990-sources.py --output "$RUNNER_TEMP/pcieusb-stage"
+          echo CUNIT_PINNED_PUBLIC_PCIE_USB_DTB_STAGED
+      - name: Rebuild Linux 6.18.63 with PCIe/USB matched drivers and 35MiB ceiling
+        shell: bash
+        env:
+          KERNEL_PROFILE: terminal6-pcieusb
+          PUBLIC_MT6990_SCOPE: network
+          JOBS: 4
+        run: |
+          set -euo pipefail
+          export PUBLIC_MT6990_STAGE="$RUNNER_TEMP/pcieusb-stage"
+          export WORKDIR="$RUNNER_TEMP/pcieusb-linux"
+          export INITRAMFS_ARCHIVE="$RUNNER_TEMP/pcieusb-initramfs.cpio.gz"
+          export DTB_PATH="$RUNNER_TEMP/pcieusb-dtb/board/terminal6-debian-pcie-usb-experimental.dtb"
+          if ! bash scripts/build-linux-6.18.sh > "$RUNNER_TEMP/pcieusb-compile.log" 2>&1; then
+            echo 'CUNIT_PCIEUSB_FULL_KERNEL_BUILD_FAIL'
+            tail -180 "$RUNNER_TEMP/pcieusb-compile.log"
+            exit 1
+          fi
+          python3 scripts/verify-terminal6-pcieusb-config.py \
+            "$WORKDIR/output/kernel.config" --image "$WORKDIR/output/Image"
+          test "$(stat -c %s "$WORKDIR/output/Image")" -le 36700160
+          test -d "$WORKDIR/output/module-tree/lib/modules/6.18.63-t6-public-pcieusb"
+          test -s "$WORKDIR/output/terminal6-pcieusb-modules.tar"
+          tar -tf "$WORKDIR/output/terminal6-pcieusb-modules.tar" | grep -F 'lib/modules/6.18.63-t6-public-pcieusb/kernel/drivers/net/wireless/mediatek/mt76/mt7996/mt7996e.ko'
+          tar -tf "$WORKDIR/output/terminal6-pcieusb-modules.tar" | grep -F 'lib/modules/6.18.63-t6-public-pcieusb/kernel/drivers/usb/mtu3/mtu3.ko'
+          tar -tf "$WORKDIR/output/terminal6-pcieusb-modules.tar" | grep -F 'lib/modules/6.18.63-t6-public-pcieusb/kernel/drivers/phy/mediatek/phy-mtk-xsphy.ko'
+          grep -E 'PUBLIC_MT6990_|CUNIT_PCIEUSB_|TERMINAL6_PCIE|TERMINAL6_pcieusb' "$RUNNER_TEMP/pcieusb-compile.log" | tail -35
+          wc -c "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/terminal6-pcieusb-modules.tar"
+          cat "$WORKDIR/output/SHA256SUMS"
+          echo CUNIT_PCIE_USB_35M_KERNEL_AND_MATCHING_MODULES_BUILT_PASS
+      - name: Manufacture full 32MiB unsigned boot-v2 P25 and independently verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/assemble-template-free-p25.py \
+            --source-stage "$RUNNER_TEMP/pcieusb-stage" \
+            --profile "$GITHUB_WORKSPACE/configs/public-air6-boot-v2-profile.json" \
+            --kernel-image "$RUNNER_TEMP/pcieusb-linux/output/Image" \
+            --initramfs-cpio-gz "$RUNNER_TEMP/pcieusb-initramfs.cpio.gz" \
+            --dtb "$RUNNER_TEMP/pcieusb-dtb/board/terminal6-debian-pcie-usb-experimental.dtb" \
+            --output "$RUNNER_TEMP/pcieusb-p25"
+          python3 scripts/verify-public-unsigned-p25.py \
+            --p25 "$RUNNER_TEMP/pcieusb-p25/p25-unsigned.img" \
+            --kernel-image "$RUNNER_TEMP/pcieusb-linux/output/Image" \
+            --initramfs-cpio-gz "$RUNNER_TEMP/pcieusb-initramfs.cpio.gz" \
+            --dtb "$RUNNER_TEMP/pcieusb-dtb/board/terminal6-debian-pcie-usb-experimental.dtb" \
+            --profile "$GITHUB_WORKSPACE/configs/public-air6-boot-v2-profile.json" \
+            --receipt "$RUNNER_TEMP/pcieusb-p25/p25-receipt.json"
+          test "$(stat -c %s "$RUNNER_TEMP/pcieusb-p25/p25-unsigned.img")" = 33554432
+          sha256sum "$RUNNER_TEMP/pcieusb-p25/p25-unsigned.img"
+          echo CUNIT_PUBLIC_PCIEUSB_UNSIGNED_P25_FULL_READBACK_PASS
+          echo UNSIGNED_NOT_BOOT_TESTED_PCIE_USB_VBUS_PHY_NOT_DEVICE_VALIDATED
+      # No public upload of device boot image. Future protected signature needs
+      # explicit fresh owner approval for exact privately retained P25 SHA.
