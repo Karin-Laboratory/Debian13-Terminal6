@@ -21,11 +21,11 @@ PR #13のHEAD `33102b1c5d843f3ecc89790530c7864b5ed51467` を起点に、PR #16 `
 
 ## EasyMesh実通信の現在の阻害点
 
-owner-privateのAArch64 prplMesh install treeとAmbiorix source/sysrootは見つかった。一方、実行に必要な `mod-amxb-ubus.so` と `ubusd` は当該private stageに存在せず、開発VMにはDockerもない。既存のPR #17 runnerをこのVMで実行しても、AMXRT backend/UBus preflightで停止する。従って1905実packet、Topology Query/Response、Controller DB登録/復帰は **BLOCKED**。実daemonやPCAPを得ていない状態をPASSとしない。最初の再開点は、同一AArch64 ABIのAmbiorix UBus backendとubusdをprivate stageへビルドし、隔離runnerを用意すること。
+owner-privateのAArch64 prplMesh install treeとAmbiorix source/sysrootは見つかった。一方、実行に必要な `mod-amxb-ubus.so` と `ubusd` は当該private stageに存在せず、開発VMにはDockerもない。公式[Ambiorix UBus backend](https://gitlab.com/prpl-foundation/components/ambiorix/modules/amxb_backends/amxb_ubus)をowner-privateへcloneし、commit `c74118306cd9f4557de2a8963c21f6d4a94c6f89`を記録した。このbackendはlibubus/libuboxにも依存する。別のOpenWrt rootfs内にあるmuslビルドのlibubus/ubusdをDebian/glibc向けprplMeshへ無検証で混ぜない。既存のPR #17 runnerをこのVMで実行しても、AMXRT backend/UBus preflightで停止する。従って1905実packet、Topology Query/Response、Controller DB登録/復帰は **BLOCKED**。実daemonやPCAPを得ていない状態をPASSとしない。最初の再開点は、同一AArch64 libc/ABIのUBus backend・libubus/libubox・ubusdをprivate stageへビルドし、隔離runnerを用意すること。
 
 ## C号機実機受入
 
-このVMから許可されたraspi2 `codex` 接続は成功。raspi2のUSBにはRealtek 8812AUが存在するが、`wlan0`は管理経路で稼働中、`iw`も未導入。独立peerとして使用できるとの証拠はない。raspi2経由のC号機root strict SSHは `Permission denied (publickey)`。C号機の現時点の`iw phy`/radio/link stateは取得できていない。A号機は操作していない。実機RF送信・再起動・パーティション書込みは**なし**。
+このVMから許可されたraspi2 `codex` 接続は成功。raspi2のUSBにはRealtek 8812AUがあり、`wlan0`は`rtw88_8812au`でUP・管理経路として稼働中、`iw`も未導入。独立peerとして使用できるとの証拠はない。raspi2経由のC号機root strict SSHは `Permission denied (publickey)`。C号機の現時点の`iw phy`/radio/link stateは取得できていない。A号機は操作していない。実機RF送信・再起動・パーティション書込みは**なし**。
 
 | 受入項目 | 状態 | 根拠/残件 |
 |---|---|---|
