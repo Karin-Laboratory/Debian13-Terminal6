@@ -23,3 +23,7 @@ hostapd 2.12の実ソースには `CONFIG_IEEE80211BE`、`mld_ap`、`mld_addr`�
 ## 実機アクセスと次の地点
 
 現VMから許可されたraspi2 `codex` 経路でC号機rootへstrict SSHを試みたが `Permission denied (publickey)`。端末に変更を加えていない。`iw phy` の現物、radio inventory、MLD接続、link別カウンタ、6GHz認証条件は未取得。次は正規のC管理資格情報が使える状態で、まずread-only `iw phy` とdriver/firmware情報を取得する。6GHz認証ゲートが成立するまで5GHzのみでhostapd/MLDの段階試験に留める。MLO対応STAも未確認であり、Intel AX201を受入端末としない。
+
+## 2026-11-16追補：MLO受入判定v2
+
+受入判定器の初版（上記16件PASS）に対して、[受入判定v2と再現手順](CUNIT-MLO-EVIDENCE-V2-20261116.ja.md)を追加した。v2は同一MLDのAP/STA両端状態、異なるradio ID、5/6GHz各160MHzのprimary/center周波数、per-link TX/RX、各リンクの停止・復帰と再接続を必須にする。`hardware` の証拠と `hwsim` の証拠では判定ラベルを分離し、旧boolean-only JSONを拒否する。host側の新版単体テストは28件PASS。合成レコードによる単体テストは実際のhwsim接続成功やC号機の実通信成功を意味しない。実機操作・RF送信・P25更新なし。
