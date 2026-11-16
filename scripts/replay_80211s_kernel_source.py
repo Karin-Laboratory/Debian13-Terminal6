@@ -124,7 +124,7 @@ def build_replay(source: Path, final_config: Path, prefix: str,
         if len(matches) != 1:
             raise ValueError(f"expected exactly one built {name}")
         header = matches[0].open("rb").read(20)
-        if (len(header) != 20 or header[:4] != b"\\x7fELF" or
+        if (len(header) != 20 or header[:4] != b"\x7fELF" or
                 int.from_bytes(header[18:20], "little") != 183):
             raise ValueError(f"{name} is not an AArch64 ELF module")
         dest = artifact_dir / name
