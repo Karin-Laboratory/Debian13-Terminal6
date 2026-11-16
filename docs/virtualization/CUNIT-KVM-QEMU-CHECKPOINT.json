@@ -62,7 +62,7 @@
     "comparison_to_signed_pr3_dtb": "NOT_BYTE_COMPARED"
   },
   "kvm_p25_candidate": {
-    "status": "INDEPENDENT_STRUCTURE_READBACK_PASS_UNSIGNED_NOT_LK_TESTED",
+    "status": "SIGNED_BOOT_A_FULL_READBACK_PASS_LK_BOOT_PASS",
     "stored_private": true,
     "signed": true,
     "lk_boot_tested": true,
@@ -161,7 +161,7 @@
     "number": 19,
     "url": "https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/19",
     "draft": true,
-    "head_commit": "82ef4c310fa31e5e0d2fcd04a9df5bcaf92b27c9",
-    "checks": "PENDING_UPDATED_EVIDENCE_COMMIT_AND_CI"
+    "evidence_commit": "670813f09c85fff80900df84bdebfc4dad181c71",
+    "checks": "local config tests PASS 5/5; workflow_dispatch run 43885066560 queued at last poll; docs-only push did not match path-filtered CI"
   }
 }
