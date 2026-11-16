@@ -90,3 +90,34 @@ full-byte SHA and receipt.
 Do not merge parent PR #14, this Draft PR, or change the signing workflow
 just to claim an unproven device result. New fail logs and exact rerun SHA
 should be appended here after CI completes.
+
+## Iteration evidence (2026-11-16 JST)
+
+- [CI #43880739533](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43880739533):
+  static 5 tests PASS; actual Linux `olddefconfig` stopped correctly at
+  `PUBLIC_NETWORK_BUILTIN_REQUIRED: NET_DSA`. Linux 6.18.63
+  `net/dsa/Kconfig` requires the higher-level `NETDEVICES=y`;
+  enabled it and `ETHERNET=y`.
+- [CI #43880987240](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43880987240):
+  `NET_DSA`, `NET_MEDIATEK_SOC`, PCS and SGMII all resolved to `y`.
+  Strict verifier reported missing `ARM64_VA_BITS_39` and `IPC_NS`.
+  Added explicit `PAGE_SIZE_4KB` and `SYSVIPC`, confirmed from upstream
+  ARM64 and `init/Kconfig` prerequisites.
+- [CI #43881303197](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43881303197):
+  IPC issue cleared; 39-bit VA still did not resolve. This is a Kconfig
+  choice whose default is 52-bit; implemented explicit disable of other
+  choice alternatives and fail-only selected-values diagnostics.
+- [CI #43881774828](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43881774828):
+  latest native public lean Image/P25 trial at commit
+  `0682749d7127860078a9224dd472549271186df0`.
+  **Outcome must be checked and recorded, not assumed.**
+- [Private unsigned retention PR #162](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/pull/162):
+  exact public commit pinned, owner-private artifact only if Image,
+  P25 independent verification and SHA receipts all pass.
+  Its first run used an earlier config and failed safely. The newer
+  pin's run must be verified independently.
+
+The owner explicitly confirmed the 48.6MiB baseline **cannot boot**.
+[Private PR #161](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/pull/161)
+was marked **DO NOT SIGN** for its old `4a456cfa...` candidate.
+This lean development does not inherit that signing authorization.
