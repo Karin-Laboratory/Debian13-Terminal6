@@ -1,6 +1,18 @@
 # C号機 IEEE 802.11s mesh 状況 (2026-11-15)
 
-## 現時点の判定
+## 第3段階の最新判定（2026-11-16 実CI）
+
+- **仮想3ノードのA↔C中継・HWMP往復経路・B停止時の断: PASS**。
+- **Bの明示的メッシュ再参加からの復旧: PASS、独立VM 3/3回**。`mesh_group_remove` / `mesh_group_add` によりpeer、IP、HWMP経路が再形成された。[反復CI #43787300664](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43787300664)。
+- **BのDOWN/UP後の完全自動復旧: FAIL、3/3回**。BはSCANNING・peer 0に留まる。一般`reconnect`とnetwork無効化/有効化でも未復旧。現行の成功は必ず「明示的再参加付き」と表記する。
+- **復旧後の20-packet測定**: 各VMとも0%損失、RTT平均 2.938 / 1.778 / 2.528 ms。いずれもホスト仮想無線値で実機性能ではない。
+- **AMPE frame protection独立確認: 未実施**。SAE設定とpeer成立を暗号フレーム検証PASSに読み替えない。
+- **実private source再構成・独立ARM64ビルド: BLOCKED**（owner-private入力がこの環境にない）。模擬テストのPASSと区別する。
+- **C号機統合: 手順のみ整備**。PR #6引渡し前に実機アクセスや書込みは行わない。
+
+試験別ログ、失敗と成功の境界、private build gateは[第3段階の証拠記録](CUNIT-80211S-PHASE3-EVIDENCE-20261116.ja.md)を参照する。
+
+## 従来の判定（2026-11-15時点の経過記録）
 
 | 段階 | 状態 | 根拠 |
 |---|---|---|
