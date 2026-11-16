@@ -69,9 +69,28 @@ def stage_private_platform_db(source: Path, destination_install: Path) -> None:
     content = source.read_bytes()
     if not content or b"\x00" in content:
         raise LabError("invalid private platform DB")
-    # Real wired interface should be Docker's eth0, never the host NIC.
-    if b"backhaul_wire_iface=eth0" not in content:
+    # Accept only effective key=value lines, not comments or substring matches.
+    # This protects the lab from silently retrying missing radio slots 2/3.
+    text = content.decode("utf-8")
+    entries = {}
+    for line in text.splitlines():
+        value = line.strip()
+        if not value or value.startswith("#"):
+            continue
+        if "=" not in value:
+            continue
+        key, setting = [part.strip() for part in value.split("=", 1)]
+        if key in entries:
+            raise LabError("duplicate lab platform DB key: " + key)
+        entries[key] = setting
+    if entries.get("backhaul_wire_iface") != "eth0":
         raise LabError("lab platform DB must explicitly track Docker eth0")
+    radios = [entries.get("wireless_interface_" + str(i), "") for i in range(4)]
+    if (any(not re.fullmatch(r"[A-Za-z0-9_.-]{1,15}", item) for item in radios)
+            or len(set(radios)) != 4):
+        raise LabError("lab platform DB requires four distinct mapped radio slots 0..3")
+    if "@RADIO" in text or "@STA" in text or "REPLACE_WITH" in text:
+        raise LabError("unconfigured lab platform DB placeholder")
     target = destination_install / "lab/prplmesh_platform_db"
     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     target.write_bytes(content)
