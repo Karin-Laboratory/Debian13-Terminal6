@@ -266,8 +266,51 @@ if (( ! recovered )); then
         recovery_diag
     fi
 fi
+# Phase 4: use the upstream 802.11s-specific mesh group leave/join commands.
 if (( ! recovered )); then
-    echo 'FAIL: neither auto nor explicit B rejoin restored 3-node HWMP' >&2
+    removed=$(ip netns exec "$b" wpa_cli -p "$tmp/ctrl-b" -i meshB mesh_group_remove meshB 2>/dev/null || true)
+    added=$(ip netns exec "$b" wpa_cli -p "$tmp/ctrl-b" -i meshB mesh_group_add 0 2>/dev/null || true)
+    echo "HWSIM_B_MESH_GROUP_COMMANDS=remove:$removed add:$added"
+    if [[ $removed == OK && $added == OK ]] && wait_recovery 25; then
+        echo 'HWSIM_B_MESH_GROUP_REJOIN=PASS'
+        recovery_mode=ASSISTED_B_MESH_GROUP_REJOIN
+        recovered=1
+    else
+        echo 'HWSIM_B_MESH_GROUP_REJOIN=FAIL'
+        recovery_diag
+    fi
+fi
+# Phase 5: restart the existing upstream daemon on B, without changing any
+# mesh protocol implementation or touching A/C. Deliberately label the result
+# as assisted recovery, not autonomous reconvergence.
+if (( ! recovered )); then
+    terminated=$(ip netns exec "$b" wpa_cli -p "$tmp/ctrl-b" -i meshB terminate 2>/dev/null || true)
+    echo "HWSIM_B_SUPPLICANT_TERMINATE=$terminated"
+    if [[ $terminated == OK ]]; then
+        for _ in $(seq 1 10); do
+            [[ ! -S "$tmp/ctrl-b/meshB" ]] && break
+            sleep 1
+        done
+        if [[ ! -S "$tmp/ctrl-b/meshB" ]]; then
+            rm -f "$tmp/b.pid"
+            ip -n "$b" link set meshB up
+            if ip netns exec "$b" wpa_supplicant -B -dd -Dnl80211 -i meshB \
+                    -c "$tmp/b.conf" -f "$tmp/b-restarted.log" -P "$tmp/b.pid"; then
+                if wait_recovery 35; then
+                    echo 'HWSIM_B_SUPPLICANT_RESTART=PASS'
+                    recovery_mode=ASSISTED_B_SUPPLICANT_RESTART
+                    recovered=1
+                fi
+            fi
+        fi
+    fi
+    if (( ! recovered )); then
+        echo 'HWSIM_B_SUPPLICANT_RESTART=FAIL'
+        recovery_diag
+    fi
+fi
+if (( ! recovered )); then
+    echo 'FAIL: B did not recover through automatic or upstream supplicant lifecycle' >&2
     exit 1
 fi
 echo "HWSIM_B_RECOVERY_MODE=$recovery_mode"
