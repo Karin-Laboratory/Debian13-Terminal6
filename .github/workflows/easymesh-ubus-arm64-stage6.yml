@@ -1,0 +1,49 @@
+name: EasyMesh Stage 6 Debian13 arm64 ubus real IPC
+
+on:
+  push:
+    branches:
+      - integration/cunit-wifi-mesh-mlo-20261116
+    paths:
+      - packaging/easymesh/build-debian13-arm64-ubus-stack.sh
+      - tests/test_easymesh_stage6_ubus_builder.py
+      - .github/workflows/easymesh-ubus-arm64-stage6.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ubus-native-arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    container:
+      image: debian:trixie
+    steps:
+      - name: Install build dependencies in disposable Debian 13 AArch64 container
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            ca-certificates git cmake ninja-build gcc g++ make pkg-config \
+            libjson-c-dev binutils python3 python3-venv file
+      - uses: actions/checkout@v4
+      - name: Build pinned upstream sources and exercise real local ubus IPC
+        shell: bash
+        run: |
+          bash packaging/easymesh/build-debian13-arm64-ubus-stack.sh "$RUNNER_TEMP/cunit-ubus-stage6"
+          python3 - "$RUNNER_TEMP/cunit-ubus-stage6/receipt.json" <<'PY'
+          import json, sys
+          d = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert d["os"] == "Debian 13" and d["arch"] == "arm64"
+          assert d["actual_ubusd_ubus_ipc"] == "PASS"
+          assert d["ambiorix_backend_loaded"] is False
+          assert d["prplmesh_1905"] == "NOT_PROVEN"
+          print("EASYMESH_STAGE6_UBUS=PASS real_native_ubus_ipc=PASS ieee1905=NOT_PROVEN")
+          PY
+      - name: Upload OSS-only ABI receipt (no private binaries or host secrets)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian13-arm64-ubus-public-receipt
+          path: ${{ runner.temp }}/cunit-ubus-stage6/receipt.json
+          if-no-files-found: ignore
