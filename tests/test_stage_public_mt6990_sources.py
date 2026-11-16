@@ -96,7 +96,7 @@ class TestPublicSourceStaging(unittest.TestCase):
         manifest = json.loads((SCRIPT.parent.parent / "configs/public-mt6990-sources.json").read_text())
         files = mod.check_manifest(manifest)
         self.assertGreaterEqual(len(files), 12)
-        self.assertTrue(all(f["destination"].startswith(("kernel/", "patches/")) for f in files))
+        self.assertTrue(all(f["destination"].startswith(("kernel/", "patches/", "tools/public-donor/")) for f in files))
 
 
 if __name__ == "__main__":
