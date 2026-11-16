@@ -59,6 +59,25 @@ def validate_install_tree(path: Path) -> Path:
     return root
 
 
+def stage_private_platform_db(source: Path, destination_install: Path) -> None:
+    """Copy one private node configuration only into a disposable install tree."""
+    info = source.lstat()
+    if (source.is_symlink() or not source.is_file()
+            or info.st_uid != os.geteuid() or info.st_mode & 0o077
+            or info.st_size > 1024 * 1024):
+        raise LabError("private platform DB must be owned by caller, mode 0600")
+    content = source.read_bytes()
+    if not content or b"\\x00" in content:
+        raise LabError("invalid private platform DB")
+    # Real wired interface should be Docker's eth0, never the host NIC.
+    if b"backhaul_wire_iface=eth0" not in content:
+        raise LabError("lab platform DB must explicitly track Docker eth0")
+    target = destination_install / "lab/prplmesh_platform_db"
+    target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    target.write_bytes(content)
+    target.chmod(0o600)
+
+
 def stage_architecture(root: Path) -> str:
     """Prevent feeding an AArch64 cross-build to an x86 Docker runner (or vice versa)."""
     if not shutil.which("readelf"):
@@ -114,16 +133,28 @@ def run_container(name: str, network: str, image: str, startup: str,
         # before starting prplMesh. Re-apply on Agent restart.
         al = ":".join(f"{byte:02x}" for byte in bridge_al)
         argv += ["--env", f"T6_AL_MAC={al}"]
-        command_prefix = 'ip link set dev br-lan address "$T6_AL_MAC" && '
         if amx_ubus:
-            # A dedicated UBus socket in each Docker namespace, not host UBus.
-            # A valid socket does not yet establish Controller/Agent success.
-            command_prefix += (
+            # Only the disposable container interfaces are modified; its
+            # Docker eth0 is attached to the local bridge for wired 1905.
+            # Install a separate, private platform DB for each node.
+            command_prefix = (
+                '(ip link show dev br-lan >/dev/null 2>&1 || '
+                'ip link add name br-lan type bridge) && '
+                'ip link show dev eth0 >/dev/null && '
+                'ip link set dev eth0 master br-lan && '
+                'ip link set dev eth0 up && '
+                'ip link set dev br-lan address "$T6_AL_MAC" && '
+                'ip link set dev br-lan up && '
+                'mkdir -p /tmp/beerocks /var/run && '
+                'cp "$INSTALL_DIR/lab/prplmesh_platform_db" '
+                '/tmp/beerocks/prplmesh_platform_db && '
+                'chmod 600 /tmp/beerocks/prplmesh_platform_db && '
                 'test -r "$INSTALL_DIR/lib/amxb/mod-amxb-ubus.so" && '
                 'command -v ubusd >/dev/null && '
-                'mkdir -p /var/run && '
                 '(ubusd -s /var/run/ubus.sock >/dev/null 2>&1 &) && '
                 'sleep 1 && test -S /var/run/ubus.sock && ')
+        else:
+            command_prefix = 'ip link set dev br-lan address "$T6_AL_MAC" && '
         return command([*argv, image, "-c", command_prefix + 'exec ' + startup])
     return command([*argv, image, startup])
 
@@ -263,6 +294,10 @@ def lab(args) -> dict:
         backend = source_tree / "lib/amxb/mod-amxb-ubus.so"
         if not backend.is_file() or not backend.stat().st_size:
             raise LabError("missing staged AMXRT UBus backend module")
+        if not args.controller_platform_db or not args.agent_platform_db:
+            raise LabError("--amx-ubus requires two distinct private platform DB files")
+        if args.controller_platform_db.resolve() == args.agent_platform_db.resolve():
+            raise LabError("Controller and Agent must use separate platform DB sources")
     os.umask(0o077)
     if args.output.exists() or args.output.is_symlink():
         raise LabError("choose a new private output directory")
@@ -290,6 +325,9 @@ def lab(args) -> dict:
         agent_tree = args.output / "agent-install"
         shutil.copytree(source_tree, controller_tree, symlinks=True)
         shutil.copytree(source_tree, agent_tree, symlinks=True)
+        if args.amx_ubus:
+            stage_private_platform_db(args.controller_platform_db, controller_tree)
+            stage_private_platform_db(args.agent_platform_db, agent_tree)
     tag = secrets.token_hex(3)
     network, bridge = "t6mesh-" + tag, "t6m" + tag
     controller, agent = network + "-c", network + "-a"
@@ -433,6 +471,10 @@ def main() -> int:
     ap.add_argument("--controller-db-command", help="optional in-container CLI command, e.g. beerocks_cli -c bml_conn_map")
     ap.add_argument("--amx-ubus", action="store_true",
                     help="isolated lab: require staged backend and per-node ubusd")
+    ap.add_argument("--controller-platform-db", type=Path,
+                    help="private controller node DB; copied to disposable container tree")
+    ap.add_argument("--agent-platform-db", type=Path,
+                    help="private agent node DB; copied to disposable container tree")
     ap.add_argument("--duration", type=int, default=60)
     ap.add_argument("--outage", type=int, default=45)
     ap.add_argument("--execute", action="store_true", help="permit temporary Docker network/containers")
