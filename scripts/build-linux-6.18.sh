@@ -43,6 +43,16 @@ fi
 if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
   scripts/config --enable COMMON_CLK_MT6990 --enable ARCH_MEDIATEK
 fi
+if [[ -n "${PUBLIC_MT6990_STAGE:-}" && "${PUBLIC_MT6990_SCOPE:-core}" = network ]]; then
+  # NET_DSA=m or HSR=m caps NET_MEDIATEK_SOC at module tristate.
+  # P25 must have built-in Ethernet/PCS before Debian P44 userspace starts.
+  scripts/config --disable HSR
+  scripts/config --enable COMMON_CLK_MT6990_PERI --enable BRIDGE \
+    --enable NET_DSA --enable NET_VENDOR_MEDIATEK \
+    --enable NET_MEDIATEK_SOC --enable PCS_MTK_LYNXI \
+    --enable NET_DSA_MT7530 --enable NET_DSA_MT7530_MDIO \
+    --enable PHY_MTK_MT6990_SGMII --enable PHYLINK
+fi
 scripts/config --enable PRINTK --enable PRINTK_TIME --enable BINFMT_ELF \
   --enable BINFMT_SCRIPT --enable ARM_GIC --enable ARM_GIC_V3 \
   --enable ARM_ARCH_TIMER --enable SERIAL_EARLYCON --enable SERIAL_8250_MT6577 \
@@ -63,6 +73,12 @@ if [[ -n "${INITRAMFS_ARCHIVE:-}" ]]; then
   scripts/config --set-str INITRAMFS_SOURCE "$INITRAMFS_ARCHIVE"
 fi
 make ARCH=arm64 olddefconfig
+if [[ -n "${PUBLIC_MT6990_STAGE:-}" && "${PUBLIC_MT6990_SCOPE:-core}" = network ]]; then
+  grep -E '^CONFIG_(NET_DSA|BRIDGE|HSR|NET_MEDIATEK_SOC|PCS_MTK_LYNXI|PHY_MTK_MT6990_SGMII|COMMON_CLK_MT6990_PERI)=' .config || :
+  for key in NET_DSA NET_MEDIATEK_SOC PCS_MTK_LYNXI PHY_MTK_MT6990_SGMII; do
+    grep -qx "CONFIG_${key}=y" .config || { echo "PUBLIC_NETWORK_BUILTIN_REQUIRED: ${key}" >&2; exit 1; }
+  done
+fi
 python3 "$ROOT/scripts/verify-kconfig.py" .config
 if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
   for option in ARCH_MEDIATEK MMC_MTK SERIAL_8250_MT6577; do
