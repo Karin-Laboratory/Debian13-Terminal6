@@ -68,3 +68,5 @@ C号機・A号機・raspi4、PR #13、mainへの書込み・mergeは禁止。今
 - これらはすべてPython/mockや構文検査。**prplMesh daemon実起動、AMXRT backend実ロード、1905 packet/Topology、Controller DBの更新、Agent復旧はこのrunでは実行していない。** それらは`NOT_PROVEN`のまま。
 - ChatGPTの本実行コンテナにはDockerとCAP_NET_ADMIN、対応する非公開ビルドstageがないため、2-node環境をここで起動することはできない。前回のprivate QEMU/ARM64 2-node attemptの **FAIL** を新しい成功と読み替えない。
 - 残された実行上の分岐：backendが初めてロードできるか → 2つの実prplMeshプロセス群の起動 → 実0x893a → Query/Response MID → DB初回登録/喪失/復帰。各失敗はprivateログから最初の故障点を追跡する。CIを緑にすることだけを完了条件にしない。
+
+- [追加回帰 #43808278446](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808278446)：`c1ef0269`で **149/149 PASS**、構文・空白検査PASS。backend ELFと実行ファイルのアーキテクチャ不一致を起動前に拒否する試験を含む。途中のrun `43808199530` はradio 0..3完全設定を要求する変更直後に旧テストfixtureが失敗したもの。fixtureを修正したrun `43808220748` と最新runで再度PASS。これは **実1905通信成功ではない**。
