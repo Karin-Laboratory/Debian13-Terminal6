@@ -46,7 +46,7 @@ fi
 if [[ -n "${PUBLIC_MT6990_STAGE:-}" && "${PUBLIC_MT6990_SCOPE:-core}" = network ]]; then
   # NET_DSA=m or HSR=m caps NET_MEDIATEK_SOC at module tristate.
   # P25 must have built-in Ethernet/PCS before Debian P44 userspace starts.
-  scripts/config --disable HSR
+  scripts/config --disable HSR --enable IPV6
   scripts/config --enable COMMON_CLK_MT6990_PERI --enable BRIDGE \
     --enable NET_DSA --enable NET_VENDOR_MEDIATEK \
     --enable NET_MEDIATEK_SOC --enable PCS_MTK_LYNXI \
