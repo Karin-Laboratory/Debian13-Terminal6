@@ -38,7 +38,8 @@ scripts/config --enable FUTEX --enable EPOLL --enable SIGNALFD \
 # The public upstream Linux 6.18 network source replay already builds these
 # as builtins. Forbid modular DSA/SoC LAN until the P44 handoff is complete.
 scripts/config --disable HSR --enable IPV6 \
-  --enable BRIDGE --enable NET_DSA --enable NET_VENDOR_MEDIATEK \
+  --enable NETDEVICES --enable ETHERNET --enable BRIDGE \
+  --enable NET_DSA --enable NET_VENDOR_MEDIATEK \
   --enable NET_MEDIATEK_SOC --enable NET_DSA_MT7530 \
   --enable NET_DSA_MT7530_MDIO --enable PHYLINK \
   --enable PCS_MTK_LYNXI
