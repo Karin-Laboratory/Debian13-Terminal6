@@ -121,3 +121,38 @@ The owner explicitly confirmed the 48.6MiB baseline **cannot boot**.
 [Private PR #161](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/pull/161)
 was marked **DO NOT SIGN** for its old `4a456cfa...` candidate.
 This lean development does not inherit that signing authorization.
+
+## Verified public-build PASS (2026-11-16, 14:06 UTC)
+
+Native ARM64 [CI #43881774828](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43881774828),
+source commit `0682749d7127860078a9224dd472549271186df0`,
+ended **success**. The 5 static regressions passed, then Linux 6.18.63
+`olddefconfig` resolved C-unit builtins/modules and 39-bit VA to PASS.
+The actual source-rebuilt kernel and modules compiled; the real 32 MiB
+unsigned P25 passed the independent verifier.
+
+| Evidence | Value |
+|---|---|
+| Uncompressed ARM64 Image | 9,211,912 bytes (8.79 MiB) |
+| Uncompressed Image SHA256 | `17c34fcb0fbf4bee965d68458e8a2f3cc4c378c9d5b9d38f68c2467822a6c384` |
+| Image.gz | 4,168,341 bytes |
+| Same-build module tar | 583,680 bytes |
+| Kernel config SHA256 | `210f43d38d09ae32a2b8cf89bda7085b13ae76624d3517746c26103de8de29e4` |
+| Unsigned P25 | 33,554,432 bytes |
+| Unsigned P25 SHA256 | `60c57d88e8d16aafb6f4b6ca5ec8b62384668eb99971344a9299866b3b82ea5c` |
+| Independent P25 full readback | PASS |
+| Signature, hardware LK boot, P44 LAN/SSH, Wi-Fi PHY | NOT TESTED |
+
+The finished source branch also includes the one-command
+`scripts/reproduce-terminal6-lean-p25.sh /absolute/NEW-output-dir`
+for local replay. The actual native CI used the same underlying
+`build-linux-6.18.sh` and P25 producer/verifier steps, not that
+wrapper entrypoint.
+
+**Important:** This public GitHub Actions run did not upload its
+unsigned P25 artifact. The private archive PR #162 is running its own
+source-pinned manufacture to retain the binary and final signing
+candidate. Do not assume its SHA equals the public run because its
+environment-generated initramfs and toolchain/package revisions may
+differ. Owner approval must be specific to its actual private
+full-readback SHA after the private check completes.
