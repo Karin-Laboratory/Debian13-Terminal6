@@ -83,6 +83,7 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
         shutil.copyfile(src, target)
         copies.append(destination)
     patches = CORE_PATCHES + (NETWORK_PATCHES if scope == "network" else [])
+    skipped_duplicates = []
     for p in patches:
         source = stage / "patches" / p
         if not source.is_file():
@@ -97,6 +98,17 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
                             str(Path(__file__).with_name("port-public-mt6990-ethernet.py")),
                             "--stage", str(stage), "--linux", str(kernel)], check=True)
             continue
+        if p == "972a-net-ethernet-mediatek-register-mt6990.patch":
+            # 972a duplicates the mt6990_data+OF match already supplied in
+            # public donor 972. Verify integration instead of defining twice.
+            data = (kernel / "drivers/net/ethernet/mediatek/mtk_eth_soc.c").read_text()
+            if (data.count("static const struct mtk_soc_data mt6990_data = {") != 1
+                    or data.count('.compatible = "mediatek,mt6990-eth"') != 1
+                    or "static const struct mtk_soc_data mt6990_data = {" not in source.read_text()
+                    or '.compatible = "mediatek,mt6990-eth"' not in source.read_text()):
+                raise ValueError("unresolved duplicate MT6990 donor source definition")
+            skipped_duplicates.append(p)
+            continue
         patch_text = source.read_text()
         if p == "823-mmc-mtk-sd-add-mt6990-compatible.patch":
             # The donor's third hunk forces an LG6851F fixed-rail OCR.
@@ -106,10 +118,6 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
                 raise ValueError("donor MMC patch structure changed")
             patch_text = patch_text.split(anchor, 1)[0]
         cmd = ["git", "-C", str(kernel), "apply"]
-        # One upstream Ethernet patch has inconsistent hunk counts.
-        # Preserve the proven original context matching for all other patches.
-        if p == "972-net-ethernet-mediatek-add-mt6990-support.patch":
-            cmd.append("--recount")
         check = subprocess.run(cmd + ["--check", "-"], input=patch_text,
                                capture_output=True, text=True)
         if check.returncode:
@@ -118,6 +126,7 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
     return {"schema": 1, "scope": scope, "source_revision": doc["revision"],
             "status": "PUBLIC_KERNEL_PATCHES_APPLIED_NOT_BUILT",
             "copied_source_files": copies, "patches": patches,
+            "skipped_duplicate_patches": skipped_duplicates,
             "kernel_git_revision": subprocess.check_output(
                 ["git", "-C", str(kernel), "rev-parse", "HEAD"], text=True).strip()}
 
