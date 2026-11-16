@@ -31,7 +31,7 @@ jobs:
             git gcc make pkg-config libssl-dev libnl-3-dev libnl-genl-3-dev \
             libnl-route-3-dev libsqlite3-dev libpcap-dev libdbus-1-dev \
             python3 python3-pip python3-venv python3-setuptools \
-            iw iproute2 kmod linux-modules-extra-$(uname -r)
+            iw iproute2 kmod
           git clone --no-checkout https://chromium.googlesource.com/chromiumos/third_party/hostap /tmp/cunit-hostap
           git -C /tmp/cunit-hostap checkout f1e9b5086718ad567dc40e3d5a1456534d51749f
       - name: Inspect hwsim capability and driver sandbox
