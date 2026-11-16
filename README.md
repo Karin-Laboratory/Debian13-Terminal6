@@ -22,6 +22,10 @@ Only publish independently redistributable code and documentation. Do not commit
 
 Before working on partitions or stock SSH, read [the shared, sanitized stock UART / LK / Emergency Shell field guide](docs/COMMON-STOCK-UART-P43P44-ENTRY.ja.md). It distinguishes demonstrated observations from unverified generic installation steps; it is **not** a completed installer.
 
+## Wi-Fi 7 / 320 MHz test-mode policy
+
+The C-unit retains 160 MHz as the ordinary 6 GHz EHT capability ceiling. A separate, future **SSH-selected anechoic-chamber test mode** is proposed to make 320 MHz driver capability available **without enabling RF transmission until independent legal and test-facility gates have passed**. This mode and its SSH commands are **not implemented**. See [C-unit 320 MHz chamber-mode policy (Japanese)](docs/wifi/CUNIT-320MHZ-CHAMBER-MODE-POLICY-20261116.ja.md).
+
 ## Related work
 
 [OpenWrt port for Terminal 6](https://github.com/Karin-Laboratory/openwrt-terminal-6)
