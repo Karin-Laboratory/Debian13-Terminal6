@@ -8,7 +8,15 @@ case "$WORKDIR" in /*) ;; *) echo 'WORKDIR must be absolute' >&2; exit 2;; esac
 test ! -e "$WORKDIR" || { echo 'Refusing existing WORKDIR' >&2; exit 2; }
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 for tool in git make python3 sha256sum; do command -v "$tool" >/dev/null; done
-git clone --depth 1 --branch "v$VERSION" https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git "$WORKDIR"
+# Official stable v6.18.63 commit, independently confirmed via public tag.
+EXPECTED_LINUX_SHA=1cdda838e8475edf89b73ff0cc952005dd0b1fa7
+if ! git clone -q --depth 1 --branch "v$VERSION" \
+  https://github.com/gregkh/linux.git "$WORKDIR"; then
+  rm -rf -- "$WORKDIR"
+  git clone -q --depth 1 --branch "v$VERSION" \
+    https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git "$WORKDIR"
+fi
+test "$(git -C "$WORKDIR" rev-parse HEAD)" = "$EXPECTED_LINUX_SHA"
 cd "$WORKDIR"
 test "$(make -s kernelversion)" = "$VERSION"
 if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
