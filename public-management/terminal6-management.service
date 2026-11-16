@@ -1,0 +1,13 @@
+[Unit]
+Description=Public MT6990 NETSYS/MT7531 DSA management readiness
+DefaultDependencies=no
+After=systemd-udevd.service
+Before=systemd-networkd.service ssh.service
+
+[Service]
+Type=oneshot
+ExecStart=/run/terminal6/start-management.sh
+RemainAfterExit=yes
+TimeoutStartSec=45
+StandardOutput=journal+console
+StandardError=journal+console
