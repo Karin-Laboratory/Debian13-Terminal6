@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from scripts.cunit_mlo_hwsim_runner import (KNOWN_TESTS, completed_test,
                                             physical_wifi_present, sanitized_summary,
-                                            vm_probe)
+                                            upstream_test_command, vm_probe)
 
 
 class RunnerTests(unittest.TestCase):
@@ -37,6 +37,26 @@ class RunnerTests(unittest.TestCase):
         s = sanitized_summary(p, {'eht_mld_owe_two_links':'SMOKE_PASS'})
         self.assertEqual(s['status'], 'UPSTREAM_MLD_SMOKE_PASS')
         self.assertEqual(s['acceptance_v2'], 'NOT_PROVEN')
+
+    def test_hostap_channels_is_an_option_not_test_name(self):
+        command = upstream_test_command(Path("/opt/hostap/tests/hwsim"),
+                                        "eht_mld_owe_two_links")
+        self.assertEqual(command[1:], ["--channels", "2",
+                                       "eht_mld_owe_two_links"])
+        self.assertNotIn("channels=2", command)
+
+    def test_wide_smoke_status_is_distinct_from_upstream_and_acceptance(self):
+        p = {"status": "READY", "kernel": "test"}
+        summary = sanitized_summary(p, {"cunit_mlo_5g160_6g160": "SMOKE_PASS"})
+        self.assertEqual(summary["status"], "WIDE_MLD_SMOKE_PASS")
+        self.assertEqual(summary["acceptance_v2"], "NOT_PROVEN")
+
+    def test_first_failure_is_reported_without_raw_log(self):
+        p = {"status": "READY", "kernel": "test"}
+        summary = sanitized_summary(p, {"eht_mld_owe_two_links": "SMOKE_PASS",
+                                        "eht_mld_link_removal": "FAILED"})
+        self.assertEqual(summary["first_failed_test"], "eht_mld_link_removal")
+        self.assertNotIn("raw_log", summary)
 
     def test_missing_one_smoke_blocks(self):
         p = {'status':'READY','kernel':'test'}
