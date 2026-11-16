@@ -74,3 +74,47 @@
 5. 独立802.11s peerまたはMLO端末を用いた実通信を行う。EasyMeshは実control socketと2ノードpeerが揃うまでhost成果と分ける。
 
 この時点では全PRのコードと検査を統合ブランチへ入れ、host上で再現可能なkernel buildまで確認したが、**統合実機機能をmainへ取り込む準備は未完了**。各個別PRと統合PRはDraftのまま保持し、機能PASSを確認できた範囲だけ後続コミットで更新する。
+
+## 2026-11-16 追加実機適用・再確認 (後続結果が上記の古い状態を更新)
+
+### P25・slot・復旧
+
+- 正確なSHA `83478d8804172777c9dc69fd35a1e3931257a130a5c803e588b6e286c390cd2e` の32MiB候補を、保護された署名workflowで署名し、独立RSA-PSS検証をPASSした。署名済みP25のSHA256は `ae65d0c28c5d3c6a0189193c70f3783c142da3c97553bb8fe80059569046dea0`。署名レシートとバイナリはprivate Draft PR #159/releaseに保持。
+- 純正slot B起動後、PARTNAMEで特定した`boot_a`だけを更新し、全32MiBのreadback SHA256一致を確認。`boot_b`とP26/P44/OEM/GPTは変更なし。純正`quec_bootctrl`でslot Aを選択し、Debianへ復帰した。slot Bの既知ED25519ホスト鍵を既存known_hostsと照合して検証した。
+- 起動後はDebian 13、kernel `6.18.63-debian-t6-proto2 #2`、SSH/管理Ethernetが復帰。P44はext4 RW。eMMCはHS400/8-bit/1.8V、実測 `94,999,965 Hz`、CQE無効。候補DTの100MHz上限が反映されている。稼働中kernel configは`CONFIG_MAC80211_MESH=y`、`CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y`。
+- P25の署名・readback・A/B起動確認はPASS。今回この作業単位ではUARTのシリアル出力を再採取していない。
+
+### 修正済みmt76モジュールと802.11sの実機確認
+
+最初のprivate kernel-source replayにはPR #9のOTP校正パッチが含まれていないことを実機ログから発見した。その試行のモジュールを退避し、公開統合ブランチの`patches/0001-mt7996-eeprom-calfree-timeout.patch`をprivate sourceへ適用、mt76外部モジュールを再ビルドした。以後の実機結果はこの修正版を対象にする。モジュールSHAはP44上の`MODULE-SHA256SUMS`と照合し全件PASS。
+
+| モジュール | SHA256 |
+|---|---|
+| `mt76.ko` | `820d09afadd41dbd47427b479c2eaba0b1ee1fab88dd8c3a1a530db80e2a86f2` |
+| `mt76-connac-lib.ko` | `e8e0a5c7b0dd09b977e5454819e9f7aa5cb896bab58872df8a17bcb73369a64c` |
+| `mt7996e.ko` | `42411e3a9941f36d6997bd78828c44165d2a55abdbbd0353c39e2427edc88cc9` |
+
+修正モジュールは再起動後に`terminal6-wifi-phy.service`から正常ロードされ、firmware/EEPROM初期化ログでは46 OTP由来校正byteの統合とEEPROM 8/8ページのuploadを確認した。`iw phy phy0 info`は`mesh point`を広告し、`iw dev wlp1s0 interface add mesh-probe type mp`、interface情報の取得、削除が成功した。元の`wlp1s0`はDOWNのまま、mesh試験interfaceもDOWNで削除済み。これは802.11s interface capability/生成のPASSであり、peer発見、SAE/AMPE、ESTAB、HWMP、IPデータ通信、再接続の実通信を意味しない。
+
+### 最新の無線・regdbゲート
+
+- 起動ログにcfg80211がcompiled-in X.509証明書を読み込む記録があり、今回の起動ログでは以前の`regulatory.db is malformed or signature is missing/invalid`は見つからなかった。これは起動時の署名鍵読み込みの観測である。
+- `iw reg get`は依然global `00`。6GHzチャネルは規制状態で利用不可。今回の確認だけでは署名済みregulatory.db適用と国内の認可ドメイン確立をPASSにしない。6GHz送信は行っていない。
+- 現在のdmesgで`DATA TIMEOUT`、`CQE recovery`、MMC/ext4 I/O error、regdb malformedの新規一致は0件。Wi-Fi PHYは`phy0`、interface `wlp1s0` DOWN。RF送信なし。
+- 2.4/5GHz STA/AP、mesh peer間通信、EasyMesh/IEEE 1905、MLOのMLDリンク通信は未達。利用可能な独立peer/control endpointがないため、能力表示やhost CIを実機通信PASSに読み替えない。
+
+### 受入状態の更新と復旧
+
+| 機能 | 最新状態 |
+|---|---|
+| 署名済みP25適用・slot A復帰 | PASS (boot_a全量readback一致、slot B保持) |
+| 管理Ethernet/SSH・P44・eMMC制限 | PASS (上記採取時点。UARTは今回再採取なし) |
+| MT7990初期化・EEPROM upload | PARTIAL (46 OTP byte統合、8/8 page upload。default-bin fallback等の全校正評価は未完了) |
+| 802.11s mode/interface作成 | PASS (interface DOWNで生成・削除、無送信) |
+| 802.11s peer/SAE/AMPE/HWMP/IP/recovery | BLOCKED (独立mesh peerなし、次は適法な2.4/5GHz peerで段階試験) |
+| 6GHz 160MHzの実通信 | BLOCKED (global 00、チャネル利用不可、送信禁止ゲート維持) |
+| EasyMesh / MLO実機通信 | BLOCKED (独立対向機と実control/data試験なし) |
+
+module rollback copyとP44のチェックサム一覧、およびslot/P25 backupはraspi4のprivate directoryに保管。module差替え時に生成した`modules.*` indexはPCI modaliasによる早期自動ロードを避けるため削除した状態を維持する。`depmod`を実行せず、現行`terminal6-wifi-phy.service`がP26からfirmwareを`/run`へstageしてから手動`insmod`する順序を保つ。失敗時は保存済み旧module一式・旧checksumへ戻して再起動する。P25復旧は検証済みslot Bと純正`quec_bootctrl`を使う。
+
+したがってPR #13は引き続きDraftであり、mainへ統合できる実機受入完了状態ではない。今回完了したのは署名済みP25の実機起動と、mesh capability/interfaceの無送信試験まで。次の具体的な工程は、独立した802.11s peerを用いる2.4GHzまたは許可された5GHzでのpeer形成・保護・双方向通信、続いてEasyMeshの有線1905 discoveryとMLO対向機試験である。
