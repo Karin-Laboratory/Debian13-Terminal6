@@ -16,6 +16,7 @@ import shutil
 import subprocess
 
 CORE_PATCHES = [
+    "0956-clk-mediatek-add-real-hwv-only-mux-ops.patch",
     "969-arm64-dts-mediatek-add-mt6990-soc.patch",
     "970-clk-mediatek-mt6990-basic-clock-providers.patch",
     "823-mmc-mtk-sd-add-mt6990-compatible.patch",
@@ -42,7 +43,7 @@ def verify_stage(stage: Path) -> tuple[list[dict], dict]:
     if doc.get("status") != "PUBLIC_TEXT_STAGED_NOT_BOOT_VALIDATED":
         raise ValueError("source receipt not verified")
     items = doc.get("files", [])
-    if len(items) != 16 or len({x["destination"] for x in items}) != len(items):
+    if len(items) != 17 or len({x["destination"] for x in items}) != len(items):
         raise ValueError("incomplete/duplicate public donor inputs")
     for entry in items:
         dest = Path(entry["destination"])
