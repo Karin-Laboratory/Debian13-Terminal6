@@ -9,6 +9,7 @@ on:
       - scripts/configure-terminal6-lean.sh
       - scripts/build-linux-6.18.sh
       - scripts/verify-terminal6-capable-config.py
+      - patches/mt7990-public-otp-calfree-timeout.patch
       - scripts/make-initramfs.sh
       - tests/test_terminal6_capable_config.py
       - scripts/assemble-template-free-p25.py
@@ -69,9 +70,12 @@ jobs:
             exit 1
           fi
           python3 scripts/verify-terminal6-capable-config.py "$WORKDIR/output/kernel.config" --image "$WORKDIR/output/Image"
-          grep -E 'TERMINAL6_|DEBIAN_T6_' "$RUNNER_TEMP/capable-compile.log" | tail -30
+          grep -E 'TERMINAL6_|DEBIAN_T6_|PUBLIC_MT7990_' "$RUNNER_TEMP/capable-compile.log" | tail -30
           test -s "$WORKDIR/output/terminal6-capable-modules.tar"
-          tar -tf "$WORKDIR/output/terminal6-capable-modules.tar" | grep -E 'mt7996.*\.ko' | head -3
+          test -d "$WORKDIR/output/module-tree/lib/modules/6.18.63-t6-public-capable"
+          ! test -d "$WORKDIR/output/module-tree/lib/modules/6.18.63-t6-public-capable-dirty"
+          echo 'PUBLIC_CUNIT_CAPABLE_EXACT_MODULE_KERNELRELEASE_PASS'
+          tar -tf "$WORKDIR/output/terminal6-capable-modules.tar" | grep -F 'lib/modules/6.18.63-t6-public-capable/kernel/drivers/net/wireless/mediatek/mt76/mt7996/mt7996e.ko'
           test "$(stat -c %s "$WORKDIR/output/Image")" -le 36700160
           wc -c "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/terminal6-capable-modules.tar"
           cat "$WORKDIR/output/SHA256SUMS"
