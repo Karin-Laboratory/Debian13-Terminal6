@@ -80,7 +80,7 @@ def audit(data: bytes) -> dict:
             totals["action_category_" + str(payload[24])] += 1
             if payload[24] == 15:
                 totals["self_protected_action_" + str(payload[25])] += 1
-                if payload.find(b"\\x4c\\x10", 26) != -1:
+                if payload.find(b"\x4c\x10", 26) != -1:
                     totals["self_protected_mic_markers"] += 1
             # IEEE 802.11 Self-protected category=15, Mesh Peer Open/Confirm.
             if payload[24] == 15 and payload[25] in (1, 2):
