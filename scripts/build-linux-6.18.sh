@@ -27,7 +27,7 @@ if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
   python3 "$ROOT/scripts/port-public-mt6990-clock.py" \
     "$WORKDIR/drivers/clk/mediatek/clk-mt6990.c"
 fi
-if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-capable" ]]; then
+if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-capable" || "${KERNEL_PROFILE:-generic}" = "terminal6-pcieusb" ]]; then
   # Source-only hardware-calibration fix from public Debian PR #9, derived
   # from openwrt/mt76. No firmware, per-device EEPROM/OTP bytes or RF I/O.
   # CI independently checked applicability to pristine stable Linux 6.18.63.
@@ -39,10 +39,24 @@ if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-capable" ]]; then
   grep -Fq 'mdev->mcu.timeout = 30 * HZ' drivers/net/wireless/mediatek/mt76/mt7996/mcu.c
   echo 'PUBLIC_MT7990_CALFREE_OTP_TIMEOUT_SOURCE_PATCH_PASS'
 fi
-if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-lean" || "${KERNEL_PROFILE:-generic}" = "terminal6-capable" ]]; then
+if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-pcieusb" ]]; then
+  # Public donor: 13179415360/openwrt-mt6990-lg6851f,
+  # source commit a40df9a5afb46716dea799acea69f17480df4d82.
+  for p in mt6990-public-pcie-gen3.patch mt6990-public-pcie-phy.patch; do
+    test -s "$ROOT/patches/$p"
+    git apply --check "$ROOT/patches/$p"
+    git apply "$ROOT/patches/$p"
+  done
+  grep -Fq 'mediatek,mt6990-pcie' drivers/pci/controller/pcie-mediatek-gen3.c
+  grep -Fq 'mediatek,mt6980-pcie-phy' drivers/phy/mediatek/phy-mtk-pcie.c
+  echo 'PUBLIC_MT6990_PCIE_HOST_AND_PHY_PATCHES_APPLIED'
+fi
+if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-lean" || "${KERNEL_PROFILE:-generic}" = "terminal6-capable" || "${KERNEL_PROFILE:-generic}" = "terminal6-pcieusb" ]]; then
   test -n "${PUBLIC_MT6990_STAGE:-}" && test "${PUBLIC_MT6990_SCOPE:-}" = network || { echo "terminal6 source profile requires public network MT6990 source stage" >&2; exit 2; }
   make ARCH=arm64 tinyconfig
-  if [[ "${KERNEL_PROFILE}" = "terminal6-capable" ]]; then
+  if [[ "${KERNEL_PROFILE}" = "terminal6-pcieusb" ]]; then
+    bash "$ROOT/scripts/configure-terminal6-pcieusb.sh"
+  elif [[ "${KERNEL_PROFILE}" = "terminal6-capable" ]]; then
     bash "$ROOT/scripts/configure-terminal6-capable.sh"
   else
     bash "$ROOT/scripts/configure-terminal6-lean.sh"
@@ -86,7 +100,7 @@ scripts/config --enable DEVTMPFS --enable DEVTMPFS_MOUNT --enable BLK_DEV_INITRD
   --enable CGROUPS --enable NAMESPACES --enable TMPFS \
   --enable UNIX --enable INET --enable NET \
   --enable IKCONFIG --enable IKCONFIG_PROC
-if [[ "${KERNEL_PROFILE:-generic}" != terminal6-lean && "${KERNEL_PROFILE:-generic}" != terminal6-capable ]]; then
+if [[ "${KERNEL_PROFILE:-generic}" != terminal6-lean && "${KERNEL_PROFILE:-generic}" != terminal6-capable && "${KERNEL_PROFILE:-generic}" != terminal6-pcieusb ]]; then
   scripts/config --enable USB_SUPPORT --enable USB --enable USB_SERIAL \
     --module USB_SERIAL_CH341 --enable OVERLAY_FS \
     --enable NFS_FS --enable NFS_V4
@@ -102,7 +116,9 @@ if [[ -n "${PUBLIC_MT6990_STAGE:-}" && "${PUBLIC_MT6990_SCOPE:-core}" = network 
     grep -qx "CONFIG_${key}=y" .config || { echo "PUBLIC_NETWORK_BUILTIN_REQUIRED: ${key}" >&2; exit 1; }
   done
 fi
-if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-capable" ]]; then
+if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-pcieusb" ]]; then
+  python3 "$ROOT/scripts/verify-terminal6-pcieusb-config.py" .config
+elif [[ "${KERNEL_PROFILE:-generic}" = "terminal6-capable" ]]; then
   python3 "$ROOT/scripts/verify-terminal6-capable-config.py" .config
 elif [[ "${KERNEL_PROFILE:-generic}" = "terminal6-lean" ]]; then
   python3 "$ROOT/scripts/verify-kconfig.py" --terminal6 --lean .config
@@ -121,7 +137,7 @@ fi
 export KBUILD_BUILD_USER=terminal6 KBUILD_BUILD_HOST=source-build
 export KBUILD_BUILD_TIMESTAMP='Thu Jan  1 00:00:00 UTC 1970'
 export SOURCE_DATE_EPOCH=0
-if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
+if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable || "${KERNEL_PROFILE:-generic}" = terminal6-pcieusb ]]; then
   # Linux 6.18 scripts/setlocalversion appends '+' for a dirty source when
   # LOCALVERSION is unset, even if CONFIG_LOCALVERSION_AUTO is disabled.
   # Setting it to an explicit EMPTY string preserves only our distinct
@@ -129,17 +145,22 @@ if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
   export LOCALVERSION=""
 fi
 make ARCH=arm64 -j"${JOBS:-4}" Image modules
-if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
+if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable || "${KERNEL_PROFILE:-generic}" = terminal6-pcieusb ]]; then
   release="$(make -s ARCH=arm64 kernelrelease)"
-  test "$release" = '6.18.63-t6-public-capable' || {
+  expected_release='6.18.63-t6-public-capable'
+  [[ "${KERNEL_PROFILE:-generic}" = terminal6-pcieusb ]] && expected_release='6.18.63-t6-public-pcieusb'
+  test "$release" = "$expected_release" || {
     echo "TERMINAL6_CAPABLE_MODULE_RELEASE_MISMATCH: $release" >&2
     exit 42
   }
   echo "TERMINAL6_CAPABLE_EXACT_KERNELRELEASE_PASS $release"
 fi
 module_name="terminal6-lean-modules.tar"
-if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
+if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable || "${KERNEL_PROFILE:-generic}" = terminal6-pcieusb ]]; then
   module_name="terminal6-capable-modules.tar"
+  if [[ "${KERNEL_PROFILE:-generic}" = terminal6-pcieusb ]]; then
+    module_name="terminal6-pcieusb-modules.tar"
+  fi
 fi
 if [[ "${KERNEL_PROFILE:-generic}" = terminal6-lean || "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
   make ARCH=arm64 INSTALL_MOD_PATH="$WORKDIR/output/module-tree" modules_install
@@ -161,7 +182,7 @@ if [[ "${KERNEL_PROFILE:-generic}" = terminal6-lean || "${KERNEL_PROFILE:-generi
   # 35 MiB is the separate cap on the decompressed Image.
   image_bytes="$(stat -c %s "$WORKDIR/output/Image")"
   image_max=33554432
-  if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then image_max=36700160; fi
+  if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable || "${KERNEL_PROFILE:-generic}" = terminal6-pcieusb ]]; then image_max=36700160; fi
   test "$image_bytes" -le "$image_max" || {
     echo "TERMINAL6_IMAGE_OVER_PROFILE_LIMIT: actual=$image_bytes allowed=$image_max" >&2; exit 42;
   }
