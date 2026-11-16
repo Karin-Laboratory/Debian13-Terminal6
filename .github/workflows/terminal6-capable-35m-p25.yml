@@ -1,0 +1,103 @@
+name: Public Terminal6 capable 35MiB kernel and unsigned P25
+on:
+  push:
+    branches:
+      - codex/public-p25-terminal6-capable-35m-20261117
+    paths:
+      - .github/workflows/terminal6-capable-35m-p25.yml
+      - scripts/configure-terminal6-capable.sh
+      - scripts/configure-terminal6-lean.sh
+      - scripts/build-linux-6.18.sh
+      - scripts/verify-terminal6-capable-config.py
+      - scripts/make-initramfs.sh
+      - tests/test_terminal6_capable_config.py
+      - scripts/assemble-template-free-p25.py
+      - scripts/verify-public-unsigned-p25.py
+      - public-management/**
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: terminal6-capable-35m-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  capable:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify capable Kconfig contract unit tests
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_terminal6_capable_config.py' -v
+          python3 -m unittest discover -s tests -p 'test_terminal6_lean_config.py' -v
+      - name: Install public native ARM64 dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq flex bison libssl-dev libelf-dev bc device-tree-compiler busybox-static cpio
+          test "$(uname -m)" = aarch64
+      - name: Stage owner-independent public DTB and P44 initramfs with management
+        run: |
+          set -euo pipefail
+          TERMINAL6_REPRODUCIBLE_INITRAMFS=1 SOURCE_DATE_EPOCH=0 \
+            bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-capable-initramfs.cpio.gz" "$GITHUB_WORKSPACE/public-management"
+          TERMINAL6_REPRODUCIBLE_INITRAMFS=1 SOURCE_DATE_EPOCH=0 \
+            bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-capable-initramfs-repeat.cpio.gz" "$GITHUB_WORKSPACE/public-management"
+          cmp "$RUNNER_TEMP/p44-capable-initramfs.cpio.gz" "$RUNNER_TEMP/p44-capable-initramfs-repeat.cpio.gz"
+          echo 'PUBLIC_P44_MANAGEMENT_INITRAMFS_BYTES_REPRODUCIBLE_PASS'
+          sha256sum "$RUNNER_TEMP/p44-capable-initramfs.cpio.gz"
+          bash scripts/stage-experimental-dtb.sh "$RUNNER_TEMP/capable-dtb"
+          python3 scripts/stage-public-mt6990-sources.py --output "$RUNNER_TEMP/capable-stage"
+      - name: Build kernel and complete same-build modules with 35MiB cap
+        shell: bash
+        env:
+          KERNEL_PROFILE: terminal6-capable
+          PUBLIC_MT6990_SCOPE: network
+          JOBS: 4
+        run: |
+          set -euo pipefail
+          export PUBLIC_MT6990_STAGE="$RUNNER_TEMP/capable-stage"
+          export WORKDIR="$RUNNER_TEMP/capable-linux"
+          export INITRAMFS_ARCHIVE="$RUNNER_TEMP/p44-capable-initramfs.cpio.gz"
+          export DTB_PATH="$RUNNER_TEMP/capable-dtb/board/terminal6-debian-ethernet-experimental.dtb"
+          if ! bash scripts/build-linux-6.18.sh > "$RUNNER_TEMP/capable-compile.log" 2>&1; then
+            echo 'TERMINAL6_CAPABLE_BUILD_FAIL: last 160 nonsecret lines'
+            tail -160 "$RUNNER_TEMP/capable-compile.log"
+            exit 1
+          fi
+          python3 scripts/verify-terminal6-capable-config.py "$WORKDIR/output/kernel.config" --image "$WORKDIR/output/Image"
+          grep -E 'TERMINAL6_|DEBIAN_T6_' "$RUNNER_TEMP/capable-compile.log" | tail -30
+          test -s "$WORKDIR/output/terminal6-capable-modules.tar"
+          tar -tf "$WORKDIR/output/terminal6-capable-modules.tar" | grep -E 'mt7996.*\.ko' | head -3
+          test "$(stat -c %s "$WORKDIR/output/Image")" -le 36700160
+          wc -c "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/terminal6-capable-modules.tar"
+          cat "$WORKDIR/output/SHA256SUMS"
+          cat "$WORKDIR/output/vmlinux-size.txt"
+          echo 'CAPABLE_KERNEL_KVM_PCIE_MT7996_USB_CONFIG_AND_35M_PASS'
+      - name: Manufacture and independently readback 32MiB unsigned P25
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/assemble-template-free-p25.py \
+            --source-stage "$RUNNER_TEMP/capable-stage" \
+            --profile "$GITHUB_WORKSPACE/configs/public-air6-boot-v2-profile.json" \
+            --kernel-image "$RUNNER_TEMP/capable-linux/output/Image" \
+            --initramfs-cpio-gz "$RUNNER_TEMP/p44-capable-initramfs.cpio.gz" \
+            --dtb "$RUNNER_TEMP/capable-dtb/board/terminal6-debian-ethernet-experimental.dtb" \
+            --output "$RUNNER_TEMP/capable-p25"
+          python3 scripts/verify-public-unsigned-p25.py \
+            --p25 "$RUNNER_TEMP/capable-p25/p25-unsigned.img" \
+            --kernel-image "$RUNNER_TEMP/capable-linux/output/Image" \
+            --initramfs-cpio-gz "$RUNNER_TEMP/p44-capable-initramfs.cpio.gz" \
+            --dtb "$RUNNER_TEMP/capable-dtb/board/terminal6-debian-ethernet-experimental.dtb" \
+            --profile "$GITHUB_WORKSPACE/configs/public-air6-boot-v2-profile.json" \
+            --receipt "$RUNNER_TEMP/capable-p25/p25-receipt.json"
+          test "$(stat -c %s "$RUNNER_TEMP/capable-p25/p25-unsigned.img")" = 33554432
+          sha256sum "$RUNNER_TEMP/capable-p25/p25-unsigned.img"
+          echo 'PUBLIC_CAPABLE_35M_SOURCE_P25_FULL_READBACK_PASS'
+          echo 'NOT_SIGNED_NO_DEVICE_ACTION_LK_WIFI_USB_KVM_PHYSICAL_NOT_TESTED'
+      # No public upload of physical-device boot images, firmware or calibration.
+      # Private source-pinned rebuild is required to retain an unsigned binary.
