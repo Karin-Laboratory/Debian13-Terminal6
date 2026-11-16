@@ -9,10 +9,12 @@
 | #6 | `f0d561770db59eeaf6ccf4d4a8345961e6ee0508` | 6GHz/regdb、160MHz・no-320、Wi-Fi監査 | mainへmerge |
 | #9 | `a1f0c88bad662a37bd9aaeeb6ffcee9796ca88c5` | EEPROM/OTP初期化、校正timeout、link checker | PR #6の後へmerge |
 | #10 | `a3789dff9c24523e11a61a694023978298a0ca69` | MLO topology、受入判定、hwsim | 先行するPR #6/#9の祖先を利用してmerge |
-| #11 | `1bbb7369edb7fce51601e674a07ec0225af7b11b` | 802.11s、HWMP、hwsim/再現性検査 | PR #9の祖先を利用してmerge |
+| #11 | `5ac8837276835e59f7a825dad973024da9cf773b` | 802.11s、HWMP、hwsim/再現性検査、追試記録 | PR #9の祖先を利用してmerge後、最新追記もmerge |
 | #12 | `852e4446a541f0fe4a260c71a97be978d87666e3` | prplMesh EasyMesh、ARM64 packaging/preflight | mainからの独立変更を最後にmerge |
 
 競合は`.gitignore`と`CHANGELOG.md`のみ。除外規則は統合し、履歴説明は各PRの内容を残して解決した。既存PRは閉じず、mainへはマージしていない。
+
+統合PR作成後にPR #11へ追加された上記HEADも統合ブランチへ取り込んだ。PR #13の初回`host-tests`はrun `43789317941`でPASS。統合ブランチ上の後続ソース再生・ビルド変更はpush後のCIで再確認する。
 
 ## 現在のC号機ベースライン
 
@@ -46,13 +48,18 @@
 
 ## Kernel source / 次の実装ゲート
 
-正規Linux 6.18.63 tarball SHAは`81764a545072d160748beff4d9de2e7d95aa9f16e8261110288f067a2cc61d71`。既存private source reconstruction toolを実行したが、PR #9 patchをsource snapshotから逆適用する段階で`init.c`, `mcu.c`, `eeprom.c`, `mt7996.h`の4ファイルが適合せず、**独立source replayはBLOCKED**。既存host build receiptや出力SHAだけではこの不一致を解消しない。vendor/board差分をprivateに再構成し、正規tarから完全一致を独立確認する必要がある。private source patchは公開しない。
+正規Linux 6.18.63 tarball SHAは`81764a545072d160748beff4d9de2e7d95aa9f16e8261110288f067a2cc61d71`。従来の逆適用方式はPR #9 patchと所有者スナップショットの文脈が異なり失敗したため、private-only完全スナップショット差分の経路を追加した。`.gitignore`対象のソースも漏れなく扱うよう修正し、合成テストで確認した。privateソースの内容・差分はGitHubへ置かない。
 
-実装順は次の通り。
+次にPR #6 no-320変更をスナップショットへ意味的に適用した後、正規tarから更新済みソース全体を再生し、全ファイルインベントリが一致した。PR #9とvendor差分の独立来歴は分離できていないため、再現成功は「正規tarからprivate snapshotまでの一致」に限定する。
 
-1. source snapshotとPR #9 patchの不一致原因を特定し、合法なprivate source replayを成立させる。成立しないときは不確かなkernel/P25を実機へ書かない。
-2. `CONFIG_MAC80211_MESH=y`、PR #9初期化修正、PR #6 160MHz/no-320 patchを一つの検証済みkernel/modules buildに統合する。regdbはkernel trust keyに合う`wens`署名を使う。
-3. DT 100MHz/no-CQE、管理Ethernet、firmware/initramfsを保持した正確なunsigned P25を構築・検証し、保護署名と独立receiptを得てから実機書込み可否を判断する。boot_a以外、boot_b、校正/OEM領域は書かない。
-4. reboot後にMESH_POINT、160MHz/no-320、regdb、eMMC、SSHをread-onlyで再確認してから、独立802.11s peerまたはMLO端末を用いた実通信へ進む。EasyMeshは実control socketと2ノードpeerが揃うまでhost成果と分ける。
+独立ARM64ビルドは`CONFIG_MAC80211_MESH=y`、`CONFIG_MT7996E=m`、`CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y`を含む設定で`olddefconfig`変更なし、`Image`と必要なmt76 modulesのビルドがPASS。正確なartifact SHAとsource replay receiptはprivate領域に保管する。これはホストビルド成果で、P25署名、実機起動、MESH_POINT登録、RF通信を証明しない。
 
-この時点では全PRのコードと検査を統合ブランチへ入れたが、**統合実機機能をmainへ取り込む準備は未完了**。各個別PRと統合PRはDraftのまま保持し、機能PASSを確認できた範囲だけ後続コミットで更新する。
+実機書込み前の残ゲート:
+
+1. 更新した`replay_80211s_kernel_source.py`と再構成ツールを含む統合ブランチCIをPASSさせる。
+2. ビルドImage・modules、100MHz/no-CQE DT、既存initramfsと署名済みregdbの組合せを検証し、正確なunsigned P25を製造する。
+3. そのP25の正確なSHAに対応する保護署名と独立receiptを確認し、slot B起動・電源サイクル復旧条件が引き続き使えることを照合する。boot_a以外、boot_b、校正/OEM領域は書かない。
+4. 実機へ接続できる管理経路から適用後、reboot後のMESH_POINT、160MHz/no-320、regdb、eMMC、SSHをread-onlyで確認する。
+5. 独立802.11s peerまたはMLO端末を用いた実通信を行う。EasyMeshは実control socketと2ノードpeerが揃うまでhost成果と分ける。
+
+この時点では全PRのコードと検査を統合ブランチへ入れ、host上で再現可能なkernel buildまで確認したが、**統合実機機能をmainへ取り込む準備は未完了**。各個別PRと統合PRはDraftのまま保持し、機能PASSを確認できた範囲だけ後続コミットで更新する。

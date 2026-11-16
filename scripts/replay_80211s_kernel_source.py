@@ -183,6 +183,9 @@ def main() -> int:
                          "store unsigned outputs privately here")
     ap.add_argument("--cross-prefix", default="aarch64-linux-gnu-")
     ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--complete-private-snapshot", action="store_true",
+                    help="the single private patch already contains PR #9; provenance "
+                         "is not separated and remains private")
     ap.add_argument("--output", type=Path, required=True,
                     help="owner-private result JSON, never commit")
     args = ap.parse_args()
@@ -206,7 +209,8 @@ def main() -> int:
             if not (os.path.samefile(cc_bin, args.cc) and
                     os.path.samefile(ld_bin, args.ld)):
                 raise ValueError("build toolchain differs from hashed input binaries")
-        if args.patch[-1].name != "0001-mt7996-eeprom-calfree-timeout.patch":
+        if (not args.complete_private_snapshot and
+                args.patch[-1].name != "0001-mt7996-eeprom-calfree-timeout.patch"):
             raise ValueError("last patch must be PR #9 calibration/timeout patch")
         result.update(check_source_replay(args.upstream_tar, args.upstream_sha256,
                                           args.private_tree, args.patch,
@@ -216,6 +220,11 @@ def main() -> int:
         result["compiler_sha256"] = digest(args.cc)
         result["linker_sha256"] = digest(args.ld)
         result["mesh_input"] = verify(args.final_config, args.private_tree)
+        result["pr9_separate_patch_provenance"] = not args.complete_private_snapshot
+        result["private_patch_mode"] = (
+            "complete private snapshot; PR #9 and vendor source changes are not separated"
+            if args.complete_private_snapshot else
+            "vendor source patch followed by separate PR #9 patch")
         result["pass"] = (result["status"] == "SOURCE_REPLAY_MATCH" and
                           result["mesh_input"]["pass"] and
                           (not args.build_artifacts or
