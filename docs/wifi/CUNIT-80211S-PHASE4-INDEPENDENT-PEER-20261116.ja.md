@@ -2,6 +2,14 @@
 
 更新: 2026-11-16。基準は[統合PR #13](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/13) HEAD `33102b1`。このブランチの試験対象は**隔離したLinux/hwsimのみ**。C号機/A号機/raspi4の状態には変更を加えない。
 
+## 第4段階の実CI受入記録
+
+- [Actions #43808405316](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808405316) **全3ジョブSUCCESS**。2-node smokeはSAE-configured peering、双方向IPがPASS。独立2VMの3-nodeではwmediumdでA-C遮断、HWMP A↔C next hop B、双方向ping、B停止時の断、復旧後のpeer/IP/HWMPをすべて確認。
+- `mesh_peer_autorejoin.py`の監視器がBのDOWN→UPを検知し、`mesh_group_remove/add`を**無人実行**。SUPERVISED_AUTO復旧2/2 PASS、B UP後 5.114 / 5.095 秒、復旧後20/20 ping・0% loss、RTT平均 2.511 / 2.047ms。**native自動復旧をPASSとはしない**（監視器ありの試験なので今回はNOT TESTED、PR #11ではnative FAIL）。
+- `hwsim0`で取得した一時PCAPを公開せず、別処理でSAE auth algorithm 3、Self-protected Mesh Peering Open/Confirmの**MIC IE ID 140、16バイト**、Protected-bit付きDataを2送信元で確認。`HWSIM_PCAP_AUDIT=PASS` 2/2。**AES-SIVのMICを独立復号・暗号学的検証したものではない**。
+- 初期のcapture失敗とAMPE MIC判定FAILは、hwsim monitorのUP設定不足と検査器のEID `76`誤記が原因だった。Linux `WLAN_EID_MIC=140`へ修正し、CIの反復で確認。失敗したrunは成功へ読み替えない。
+- A/C実機、raspi管理系、6GHz RF、slot/P25/eMMC、MLO、EasyMeshへの操作は一切行っていない。**C号機との実RF peeringはNOT TESTED**、対応USBアダプターの現物検証・調達も未達。
+
 ## 最新の実機事実と既存成功を再利用
 
 - C号機は署名済みP25で起動済み。`CONFIG_MAC80211_MESH=y`、`iw phy`の`mesh point`能力と、一時interfaceの生成・削除は実機PASS。これは**SAE/AMPE、mesh peer、RF、IP、HWMPの成功証拠ではない**。
