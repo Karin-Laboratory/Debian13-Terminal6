@@ -15,7 +15,7 @@
 |---|---|---|
 | 2-node SAE/IP | 別network namespaceの2 PHYで両側peer CONNECTED、両方向ping | `key_mgmt=SAE`文字列だけは不可 |
 | 3-node HWMP | `wmediumd`でA-Cリンク100%遮断、A↔C双方向IPとnext hop=Bを両方向検証 | 単純な同一SSID接続では不可 |
-| AMPE on-wire | hwsim0 PCAPに2送信元のSAE auth、mesh peering Open/ConfirmのMIC IE(76/16byte)と保護Data | MIC存在はAES-SIVの独立復号/真正性証明そのものではない |
+| AMPE on-wire | hwsim0 PCAPに2送信元のSAE auth、mesh peering Open/ConfirmのMIC IE(140/16byte)と保護Data | MIC存在はAES-SIVの独立復号/真正性証明そのものではない |
 | native automatic recovery | 監視器・明示API呼出し無し、DOWN/UPのみでpeer/IP/HWMP復旧 | 第3段階では3/3 FAIL |
 | supervised automatic recovery | 起動済み監視器がBのDOWN→UPに反応し、上流mesh group再参加を自動実行→peer/IP/HWMP復旧 | **nativeとは別ラベル**。監視器が動いたことをreceiptで証明 |
 | assisted recovery | 人間/試験スクリプトが明示的にmesh group再参加→peer/IP/HWMP復旧 | 第3段階でPASS済み |
