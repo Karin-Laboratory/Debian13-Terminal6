@@ -39,6 +39,8 @@ jobs:
             --kernel-tree "$RUNNER_TEMP/linux" \
             --scope network \
             --receipt "$RUNNER_TEMP/network-receipt.json"
+          python3 scripts/port-public-mt6990-clock.py \
+            "$RUNNER_TEMP/linux/drivers/clk/mediatek/clk-mt6990.c"
           python3 - "$RUNNER_TEMP/network-receipt.json" <<'PY'
           import json,sys
           x=json.load(open(sys.argv[1]))
@@ -61,6 +63,7 @@ jobs:
             --enable COMMON_CLK_MEDIATEK --enable NET_VENDOR_MEDIATEK \
             --enable NET_MEDIATEK_SOC --enable PCS_MTK_LYNXI
           make -s olddefconfig prepare
+          grep -E '^CONFIG_(ARCH_MEDIATEK|NET|NETDEVICES|NET_VENDOR_MEDIATEK|NET_MEDIATEK_SOC|COMMON_CLK_MEDIATEK|COMMON_CLK_MT6990|PCS_MTK_LYNXI)=' .config || :
           grep -qx 'CONFIG_NET_MEDIATEK_SOC=y' .config
           grep -qx 'CONFIG_COMMON_CLK_MT6990=y' .config
           make -j4 drivers/clk/mediatek/clk-mt6990.o \
