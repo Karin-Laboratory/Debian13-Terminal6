@@ -1,9 +1,11 @@
 """Host-only checks for the C-unit kernel provenance replay gate."""
 import tempfile
+import tarfile
 import unittest
 from pathlib import Path
 
 from scripts.replay_80211s_kernel_source import (
+    check_source_replay,
     compare_inventories,
     digest,
     inventory_digest,
@@ -50,6 +52,41 @@ class SourceReplayTests(unittest.TestCase):
                 "content_mismatch": ["changed.h"],
             },
         )
+
+    def test_patch_replay_matches_independent_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            upstream = root / "linux-6.18.63"
+            vendor_path = upstream / "drivers" / "clk" / "clk-mt6990.c"
+            vendor_path.parent.mkdir(parents=True)
+            vendor_path.write_text("original\\n")
+            tarpath = root / "source.tar"
+            with tarfile.open(tarpath, "w") as archive:
+                archive.add(upstream, arcname=upstream.name)
+            patch = root / "0001-demo-vendor.patch"
+            patch.write_text(
+                "--- a/drivers/clk/clk-mt6990.c\\n"
+                "+++ b/drivers/clk/clk-mt6990.c\\n"
+                "@@ -1 +1 @@\\n"
+                "-original\\n"
+                "+approved vendor change\\n"
+            )
+            snapshot = root / "snapshot"
+            changed = snapshot / "drivers" / "clk" / "clk-mt6990.c"
+            changed.parent.mkdir(parents=True)
+            changed.write_text("approved vendor change\\n")
+            config = root / ".config"
+            config.write_text("CONFIG_MAC80211_MESH=y\\n")
+            result = check_source_replay(tarpath, digest(tarpath), snapshot,
+                                         [patch], config)
+            self.assertEqual(result["status"], "SOURCE_REPLAY_MATCH")
+            self.assertEqual(result["differences"]["content_mismatch"], [])
+            changed.write_text("unrecorded local edit\\n")
+            result = check_source_replay(tarpath, digest(tarpath), snapshot,
+                                         [patch], config)
+            self.assertEqual(result["status"], "SOURCE_REPLAY_MISMATCH")
+            self.assertEqual(result["differences"]["content_mismatch"],
+                             ["drivers/clk/clk-mt6990.c"])
 
     def test_manifest_is_independent_of_map_insertion_order(self):
         self.assertEqual(
