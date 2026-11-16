@@ -82,6 +82,13 @@ def vm_probe(hostap_tree=None, *, module_info=None, caps_text=None,
             "reasons": reasons}
 
 
+def upstream_test_command(suite, test):
+    """Use hostap run-all.sh documented --channels option, not a test name."""
+    if test not in KNOWN_TESTS:
+        raise ValueError("unknown MLD test")
+    return [str(suite / "run-all.sh"), "--channels", "2", test]
+
+
 def completed_test(output, test, returncode):
     """An actual runner must exit zero AND show an exact test PASS line."""
     # Some hostap versions include timestamps after PASS; do not match substrings.
@@ -95,10 +102,13 @@ def sanitized_summary(probe, results):
     if probe["status"] != "READY":
         state = "BLOCKED"
     elif all(value == "SMOKE_PASS" for value in results.values()) and results:
-        state = "UPSTREAM_MLD_SMOKE_PASS"
+        state = ("WIDE_MLD_SMOKE_PASS" if WIDE_TEST in results else
+                 "UPSTREAM_MLD_SMOKE_PASS")
     else:
         state = "INCOMPLETE"
     return {"status": state, "kernel": probe["kernel"], "tests": results,
+            "first_failed_test": next((name for name, state in results.items()
+                                       if state != "SMOKE_PASS"), None),
             "acceptance_v2": "NOT_PROVEN",
             "note": "No per-link counter/failure-cycle evidence; not HWSIM_PASS"}
 
@@ -126,13 +136,18 @@ def run_tests(hostap_tree, output_dir, tests, fixture_source, sim_country=None):
             raise RuntimeError("simulated VM regulatory setup failed")
     results = {}
     for test in tests:
-        result = execute([str(suite / "run-all.sh"), "channels=2", test],
-                         cwd=suite, timeout=900)
+        # Bound each test including hostap startup/stop; preserve raw output locally.
+        result = execute(["timeout", "--kill-after=5s", "240s",
+                          *upstream_test_command(suite, test)],
+                         cwd=suite, timeout=250)
         # Raw logs are local-only, possibly contain virtual MACs, test SSIDs.
         logfile = output_dir / (test + ".private.log")
         logfile.write_text(result.stdout, encoding="utf-8")
         results[test] = ("SMOKE_PASS" if completed_test(result.stdout, test,
                                                        result.returncode) else "FAILED")
+        if results[test] == "FAILED":
+            # Stop at first failure instead of burning the CI job timeout.
+            break
     summary = sanitized_summary(probe, results)
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     return summary
@@ -163,7 +178,8 @@ def main(argv=None):
                           "acceptance_v2": "NOT_PROVEN"}, sort_keys=True))
         return 2
     print(json.dumps(summary, sort_keys=True))
-    return 0 if summary["status"] == "UPSTREAM_MLD_SMOKE_PASS" else 2
+    return 0 if summary["status"] in ("UPSTREAM_MLD_SMOKE_PASS",
+                                      "WIDE_MLD_SMOKE_PASS") else 2
 
 
 if __name__ == "__main__":
