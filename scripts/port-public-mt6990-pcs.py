@@ -118,10 +118,8 @@ def port(pcs,header,eth,donor):
         '\t\t    of_device_is_compatible(np, "mediatek,mt6990-sgmiisys"))\n'
         '\t\t\tflags |= MTK_SGMII_FLAG_MT6990;\n')
     eth=replace_one(eth,
+        "\tif (MTK_HAS_CAPS(eth->soc->caps, MTK_SGMII)) {\n",
         "\tif (MTK_HAS_CAPS(eth->soc->caps, MTK_SGMII) &&\n"
-        "\t    !mtk_is_netsys_v3_or_greater(eth)) {\n",
-        "\tif (MTK_HAS_CAPS(eth->soc->caps, MTK_SGMII) &&\n"
-        "\t    !mtk_is_netsys_v3_or_greater(eth) &&\n"
         "\t    !MTK_HAS_CAPS(eth->soc->caps, MTK_SOC_MT6990)) {\n")
     eth=replace_one(eth,
         "\terr = mtk_hw_init(eth, false);\n"
