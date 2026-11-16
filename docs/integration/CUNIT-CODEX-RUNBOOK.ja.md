@@ -14,7 +14,7 @@
 
 | 対象 | 最後に裏付けられた状態 | 次のゲート |
 |---|---|---|
-| PR #13 | 2026-11-16 04:50 UTC確認。current head `d0aa3a7766c095275a1f5f839d3f57ef05218509`、PR Draft、main未マージ。head `ad0a955d…`のhost-tests run `43805581113` PASS。現head host-tests run `43806400360` QUEUED。hwsim run `43805577351`は前headでFAIL | 現head CI完了を確認。802.11s実peer、EasyMesh Controller/Agent、MLO実機対向試験。hwsimのrunner環境差を解決する |
+| PR #13 | 2026-11-16 04:50 UTC確認。head `dd1c65ea786b9a843e5731603199fc5ade714b35`、PR Draft、main未マージ。host-tests run `43806442168` PASS。hwsim run `43805577351`は前headでFAIL | 802.11s実peer、EasyMesh Controller/Agent、MLO実機対向試験。hwsimのrunner環境差を解決する |
 | kernel source | 正規6.18.63 tarball→private snapshotの**全ファイル再生一致**を達成（`.gitignore`除外88ファイル問題を修正）。private差分の来歴分離、公開再現性、ライセンス適合までは証明していない | 変更後再生receiptを保持 |
 | ARM64 | `CONFIG_MAC80211_MESH=y`、`CONFIG_MT7996E=m`、署名regdb必須、160MHz/no-320のImageとmt76系moduleビルドPASS | **実機適用は別判定** |
 | 統合P25 | unsigned SHA `83478d8804172777c9dc69fd35a1e3931257a130a5c803e588b6e286c390cd2e`。署名済みSHA `ae65d0c28c5d3c6a0189193c70f3783c142da3c97553bb8fe80059569046dea0`、RSA-PSS独立検証PASS、boot_a全32MiB readback一致、slot A起動PASS | 実機の起動受入済み。slot B保持 |
