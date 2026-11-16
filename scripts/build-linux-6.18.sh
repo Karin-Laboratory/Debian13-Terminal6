@@ -44,8 +44,18 @@ if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-pcieusb" ]]; then
   # source commit a40df9a5afb46716dea799acea69f17480df4d82.
   for p in mt6990-public-pcie-gen3.patch mt6990-public-pcie-phy.patch; do
     test -s "$ROOT/patches/$p"
-    git apply --check "$ROOT/patches/$p"
-    git apply "$ROOT/patches/$p"
+    if [[ "$p" = mt6990-public-pcie-phy.patch ]]; then
+      # Donor PHY source patch uses a one-line hunk-position offset against
+      # pinned Linux 6.18.63. GNU patch accepts offsets with fuzz strictly
+      # zero; fail on any rejected/ambiguous context.
+      command -v patch >/dev/null
+      patch --batch --fuzz=0 --dry-run -p1 < "$ROOT/patches/$p"
+      patch --batch --fuzz=0 -p1 < "$ROOT/patches/$p"
+      test ! -e drivers/phy/mediatek/phy-mtk-pcie.c.rej
+    else
+      git apply --check "$ROOT/patches/$p"
+      git apply "$ROOT/patches/$p"
+    fi
   done
   grep -Fq 'mediatek,mt6990-pcie' drivers/pci/controller/pcie-mediatek-gen3.c
   grep -Fq 'mediatek,mt6980-pcie-phy' drivers/phy/mediatek/phy-mtk-pcie.c
