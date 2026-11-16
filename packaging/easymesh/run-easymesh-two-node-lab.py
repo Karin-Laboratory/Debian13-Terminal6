@@ -67,7 +67,7 @@ def stage_private_platform_db(source: Path, destination_install: Path) -> None:
             or info.st_size > 1024 * 1024):
         raise LabError("private platform DB must be owned by caller, mode 0600")
     content = source.read_bytes()
-    if not content or b"\\x00" in content:
+    if not content or b"\x00" in content:
         raise LabError("invalid private platform DB")
     # Real wired interface should be Docker's eth0, never the host NIC.
     if b"backhaul_wire_iface=eth0" not in content:
