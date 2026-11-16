@@ -30,3 +30,9 @@
 [PR #6](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/6)のP25・regdbや[PR #9](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/9)の校正は変更しない。C号機は6GHz担当の引渡し後まで無操作。A号機は読み取り専用。復帰時はeMMC 100MHz/CQE無効、管理LAN/SSH/UARTを維持。国内6GHzの認証・規制条件が確定するまでRF送信しない。
 
 参考：[上流hostap EHT MLD試験](https://chromium.googlesource.com/chromiumos/third_party/hostap/+/f1e9b5086718ad567dc40e3d5a1456534d51749f/tests/hwsim/test_eht.py)。
+
+## 通信の意味と受入境界（追補）
+
+上流 `tests/hwsim/test_eht.py` の `traffic_test()` は `hwsim_utils.test_connectivity()` による**データフレーム送受信テスト**であり、`ping`、IPv4/IPv6、名前空間で隔離した双方向IP通信、スループットの代用にはならない。上流の2リンクOWEやlink removalテストは主に2.4GHzの仮想通信であり、5GHz 160MHz＋6GHz 160MHzの達成ではない。専用の`test_cunit_mlo.py`もAP/STAの関連付けとデータフレーム通信を試みる段階であり、リンク別実カウンタの読取り、片リンク停止後の双方向IPと復帰・再接続のv2証拠収集をまだ実装していない。従って上流テストのPASSやこのCIの緑表示を`HWSIM_PASS`と報告しない。
+
+次の独立VM工程では、各無線リンクを同一MLDとして識別したうえで、IPのローカル配送を避けるため両端に別々のネットワーク名前空間を用意し、hostapd/wpa_supplicantのインターフェース操作の互換性を確認する。明示的なリンク別netlink/debugfsカウンタ・頻度・帯域幅を取れない場合は`NOT_PROVEN`のままとする。C号機への適用はPR #6担当の引渡し後のみ。
