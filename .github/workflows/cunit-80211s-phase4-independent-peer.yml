@@ -11,6 +11,7 @@ on:
       - scripts/run_80211s_hwsim_3node.sh
       - tests/test_mesh_peer_phase4.py
       - scripts/run_80211s_hwsim_smoke.sh
+      - scripts/mesh_peer_readonly_preflight.sh
   workflow_dispatch:
 
 permissions:
@@ -29,6 +30,7 @@ jobs:
           python3 -m compileall -q scripts/mesh_peer_autorejoin.py scripts/mesh_peer_capture_audit.py
           bash -n scripts/run_80211s_hwsim_3node.sh
           bash -n scripts/run_80211s_hwsim_smoke.sh
+          bash -n scripts/mesh_peer_readonly_preflight.sh
           git diff --check
       - name: Install 2-node hwsim tools
         run: |
@@ -89,6 +91,7 @@ jobs:
           grep -qx 'HWSIM_AMPE_MIC_CONFIRM=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
           grep -qx 'HWSIM_PROTECTED_DATA_FRAMES=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
           grep -qx 'HWSIM_PCAP_AUDIT=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_AMPE_FRAME_PROTECTION=ONWIRE_MIC_FORMAT_PASS_CRYPTO_MIC_UNVERIFIED' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
       - name: Upload sanitized summary only; never upload PCAP/passwords
         if: always()
         uses: actions/upload-artifact@v4
