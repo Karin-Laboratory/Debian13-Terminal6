@@ -1,0 +1,49 @@
+name: Public Debian 13 arm64 P44 rootfs smoke build
+on:
+  push:
+    paths:
+      - 'scripts/build-public-p44-rootfs.sh'
+      - 'public-management/**'
+      - '.github/workflows/public-p44-rootfs.yml'
+  pull_request:
+    paths:
+      - 'scripts/build-public-p44-rootfs.sh'
+      - 'public-management/**'
+      - '.github/workflows/public-p44-rootfs.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  p44-rootfs:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install Debian bootstrap dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y debootstrap debian-archive-keyring openssh-client
+      - name: Build isolated Debian 13 rootfs archive
+        run: |
+          set -euo pipefail
+          sudo bash scripts/build-public-p44-rootfs.sh "$RUNNER_TEMP/p44-public-smoke"
+      - name: Confirm software, services and no reused SSH host keys
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/p44-public-smoke"
+          test -s "$out/debian13-p44-rootfs.tar.gz"
+          test -s "$out/debian-package-manifest.txt"
+          (cd "$out" && sha256sum -c SHA256SUMS)
+          tar -tzf "$out/debian13-p44-rootfs.tar.gz" > "$RUNNER_TEMP/p44-filelist.txt"
+          grep -Fx './usr/local/sbin/terminal6-public-management' "$RUNNER_TEMP/p44-filelist.txt"
+          grep -Fx './etc/systemd/network/20-terminal6-lan2.network' "$RUNNER_TEMP/p44-filelist.txt"
+          grep -Fx './etc/ssh/sshd_config.d/60-terminal6-secure.conf' "$RUNNER_TEMP/p44-filelist.txt"
+          if grep -E '/etc/ssh/ssh_host_.*_key$' "$RUNNER_TEMP/p44-filelist.txt"; then
+            echo 'FAIL: image includes an SSH host private key' >&2
+            exit 1
+          fi
+          echo 'PUBLIC_DEBIAN13_P44_ROOTFS_ARCHIVE_SMOKE_PASS_NOT_DEVICE_BOOT_VALIDATED'
+      # Intentionally no archive upload/release, no block device changes.
