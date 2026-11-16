@@ -24,6 +24,8 @@ if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
     --source-stage "$PUBLIC_MT6990_STAGE" \
     --kernel-tree "$WORKDIR" --scope "${PUBLIC_MT6990_SCOPE:-core}" \
     --receipt "$WORKDIR/public-mt6990-kernel-inputs.json"
+  python3 "$ROOT/scripts/port-public-mt6990-clock.py" \
+    "$WORKDIR/drivers/clk/mediatek/clk-mt6990.c"
 fi
 if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
   make ARCH=arm64 tinyconfig
