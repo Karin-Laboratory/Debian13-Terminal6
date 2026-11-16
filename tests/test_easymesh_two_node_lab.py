@@ -85,6 +85,18 @@ class LabTests(unittest.TestCase):
         with self.assertRaisesRegex(module.LabError, "unsafe absolute install target"):
             module.validate_install_target("/../../proc")
 
+    @patch.object(module.shutil, "which", return_value="/usr/bin/readelf")
+    @patch.object(module, "command", return_value="Machine: AArch64")
+    def test_arm64_elf_classification_before_docker_launch(self, command, which):
+        self.assertEqual(module.stage_architecture(Path("/private/install")), "arm64")
+        self.assertEqual(command.call_count, 3)
+
+    @patch.object(module.shutil, "which", return_value="/usr/bin/readelf")
+    @patch.object(module, "command", return_value="Machine: SPARC")
+    def test_unsupported_elf_architecture_fails_closed(self, command, which):
+        with self.assertRaisesRegex(module.LabError, "unsupported"):
+            module.stage_architecture(Path("/private/install"))
+
     @patch.object(module.shutil, "which", return_value=None)
     def test_no_docker_fails_before_side_effect(self, which):
         args = types.SimpleNamespace(execute=True, controller_image="x", agent_image="y",
