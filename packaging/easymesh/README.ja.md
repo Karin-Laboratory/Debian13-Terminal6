@@ -37,6 +37,20 @@ ELF機種名は`readelf -h`の`Machine`値で指定する（例：開発VMは`Ad
 
 このinstallerはファイルを配置するだけで、serviceのenable/start、Wi-Fi設定、bridge/IP/route変更を行わない。
 
+
+## ARM64動的ローダーの隔離検査（QEMU-user）
+
+ビルド済みのAArch64 install prefixと同じDebian 13 arm64 sysrootを使い、ホストで次を実行する。バイナリをGitHubへアップロードする必要はない。
+
+```sh
+python3 packaging/easymesh/verify-arm64-linker.py \
+  --stage <private-AArch64-install-prefix> \
+  --sysroot <private-Debian13-arm64-sysroot> \
+  --qemu qemu-aarch64
+```
+
+これは各prplMesh実行ファイルのELF Machine・要求インタプリタを調べ、QEMU-userでターゲットの動的ローダーに`--list`させる、**daemon本体は起動しない**検査である。ホストの共有ライブラリを混ぜず、依存が欠ければfail closedする。出力は`loader-only`であり、configuration parser、process startup、systemd、1905通信、独立2ノード、C号機実機の成功判定ではない。後段の実行試験ではネットワーク隔離と明示的な起動許可が別途必要。
+
 ## C号機実機を開始する前の条件
 
 1. arm64向けcross buildまたはC号機上buildを行い、Debian 13/6.18.63のABI・共有ライブラリを確認する。
