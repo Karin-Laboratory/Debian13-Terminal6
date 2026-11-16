@@ -85,11 +85,20 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
         source = stage / "patches" / p
         if not source.is_file():
             raise ValueError("required pinned public patch missing: " + p)
-        check = subprocess.run(["git", "-C", str(kernel), "apply", "--check", str(source)],
+        patch_text = source.read_text()
+        if p == "823-mmc-mtk-sd-add-mt6990-compatible.patch":
+            # The donor's third hunk forces an LG6851F fixed-rail OCR.
+            # The Air6 eMMC rail is board-specific; never port that hunk.
+            anchor = "@@ -3042"
+            if patch_text.count(anchor) != 1 or "LG6851F board has fixed rails" not in patch_text:
+                raise ValueError("donor MMC patch structure changed")
+            patch_text = patch_text.split(anchor, 1)[0]
+        cmd = ["git", "-C", str(kernel), "apply"]
+        check = subprocess.run(cmd + ["--check", "-"], input=patch_text,
                                capture_output=True, text=True)
         if check.returncode:
             raise RuntimeError("kernel patch not applicable: " + p + "\n" + check.stderr[-1200:])
-        subprocess.run(["git", "-C", str(kernel), "apply", str(source)], check=True)
+        subprocess.run(cmd + ["-"], input=patch_text, check=True, text=True)
     return {"schema": 1, "scope": scope, "source_revision": doc["revision"],
             "status": "PUBLIC_KERNEL_PATCHES_APPLIED_NOT_BUILT",
             "copied_source_files": copies, "patches": patches,
