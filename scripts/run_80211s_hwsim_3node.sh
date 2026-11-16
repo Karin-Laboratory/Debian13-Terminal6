@@ -162,56 +162,117 @@ grep -Eiq "^$mac_a[[:space:]]+$mac_b[[:space:]]" <<<"$path_c" ||
     { echo 'FAIL: HWMP C->A next hop is not B' >&2; exit 1; }
 echo 'HWSIM_HWMP_AC_VIA_B=PASS'
 
-ip -n "$b" link set meshB down
-sleep 3
-if ip netns exec "$a" ping -c 3 -W 1 10.253.16.3 >/dev/null 2>&1; then
-    echo 'FAIL: A-C remains reachable with B down' >&2; exit 1
-fi
-echo 'HWSIM_B_DOWN_AC_UNREACHABLE=PASS'
-ip -n "$b" link set meshB up
-recovered=0
-recovery_mode=AUTO
-# First try actual unassisted reconvergence after B interface comes back.
-for _ in $(seq 1 20); do
-    if ip netns exec "$a" ping -c 1 -W 1 10.253.16.3 >/dev/null 2>&1 &&
-       ip netns exec "$c" ping -c 1 -W 1 10.253.16.1 >/dev/null 2>&1; then
-        recovered=1; break
-    fi
-    sleep 1
-done
-if (( ! recovered )); then
-    # A netdev DOWN/UP may not restart userspace SAE mesh on its own.
-    # Do not label this as automatic reconvergence.
-    echo 'HWSIM_B_AUTO_RECOVERY=NOT_PROVEN'
-    recovery_mode=ASSISTED_B_RECONNECT
-    action=$(ip netns exec "$b" wpa_cli -p "$tmp/ctrl-b" -i meshB reconnect)
-    echo "HWSIM_B_WPA_CLI_RECONNECT=$action"
-    for _ in $(seq 1 40); do
-        if ip netns exec "$a" ping -c 1 -W 1 10.253.16.3 >/dev/null 2>&1 &&
-           ip netns exec "$c" ping -c 1 -W 1 10.253.16.1 >/dev/null 2>&1; then
-            recovered=1; break
+# Distinguish automatic peer/HWMP reconvergence from userspace-initiated rejoin.
+links_ready() {
+    local pa pb pc
+    pa=$(ip netns exec "$a" iw dev meshA station dump 2>/dev/null || true)
+    pb=$(ip netns exec "$b" iw dev meshB station dump 2>/dev/null || true)
+    pc=$(ip netns exec "$c" iw dev meshC station dump 2>/dev/null || true)
+    grep -iq "$mac_b" <<<"$pa" &&
+        grep -iq "$mac_a" <<<"$pb" &&
+        grep -iq "$mac_c" <<<"$pb" &&
+        grep -iq "$mac_b" <<<"$pc" &&
+        grep -q 'mesh plink:.*ESTAB' <<<"$pa" &&
+        grep -q 'mesh plink:.*ESTAB' <<<"$pc" &&
+        [[ $(grep -c 'mesh plink:.*ESTAB' <<<"$pb") -ge 2 ]]
+}
+paths_ready() {
+    local pa pc
+    pa=$(ip netns exec "$a" iw dev meshA mpath dump 2>/dev/null || true)
+    pc=$(ip netns exec "$c" iw dev meshC mpath dump 2>/dev/null || true)
+    grep -Eiq "^$mac_c[[:space:]]+$mac_b[[:space:]]" <<<"$pa" &&
+        grep -Eiq "^$mac_a[[:space:]]+$mac_b[[:space:]]" <<<"$pc"
+}
+wait_recovery() {
+    local attempts=$1 n
+    for ((n=0; n<attempts; n++)); do
+        kill -0 "$medium_pid" 2>/dev/null || return 1
+        if links_ready &&
+           ip netns exec "$a" ping -n -c 1 -W 1 10.253.16.3 >/dev/null 2>&1 &&
+           ip netns exec "$c" ping -n -c 1 -W 1 10.253.16.1 >/dev/null 2>&1 &&
+           paths_ready; then
+            return 0
         fi
         sleep 1
     done
-fi
-if (( ! recovered )); then
+    return 1
+}
+recovery_diag() {
+    local item ns iface state peers established
     for item in a b c; do
         case $item in
-            a) ns=$a; iface=meshA ;; b) ns=$b; iface=meshB ;; c) ns=$c; iface=meshC ;;
+            a) ns=$a; iface=meshA ;;
+            b) ns=$b; iface=meshB ;;
+            c) ns=$c; iface=meshC ;;
         esac
-        state=$(ip netns exec "$ns" wpa_cli -p "$tmp/ctrl-$item" -i "$iface" status 2>/dev/null | grep '^wpa_state=' || true)
-        peers=$(ip netns exec "$ns" iw dev "$iface" station dump 2>/dev/null | grep -c '^Station ' || true)
+        state=$(ip netns exec "$ns" wpa_cli -p "$tmp/ctrl-$item" -i "$iface" status 2>/dev/null |
+                grep '^wpa_state=' || true)
+        peers=$(ip netns exec "$ns" iw dev "$iface" station dump 2>/dev/null |
+                grep -c '^Station ' || true)
+        established=$(ip netns exec "$ns" iw dev "$iface" station dump 2>/dev/null |
+                      grep -c 'mesh plink:.*ESTAB' || true)
         [[ -n "$state" ]] || state=unknown
-        echo "HWSIM_RECOVERY_DIAG_$item=state:$state peers:$peers" >&2
+        echo "HWSIM_DIAG_$item=$state peers:$peers estab:$established" >&2
     done
-    echo 'FAIL: no A-C recovery through B after auto + controlled B reconnect' >&2
+}
+ip -n "$b" link set meshB down
+sleep 3
+if ip netns exec "$a" ping -n -c 3 -W 1 10.253.16.3 >/dev/null 2>&1; then
+    echo 'FAIL: A-C remains reachable with B down' >&2; exit 1
+fi
+echo 'HWSIM_B_DOWN_AC_UNREACHABLE=PASS'
+recovery_started_ms=$(date +%s%3N)
+ip -n "$b" link set meshB up
+recovered=0
+recovery_mode=NONE
+# Phase 1: no intervention after netdev UP.
+if wait_recovery 20; then
+    echo 'HWSIM_B_AUTO_RECOVERY=PASS'
+    recovery_mode=AUTO
+    recovered=1
+else
+    echo 'HWSIM_B_AUTO_RECOVERY=FAIL'
+    recovery_diag
+fi
+# Phase 2: wpa_cli reconnect (may not rejoin an already-started mesh).
+if (( ! recovered )); then
+    action=$(ip netns exec "$b" wpa_cli -p "$tmp/ctrl-b" -i meshB reconnect 2>/dev/null || true)
+    echo "HWSIM_B_WPA_CLI_RECONNECT=$action"
+    if [[ $action == OK ]] && wait_recovery 12; then
+        echo 'HWSIM_B_WPA_CLI_RECOVERY=PASS'
+        recovery_mode=WPA_CLI_RECONNECT
+        recovered=1
+    else
+        echo 'HWSIM_B_WPA_CLI_RECOVERY=FAIL'
+        recovery_diag
+    fi
+fi
+# Phase 3: existing upstream wpa_supplicant network lifecycle (leave/join).
+# Its result must not be called automatic recovery.
+if (( ! recovered )); then
+    disabled=$(ip netns exec "$b" wpa_cli -p "$tmp/ctrl-b" -i meshB disable_network 0 2>/dev/null || true)
+    enabled=$(ip netns exec "$b" wpa_cli -p "$tmp/ctrl-b" -i meshB enable_network 0 2>/dev/null || true)
+    echo "HWSIM_B_NETWORK_REJOIN_COMMANDS=disable:$disabled enable:$enabled"
+    if [[ $disabled == OK && $enabled == OK ]]; then
+        ip -n "$b" link set meshB up
+        if wait_recovery 40; then
+            echo 'HWSIM_B_NETWORK_REJOIN=PASS'
+            recovery_mode=ASSISTED_B_NETWORK_REJOIN
+            recovered=1
+        fi
+    fi
+    if (( ! recovered )); then
+        echo 'HWSIM_B_NETWORK_REJOIN=FAIL'
+        recovery_diag
+    fi
+fi
+if (( ! recovered )); then
+    echo 'FAIL: neither auto nor explicit B rejoin restored 3-node HWMP' >&2
     exit 1
 fi
 echo "HWSIM_B_RECOVERY_MODE=$recovery_mode"
-# Verify the recovered route, not merely IP reachability.
-path_a=$(ip netns exec "$a" iw dev meshA mpath dump)
-grep -Eiq "^$mac_c[[:space:]]+$mac_b[[:space:]]" <<<"$path_a" ||
-    { echo 'FAIL: recovered HWMP path not via B' >&2; exit 1; }
+echo "HWSIM_B_RECOVERY_MS=$(($(date +%s%3N) - recovery_started_ms))"
+links_ready && paths_ready || { echo 'FAIL: recovered HWMP/peering regressed' >&2; exit 1; }
 echo 'HWSIM_B_RECOVERY_HWMP=PASS'
 
 ip netns exec "$a" ping -c 20 -i 0.1 -W 2 10.253.16.3 > "$tmp/metrics"
