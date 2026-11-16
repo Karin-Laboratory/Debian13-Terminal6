@@ -20,7 +20,10 @@ import sys
 import time
 
 # The nearby existing runner owns test allowlists and conservative verdicts.
-import cunit_mlo_hwsim_runner as common
+if __package__:
+    from . import cunit_mlo_hwsim_runner as common
+else:
+    import cunit_mlo_hwsim_runner as common
 
 BASELINE = "ap_open"
 PHASE_TIMEOUTS = {"start": 90, "baseline": 65, "test": 100, "stop": 25}
