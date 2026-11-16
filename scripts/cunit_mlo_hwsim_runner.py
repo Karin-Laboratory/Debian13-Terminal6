@@ -130,7 +130,29 @@ def parse_ip_ping_marker(output):
             "ap_to_sta": {"sent": sent_ap, "received": received_ap}}
 
 
-def sanitized_summary(probe, results, ip_ping=None):
+def sanitized_failure_diagnostics(output):
+    """Retain only safe MLO milestone data; never publish the raw test log."""
+    classes = re.findall(
+        r"(?m)^(AssertionError|Exception|RuntimeError|TimeoutError|"
+        r"ValueError|KeyError|OSError):", output)
+    bitmaps = re.findall(
+        r"(?m)(?:valid_links|active_links)=0x([0-9a-fA-F]+) via MLO_STATUS:", output)
+    association_events = len(re.findall(r"CTRL-EVENT-CONNECTED", output))
+    return {
+        "exception_class": classes[-1] if classes else None,
+        "association_events": association_events,
+        "mlo_status_bitmaps": ["0x" + value.lower() for value in bitmaps[-4:]],
+        "failure_assertion": next((label for phrase, label in (
+            ("Unexpected valid links", "unexpected_valid_links"),
+            ("Unexpected active links", "unexpected_active_links"),
+            ("Unexpected dormant links", "unexpected_dormant_links"),
+            ("MLO_STATUS", "mlo_status_query_failed"),
+            ("did not connect", "association_failed"),
+        ) if phrase in output), None),
+    }
+
+
+def sanitized_summary(probe, results, ip_ping=None, diagnostics=None):
     """A summary with no identifiers or raw logs; NOT an HWSIM_PASS verdict."""
     if probe["status"] != "READY":
         state = "BLOCKED"
@@ -143,6 +165,7 @@ def sanitized_summary(probe, results, ip_ping=None):
             "first_failed_test": next((name for name, state in results.items()
                                        if state != "SMOKE_PASS"), None),
             "acceptance_v2": "NOT_PROVEN", "ip_ping": ip_ping,
+            "diagnostics": diagnostics or {},
             "note": "No per-link counter/failure-cycle evidence; not HWSIM_PASS"}
 
 
@@ -168,6 +191,7 @@ def run_tests(hostap_tree, output_dir, tests, fixture_source, sim_country=None):
         if result.returncode:
             raise RuntimeError("simulated VM regulatory setup failed")
     results = {}
+    diagnostics = {}
     ip_ping = None
     for test in tests:
         # Bound each test including hostap startup/stop; preserve raw output locally.
@@ -179,12 +203,14 @@ def run_tests(hostap_tree, output_dir, tests, fixture_source, sim_country=None):
         logfile.write_text(result.stdout, encoding="utf-8")
         results[test] = ("SMOKE_PASS" if completed_test(result.stdout, test,
                                                        result.returncode) else "FAILED")
+        if results[test] == "FAILED":
+            diagnostics[test] = sanitized_failure_diagnostics(result.stdout)
         if test == WIDE_TEST and results[test] == "SMOKE_PASS":
             ip_ping = parse_ip_ping_marker(result.stdout)
         if results[test] == "FAILED":
             # Stop at first failure instead of burning the CI job timeout.
             break
-    summary = sanitized_summary(probe, results, ip_ping)
+    summary = sanitized_summary(probe, results, ip_ping, diagnostics)
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     return summary
 

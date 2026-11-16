@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from scripts.cunit_mlo_hwsim_runner import (KNOWN_TESTS, completed_test,
                                             physical_wifi_present, sanitized_summary,
+                                            sanitized_failure_diagnostics,
                                             parse_ip_ping_marker,
                                             upstream_test_command, vm_probe)
 
@@ -77,6 +78,17 @@ class RunnerTests(unittest.TestCase):
                                         "eht_mld_link_removal": "FAILED"})
         self.assertEqual(summary["first_failed_test"], "eht_mld_link_removal")
         self.assertNotIn("raw_log", summary)
+
+    def test_failure_diagnostics_are_sanitized_and_actionable(self):
+        output = ("CTRL-EVENT-CONNECTED - Connection to 02:00:00:00:00:01\n"
+                  "valid_links=0x3 via MLO_STATUS: link_id=0\nfreq=2412\n"
+                  "Exception: Unexpected valid links (0x0000 != 0x0003)\n")
+        details = sanitized_failure_diagnostics(output)
+        self.assertEqual(details["exception_class"], "Exception")
+        self.assertEqual(details["association_events"], 1)
+        self.assertEqual(details["mlo_status_bitmaps"], ["0x3"])
+        self.assertEqual(details["failure_assertion"], "unexpected_valid_links")
+        self.assertNotIn("02:00:00", str(details))
 
     def test_missing_one_smoke_blocks(self):
         p = {'status':'READY','kernel':'test'}
