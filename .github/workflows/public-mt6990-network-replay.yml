@@ -1,0 +1,45 @@
+name: Public MT6990 NETSYS PHY PCS kernel patch replay
+on:
+  pull_request:
+    paths:
+      - 'scripts/apply-public-mt6990-kernel.py'
+      - 'configs/public-mt6990-sources.json'
+      - '.github/workflows/public-mt6990-network-replay.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-network:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Reuse pinned publicly redistributable texts
+        run: |
+          set -euo pipefail
+          python3 scripts/stage-public-mt6990-sources.py --output "$RUNNER_TEMP/public-source"
+      - name: Official Linux 6.18.63
+        run: |
+          set -euo pipefail
+          git clone -q --depth 1 --branch v6.18.63 \
+            https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git \
+            "$RUNNER_TEMP/linux"
+      - name: Replay MT6990 core plus Ethernet PHY PCS source patches
+        run: |
+          set -euo pipefail
+          python3 scripts/apply-public-mt6990-kernel.py \
+            --source-stage "$RUNNER_TEMP/public-source" \
+            --kernel-tree "$RUNNER_TEMP/linux" \
+            --scope network \
+            --receipt "$RUNNER_TEMP/network-receipt.json"
+          python3 - "$RUNNER_TEMP/network-receipt.json" <<'PY'
+          import json,sys
+          x=json.load(open(sys.argv[1]))
+          assert x["scope"]=="network"
+          assert x["status"]=="PUBLIC_KERNEL_PATCHES_APPLIED_NOT_BUILT"
+          assert len(x["patches"])==7
+          print("PUBLIC_MT6990_NETSYS_PHY_PCS_SOURCE_REPLAY_PASS_NOT_HW_TESTED")
+          PY
+      # No binary artifacts, no signing, no physical device write.
