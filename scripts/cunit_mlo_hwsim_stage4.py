@@ -58,6 +58,25 @@ def phase_markers(output: str) -> dict:
     }
 
 
+def classify_startup_errors(output: str) -> dict:
+    """Predefined categories only: never publish raw commands, paths or MACs."""
+    patterns = {
+        "hwsim_module_load": r"(?:modprobe: FATAL|mac80211_hwsim.*(?:failed|error|not found))",
+        "permission_denied": r"(?:Operation not permitted|Permission denied)",
+        "device_busy": r"(?:Device or resource busy|already in use)",
+        "missing_command_or_file": r"(?:command not found|No such file or directory)",
+        "invalid_kernel_parameter": r"(?:Invalid argument|unknown parameter)",
+        "supplicant_start": r"(?:wpa_supplicant.*(?:failed|error)|Failed to start wpa_supplicant)",
+        "hostapd_start": r"(?:hostapd.*(?:failed|error)|Failed to start hostapd)",
+        "rfkill": r"(?:rfkill.*(?:failed|error|blocked))",
+        "netlink": r"(?:nl80211.*(?:failed|error)|netlink.*(?:failed|error))",
+    }
+    return {"error_classes": sorted(
+        name for name, pattern in patterns.items()
+        if re.search(pattern, output, flags=re.IGNORECASE)
+    ), "output_lines": len(output.splitlines())}
+
+
 def execute_phase(name: str, args: list[str], *, cwd: Path, out: Path,
                   seconds: int, env: dict[str, str]) -> tuple[int, str, dict]:
     """Kill a whole descendant process group on timeout, not just its shell."""
@@ -189,11 +208,14 @@ def run_isolated(hostap_tree: Path, output_dir: Path, tests: list[str],
                 "start", [str(suite / "start.sh"), "channels=2"],
                 cwd=suite, out=output_dir, seconds=PHASE_TIMEOUTS["start"], env=env)
             phases.append(info)
+            info["post_start_inventory"] = virtual_runtime_inventory()
             if rc == 0:
                 started = True
-                info["post_start_inventory"] = virtual_runtime_inventory()
             else:
-                diagnostics["start"] = common.sanitized_failure_diagnostics(output, rc)
+                diagnostics["start"] = {
+                    **common.sanitized_failure_diagnostics(output, rc),
+                    **classify_startup_errors(output),
+                }
         if started:
             rc, output, info = execute_phase(
                 "baseline", [str(suite / "run-tests.py"), "-D", "-q",
