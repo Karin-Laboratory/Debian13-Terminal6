@@ -109,6 +109,12 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
                 raise ValueError("unresolved duplicate MT6990 donor source definition")
             skipped_duplicates.append(p)
             continue
+        if p == "974-net-pcs-mtk-lynxi-add-mt6990-variant.patch":
+            subprocess.run([sys.executable,
+                            str(Path(__file__).with_name("port-public-mt6990-pcs.py")),
+                            "--source-stage", str(stage),
+                            "--kernel-tree", str(kernel)], check=True)
+            continue
         patch_text = source.read_text()
         if p == "823-mmc-mtk-sd-add-mt6990-compatible.patch":
             # The donor's third hunk forces an LG6851F fixed-rail OCR.
