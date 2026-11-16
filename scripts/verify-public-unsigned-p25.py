@@ -17,6 +17,7 @@ import struct
 
 PARTITION_SIZE = 33554432
 PAGE = 2048
+REQUIRED_FREE_TAIL = 8192 + 262144  # Match producer safety margin.
 MAGIC = b"ANDROID!"
 FDT = bytes.fromhex("d00dfeed")
 
@@ -52,13 +53,13 @@ def check(p25: bytes, image: bytes, bare_dtb: bytes, cpio: bytes,
         fail("source FDT invalid")
     kstart = PAGE
     kend = kstart + kernel_size
-    if not 0 < kernel_size < PARTITION_SIZE // 2:
+    if not 0 < kernel_size < PARTITION_SIZE - PAGE - REQUIRED_FREE_TAIL:
         fail("kernel compressed size bound")
     if gzip.decompress(p25[kstart:kend]) != image:
         fail("kernel decompression/readback mismatch")
     dtoff = PAGE + ((kernel_size + PAGE - 1) // PAGE) * PAGE
     dtlen = struct.unpack_from("<I", p25, 1648)[0]
-    if dtlen != len(bare_dtb)+64 or dtoff + dtlen > PARTITION_SIZE:
+    if dtlen != len(bare_dtb)+64 or dtoff + dtlen > PARTITION_SIZE - REQUIRED_FREE_TAIL:
         fail("DTB section bounds")
     table = p25[dtoff:dtoff+dtlen]
     head = struct.unpack_from(">8I", table)
