@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - codex/cunit-80211s-independent-peer-phase4-20261116
+      - integration/cunit-wifi-mesh-mlo-20261116
     paths:
       - .github/workflows/cunit-80211s-phase4-independent-peer.yml
       - scripts/mesh_peer_autorejoin.py

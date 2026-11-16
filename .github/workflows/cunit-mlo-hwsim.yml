@@ -5,6 +5,7 @@ on:
     branches:
       - codex/cunit-mlo-radio-map-20261115
       - codex/cunit-mlo-actions-replay-20261116
+      - integration/cunit-wifi-mesh-mlo-20261116
     paths:
       - scripts/cunit_mlo_hwsim_runner.py
       - scripts/cunit_mlo_hwsim_stage4.py
