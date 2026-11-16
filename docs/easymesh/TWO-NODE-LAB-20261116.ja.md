@@ -38,6 +38,15 @@ python3 packaging/easymesh/run-easymesh-two-node-lab.py \
   --output <new-private-directory> --duration 60 --outage 45 --execute
 ~~~
 
+ControllerデータベースのAgent登録・喪失・再登録も検証したい場合は、対応するcontroller image内の取得コマンドを次のように渡す。CLIの実行ファイル・構文・出力が利用できることを事前に確認し、プライベートな実MACは公開しない。
+
+~~~sh
+# 例：イメージにbeerocks_cliが実在し、map出力にAL MACが含まれる場合
+--controller-db-command 'beerocks_cli -c bml_conn_map'
+~~~
+
+この指定がない場合、PCAPからwire topologyの復帰は確認できても、**Controller DBとAgent喪失検出の合格判定は必ずfalse**となる。指定した場合は初回・Agent停止後・復帰後の3スナップショットを比較し、初回と復帰後にAgent AL MACが存在し、停止後には存在しないことを要求する。CLIが応答しない・AL MACが見つからない場合も未合格とする。
+
 本runnerはDocker内専用internal bridge、Controller+Agentコンテナと独立Agentコンテナを使う。**capture開始後に各プロセスを起動**し、Agent停止→停止中capture→Agent再起動前にcapture開始→復帰後topologyを再検証。--executeなしでは何も作らない。--privilegedは使用せず、NET_RAW/NET_ADMINをコンテナ内部のみに付与する。終了時は自分が作った2コンテナとネットワークのみ削除し、既存のDocker環境・ホスト管理IFを変更しない。
 
 3つの生PCAPとverdict.jsonは新規0700プライベートディレクトリへ保存する。生PCAP、MACを含むログ、秘密、認証情報はGitHubに公開しない。
