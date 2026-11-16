@@ -83,6 +83,11 @@
       "source": "scripts/lg6851f_mkbootimg_v2.py",
       "destination": "tools/public-donor/lg6851f_mkbootimg_v2.py",
       "git_blob_sha1": "00e2abd7f1aa427145ab547587702f349ecc789c"
+    },
+    {
+      "source": "target/linux/mediatek/patches-6.18/0956-clk-mediatek-add-real-hwv-only-mux-ops.patch",
+      "destination": "patches/0956-clk-mediatek-add-real-hwv-only-mux-ops.patch",
+      "git_blob_sha1": "dc68bf5e2cc32ddf7830d07f0560ddfd038d35cd"
     }
   ]
 }
