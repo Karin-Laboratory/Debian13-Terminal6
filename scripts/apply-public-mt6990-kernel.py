@@ -82,6 +82,28 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, target)
         copies.append(destination)
+    safety_patch = None
+    if scope == "network":
+        # Local pinned copy of the already-public Air6 Test24 safety delta.
+        # The donor analog PHY's reset must NEVER power-cycle the shared
+        # SGMII_TOP domain under DSA/PCS or a second live SerDes consumer.
+        safe = (Path(__file__).resolve().parents[1]
+                / "patches/mt6990/0002-air6-avoid-sgmii-top-cycle.patch")
+        data = safe.read_bytes()
+        blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\\0" + data).hexdigest()
+        if blob != "031a2d4837b7166000afcc868d05b8282e9fa5db":
+            raise ValueError("public Air6 SGMII safety patch SHA mismatch")
+        for arg in ("--check",):
+            result = subprocess.run(["git", "-C", str(kernel), "apply", arg, str(safe)],
+                                    capture_output=True, text=True)
+            if result.returncode:
+                raise RuntimeError("public Air6 SGMII safety patch not applicable: "
+                                   + result.stderr[-1200:])
+        subprocess.run(["git", "-C", str(kernel), "apply", str(safe)], check=True)
+        source = (kernel/"drivers/phy/mediatek/phy-mtk-mt6990-sgmii.c").read_text()
+        if "mt6990_sgmii_top_cycle(" in source:
+            raise ValueError("destructive shared SGMII_TOP reset remains in public source")
+        safety_patch = str(safe.relative_to(Path(__file__).resolve().parents[1]))
     patches = CORE_PATCHES + (NETWORK_PATCHES if scope == "network" else [])
     skipped_duplicates = []
     for p in patches:
@@ -133,6 +155,7 @@ def apply(stage: Path, kernel: Path, scope: str) -> dict:
             "status": "PUBLIC_KERNEL_PATCHES_APPLIED_NOT_BUILT",
             "copied_source_files": copies, "patches": patches,
             "skipped_duplicate_patches": skipped_duplicates,
+            "public_air6_sgmii_no_top_cycle_patch": safety_patch,
             "kernel_git_revision": subprocess.check_output(
                 ["git", "-C", str(kernel), "rev-parse", "HEAD"], text=True).strip()}
 
