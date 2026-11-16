@@ -9,9 +9,18 @@ import unittest
 from unittest.mock import patch
 
 from scripts import cunit_mlo_hwsim_stage4 as stage
+from scripts.hwsim.prepare_mlo_ci_startup import disable_optional_dbus
 
 
 class Stage4Tests(unittest.TestCase):
+    def test_pinned_upstream_optional_dbus_isolated_without_modifying_others(self):
+        text = 'if [ $i = "0" ]; then\\n DBUSARG="-u"\\nfi\\n'
+        result = disable_optional_dbus(text)
+        self.assertIn('DBUSARG=""', result)
+        self.assertNotIn('DBUSARG="-u"', result)
+        with self.assertRaises(ValueError):
+            disable_optional_dbus('DBUSARG="-u"')
+
     def test_phase_markers_contain_no_identifiers(self):
         sample = ("START eht_mld_owe_two_links 1/1\n"
                   "CTRL-EVENT-CONNECTED - aa:bb:cc:dd:ee:ff\n"
