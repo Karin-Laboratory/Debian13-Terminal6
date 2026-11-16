@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-16
+
+- Added a sanitized, non-mutating C-unit STA verification helper for per-band association/security, gateway ping, DNS, route invariance, link counters, and optional owner-managed iperf3 measurement.
+- Added an explicit transient reconnect option guarded by the wired management default route; no C-unit changes or live Wi-Fi tests were performed because authorized C SSH authentication was unavailable and the UART broker was already active.
+- Recorded exact next gates for WPA3 STA/AP, reconnect, reboot recovery, and independent AP client validation without overstating the existing STA/AP evidence.
+
 ## 2026-11-14
 
 - Recorded live C-unit Debian 13 hardware inventory, driver/API mapping, Device Tree census, unknown candidates, radio findings and OpenWrt comparison.
