@@ -60,3 +60,11 @@ python3 packaging/easymesh/run-easymesh-two-node-lab.py \
 **最初の失敗箇所を最優先で追跡**。 `No backends specified` が残れば、moduleのelf arch・依存ライブラリ・コンパイル済み `AMBIORIX_BACKEND_PATH`・ubusd socketを順に調べる。Agentがretryならprivate DBの `wireless_interface_0..3` とLinux netdev実在・control socketを照合する。1905が0なら `br-lan`/ `eth0` 実bridge membership、upstream設定のuntracked interface表示、送信側netns内のPCAPを検査し、**キャプチャ経路不一致と送信ゼロを区別**する。
 
 C号機・A号機・raspi4、PR #13、mainへの書込み・mergeは禁止。今回のhost試験の合格はwire成功とは別。PR #13へは本Draft PR #17の差分・証拠だけを引き渡す。
+
+## 今回のGitHub Actions検証
+
+- [EasyMesh host checks #43808042771](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808042771)：独立ブランチ `5c83e220` で **147/147 unittest PASS**、Python compileおよびshell syntax、tracked text whitespace checks PASS。
+- 新規追加した検査はprivate Controller/Agent DBの権限・隔離コピー、AMXRT/UBus明示起動、radio index 2/3の必須mapping、Agent再起動のcompile prefix保持。既存C号機preflightの「実機radioは2個まで」という防御的制限は変更していない。追加2slotはラボ側のprivate DBでだけ指定する。
+- これらはすべてPython/mockや構文検査。**prplMesh daemon実起動、AMXRT backend実ロード、1905 packet/Topology、Controller DBの更新、Agent復旧はこのrunでは実行していない。** それらは`NOT_PROVEN`のまま。
+- ChatGPTの本実行コンテナにはDockerとCAP_NET_ADMIN、対応する非公開ビルドstageがないため、2-node環境をここで起動することはできない。前回のprivate QEMU/ARM64 2-node attemptの **FAIL** を新しい成功と読み替えない。
+- 残された実行上の分岐：backendが初めてロードできるか → 2つの実prplMeshプロセス群の起動 → 実0x893a → Query/Response MID → DB初回登録/喪失/復帰。各失敗はprivateログから最初の故障点を追跡する。CIを緑にすることだけを完了条件にしない。
