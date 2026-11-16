@@ -40,10 +40,14 @@ jobs:
           test -x "$RUNNER_TEMP/wmediumd/wmediumd/wmediumd"
       - name: Execute A-B-C HWMP and B failure/recovery
         run: |
+          set -euo pipefail
           sudo env PATH="$RUNNER_TEMP/wmediumd/wmediumd:$PATH" \
             timeout --signal=TERM --kill-after=5s 420 \
             bash scripts/run_80211s_hwsim_3node.sh \
             | tee "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
+          grep -qx 'HWSIM_B_RECOVERY_HWMP=PASS' "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
+          grep -qx 'HWSIM_HWMP_AC_VIA_B=PASS' "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
+          grep -qx 'HWSIM_3NODE_BIDIRECTIONAL_IP=PASS' "$RUNNER_TEMP/cunit-80211s-3node-results.txt"
       - name: Upload sanitized result summary
         if: always()
         uses: actions/upload-artifact@v4
