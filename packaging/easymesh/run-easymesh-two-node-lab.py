@@ -166,6 +166,18 @@ def wait_for_processes(container: str, expected: tuple[str, ...], *, seconds: fl
         time.sleep(0.5)
 
 
+def save_private_docker_log(container: str, path: Path) -> None:
+    """Best-effort private startup evidence before --rm destroys a container."""
+    try:
+        proc = subprocess.run(["docker", "logs", "--tail", "1000", container],
+                              capture_output=True, text=True, timeout=15, check=False)
+        if proc.returncode == 0:
+            path.write_text(proc.stdout + proc.stderr)
+            path.chmod(0o600)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
 def running_elf_names(container: str) -> set[str]:
     """Inspect the actual /proc executable targets, not names in ps arguments."""
     listing = command(["docker", "exec", container, "sh", "-c",
@@ -286,6 +298,7 @@ def lab(args) -> dict:
             result["controller_database_initial"] = agent_in_controller_db(
                 controller, args.controller_db_command, agent_al)
 
+        save_private_docker_log(agent, args.output / "agent-before-stop.docker.log")
         command(["docker", "stop", agent], timeout=25)
         resources["agent"] = False
         if not container_running(controller):
@@ -330,6 +343,7 @@ def lab(args) -> dict:
     finally:
         for name, key in ((agent, "agent"), (controller, "controller")):
             if resources[key]:
+                save_private_docker_log(name, args.output / f"{key}-final.docker.log")
                 try:
                     command(["docker", "stop", name], timeout=25)
                 except LabError:
