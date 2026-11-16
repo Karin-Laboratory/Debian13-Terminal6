@@ -62,6 +62,7 @@ def audit(data: bytes) -> dict:
     evidence = defaultdict(set)
     totals = Counter()
     for payload in frames_from_pcap(data):
+        totals["all_frames"] += 1
         if len(payload) < 26:
             continue
         fc = int.from_bytes(payload[:2], "little")
@@ -73,6 +74,14 @@ def audit(data: bytes) -> dict:
                 totals["sae_auth"] += 1
                 evidence["sae_auth"].add(source)
         if kind == 0 and subtype == 13 and len(payload) >= 48:
+            # Categorical diagnostics are counts only: never disclose raw
+            # addresses, frame bytes, passphrases, keys or packet payloads.
+            totals["action_frames"] += 1
+            totals["action_category_" + str(payload[24])] += 1
+            if payload[24] == 15:
+                totals["self_protected_action_" + str(payload[25])] += 1
+                if payload.find(b"\\x4c\\x10", 26) != -1:
+                    totals["self_protected_mic_markers"] += 1
             # IEEE 802.11 Self-protected category=15, Mesh Peer Open/Confirm.
             if payload[24] == 15 and payload[25] in (1, 2):
                 # EID_MIC=76, len=16; following body is AES-SIV ciphertext.
@@ -117,6 +126,9 @@ def main() -> int:
         return 1
     for key, passed in report["checks"].items():
         print(f"HWSIM_{key}={'PASS' if passed else 'FAIL'}")
+    for key, number in sorted(report["frame_counts"].items()):
+        if key.startswith(("action_", "self_protected_")) or key == "all_frames":
+            print(f"HWSIM_CAPTURE_COUNT_{key.upper()}={number}")
     print("HWSIM_AMPE_CRYPTOGRAPHIC_MIC_VALIDATION=NOT_INDEPENDENTLY_PERFORMED")
     print("HWSIM_PCAP_AUDIT=" + ("PASS" if report["pass"] else "FAIL"))
     if args.output:
