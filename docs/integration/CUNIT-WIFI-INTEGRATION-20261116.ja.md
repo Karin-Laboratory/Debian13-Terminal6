@@ -14,7 +14,7 @@
 
 競合は`.gitignore`と`CHANGELOG.md`のみ。除外規則は統合し、履歴説明は各PRの内容を残して解決した。既存PRは閉じず、mainへはマージしていない。
 
-統合PR作成後にPR #11へ追加された上記HEADも統合ブランチへ取り込んだ。PR #13の初回`host-tests`はrun `43789317941`でPASS。統合ブランチ上の後続ソース再生・ビルド変更はpush後のCIで再確認する。
+統合PR作成後にPR #11へ追加された上記HEADも統合ブランチへ取り込んだ。PR #13の初回`host-tests`はrun `43789317941`でPASS。後続コミットを含む統合branchのrun `43794474355`もPASS。
 
 ## 現在のC号機ベースライン
 
@@ -41,7 +41,7 @@
 
 ## CIとhost検証
 
-- 統合後のunittestは137件PASS。`compileall`、mesh/EasyMesh shell syntaxもPASS。最初の実行は環境の`/tmp/.git`をテストが実checkoutと誤認したため、`TMPDIR=/var/tmp`で再実行してPASS。
+- 統合後のunittestは138件PASS。`compileall`、mesh/EasyMesh shell syntaxもPASS。最初の実行は環境の`/tmp/.git`をテストが実checkoutと誤認したため、`TMPDIR=/var/tmp`で再実行してPASS。
 - 802.11s: run [43787300664](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43787300664) の3独立VM trialは全てPASS。これはhwsimでの**assisted** mesh rejoinとA↔C IPのみ。automatic recoveryは同試験記録でFAIL、AMPE frame protectionとC号機RFは未検証。PR #11 host checks [43787667492](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43787667492) PASS。
 - EasyMesh: PR #12 host checks [43787213765](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43787213765) PASS (24 testsを記録)。ARM64 build/ELF loader auditはhost成果で、C号機process起動や1905 packetの実測ではない。
 - MLO: run [43785577376](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43785577376) はhwsim実行段階でcancelled。直前の完了run [43786976450](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43786976450) は`eht_mld_owe_two_links`でFAILし、5/6GHz 160MHz fixtureは実行されなかった。現在のPR #10 HEAD `a3789dff…`に対するActions runは見つからず、受入PASSとはしない。
