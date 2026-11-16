@@ -66,7 +66,7 @@ def stage_architecture(root: Path) -> str:
     machines = set()
     for binary in ("beerocks_agent", "beerocks_controller", "ieee1905_transport"):
         result = command(["readelf", "-h", str(root / "bin" / binary)])
-        match = re.search(r"(?m)^\\s*Machine:\\s*(.+?)\\s*$", result)
+        match = re.search(r"(?m)^\s*Machine:\s*(.+?)\s*$", result)
         if not match:
             raise LabError("ELF machine unavailable from staged prplMesh binary")
         machines.add(match.group(1))
