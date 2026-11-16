@@ -6,6 +6,8 @@ import argparse
 import importlib.util
 import json
 import os
+import re
+import shlex
 from pathlib import Path
 import secrets
 import shutil
@@ -101,6 +103,34 @@ def container_running(name: str) -> bool:
     return command(["docker", "inspect", "--format", "{{.State.Running}}", name]) == "true"
 
 
+def wait_for_processes(container: str, expected: tuple[str, ...], *, seconds: float = 10) -> bool:
+    """Assert actual prplMesh processes exist, not merely a running container."""
+    end = time.monotonic() + seconds
+    while True:
+        try:
+            listing = command(["docker", "top", container, "-eo", "args"])
+            lines = listing.splitlines()[1:]
+            found = all(any(re.search(r"(?:^|[/\s])" + re.escape(name) + r"(?:\s|$)", line)
+                            for line in lines) for name in expected)
+            if found:
+                return True
+        except LabError:
+            pass
+        if time.monotonic() >= end:
+            return False
+        time.sleep(0.5)
+
+
+def agent_in_controller_db(controller: str, cli_args: str, agent_al: bytes) -> bool:
+    """Check a fresh controller query, never report the raw topology or MAC."""
+    argv = shlex.split(cli_args)
+    if not argv or argv[0].startswith("-"):
+        raise LabError("invalid controller DB query command")
+    snapshot = command(["docker", "exec", controller, *argv], timeout=20)
+    captured = re.findall(r"(?i)\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b", snapshot)
+    return agent_al in [bytes.fromhex(mac.replace(":", "").replace("-", "")) for mac in captured]
+
+
 def lab(args) -> dict:
     if not args.execute:
         raise LabError("explicit --execute is required before creating lab resources")
@@ -127,6 +157,12 @@ def lab(args) -> dict:
         "environment": "dedicated-container-lab",
         "network_isolation": "docker-internal",
         "real_prplmesh_binary_confirmed": False,
+        "controller_processes_running": False,
+        "agent_processes_running": False,
+        "controller_database_initial": False,
+        "controller_database_after_agent_stop": None,
+        "controller_database_after_agent_restart": False,
+        "wire_topology_reestablished_after_restart": False,
         "controller_database_verified": False,
         "agent_loss_detection_verified": False,
         "node_recovery_verified": False,
@@ -145,32 +181,57 @@ def lab(args) -> dict:
             resources["agent"] = True
             if not (container_running(controller) and container_running(agent)):
                 raise LabError("at least one node stopped before initial capture")
+            result["controller_processes_running"] = wait_for_processes(
+                controller, ("ieee1905_transport", "beerocks_controller", "beerocks_agent"))
+            result["agent_processes_running"] = wait_for_processes(
+                agent, ("ieee1905_transport", "beerocks_agent"))
+            if not (result["controller_processes_running"] and result["agent_processes_running"]):
+                raise LabError("prplMesh processes not observed in both independent nodes")
 
         capture(bridge, args.output / "initial.ieee1905.pcap", args.duration,
                 during_capture=start_pair)
         first = assess_capture(args.output / "initial.ieee1905.pcap", ctrl_al, agent_al)
         result["baseline_wire_topology"] = first["wire_topology_exchange"]
         result["baseline_message_types"] = first["message_type_counts"]
+        if args.controller_db_command:
+            result["controller_database_initial"] = agent_in_controller_db(
+                controller, args.controller_db_command, agent_al)
 
         command(["docker", "stop", agent], timeout=25)
         resources["agent"] = False
         if not container_running(controller):
             raise LabError("controller exited during agent outage")
         capture(bridge, args.output / "agent-stopped.ieee1905.pcap", args.outage)
+        if args.controller_db_command:
+            result["controller_database_after_agent_stop"] = agent_in_controller_db(
+                controller, args.controller_db_command, agent_al)
 
         def restart_agent():
             run_container(agent, network, args.agent_image, "start-agent")
             resources["agent"] = True
-            if not container_running(agent):
-                raise LabError("agent failed to restart")
+            if not container_running(agent) or not wait_for_processes(
+                    agent, ("ieee1905_transport", "beerocks_agent")):
+                raise LabError("agent process failed to restart")
 
         capture(bridge, args.output / "agent-restarted.ieee1905.pcap", args.duration,
                 during_capture=restart_agent)
         resumed = assess_capture(args.output / "agent-restarted.ieee1905.pcap", ctrl_al, agent_al)
         result["post_restart_wire_topology"] = resumed["wire_topology_exchange"]
         result["post_restart_message_types"] = resumed["message_type_counts"]
-        result["node_recovery_verified"] = result["baseline_wire_topology"] and result["post_restart_wire_topology"]
-        # Wire observations alone are NOT proof of controller DB updates or Agent loss detection.
+        result["wire_topology_reestablished_after_restart"] = (
+            result["baseline_wire_topology"] and result["post_restart_wire_topology"])
+        if args.controller_db_command:
+            result["controller_database_after_agent_restart"] = agent_in_controller_db(
+                controller, args.controller_db_command, agent_al)
+            result["controller_database_verified"] = (
+                result["controller_database_initial"] and result["controller_database_after_agent_restart"])
+            result["agent_loss_detection_verified"] = (
+                result["controller_database_initial"] and
+                result["controller_database_after_agent_stop"] is False)
+            result["node_recovery_verified"] = (
+                result["wire_topology_reestablished_after_restart"] and
+                result["controller_database_verified"] and result["agent_loss_detection_verified"])
+        # No DB command means DB and loss detection remain explicitly NOT VERIFIED.
         return result
     finally:
         for name, key in ((agent, "agent"), (controller, "controller")):
@@ -193,6 +254,7 @@ def main() -> int:
     ap.add_argument("--controller-al", required=True)
     ap.add_argument("--agent-al", required=True)
     ap.add_argument("--output", type=Path, required=True)
+    ap.add_argument("--controller-db-command", help="optional in-container CLI command, e.g. beerocks_cli -c bml_conn_map")
     ap.add_argument("--duration", type=int, default=60)
     ap.add_argument("--outage", type=int, default=45)
     ap.add_argument("--execute", action="store_true", help="permit temporary Docker network/containers")
