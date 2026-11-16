@@ -1,0 +1,97 @@
+name: Public Terminal6 full35 feature-restored P25
+on:
+  push:
+    branches:
+      - codex/terminal6-full35-p25-20261117
+    paths:
+      - '.github/workflows/terminal6-full35-p25.yml'
+      - 'scripts/build-linux-6.18.sh'
+      - 'scripts/configure-terminal6-full35.sh'
+      - 'scripts/configure-terminal6-lean.sh'
+      - 'scripts/verify-kconfig.py'
+      - 'tests/test_terminal6_full35_config.py'
+      - 'scripts/assemble-template-free-p25.py'
+      - 'scripts/verify-public-unsigned-p25.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: terminal6-full35-p25-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  full35:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Offline Kconfig contract unit tests
+        run: |
+          python3 -m unittest discover -s tests -p 'test_terminal6_full35_config.py' -v
+          python3 -m unittest discover -s tests -p 'test_terminal6_lean_config.py' -v
+      - name: Install native ARM64 compiler and source dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq flex bison libssl-dev libelf-dev bc device-tree-compiler busybox-static cpio
+          test "$(uname -m)" = aarch64
+      - name: Prepare identical public MT6990 network source, DTB and P44 initramfs
+        shell: bash
+        run: |
+          set -euo pipefail
+          TERMINAL6_REPRODUCIBLE_INITRAMFS=1 SOURCE_DATE_EPOCH=0 \
+            bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-full35-initramfs.cpio.gz"
+          TERMINAL6_REPRODUCIBLE_INITRAMFS=1 SOURCE_DATE_EPOCH=0 \
+            bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-full35-initramfs-repeat.cpio.gz"
+          cmp "$RUNNER_TEMP/p44-full35-initramfs.cpio.gz" "$RUNNER_TEMP/p44-full35-initramfs-repeat.cpio.gz"
+          bash scripts/stage-experimental-dtb.sh "$RUNNER_TEMP/full35-dtb"
+          python3 scripts/stage-public-mt6990-sources.py --output "$RUNNER_TEMP/full35-public-stage"
+          echo FULL35_PUBLIC_INPUTS_STAGED_NO_PRIVATE_FIRMWARE
+      - name: Compile Linux ARM64 Image and matching driver module archive with strict size gate
+        shell: bash
+        env:
+          KERNEL_PROFILE: terminal6-full35
+          PUBLIC_MT6990_SCOPE: network
+          JOBS: 4
+        run: |
+          set -euo pipefail
+          export PUBLIC_MT6990_STAGE="$RUNNER_TEMP/full35-public-stage"
+          export WORKDIR="$RUNNER_TEMP/full35-linux"
+          export INITRAMFS_ARCHIVE="$RUNNER_TEMP/p44-full35-initramfs.cpio.gz"
+          export DTB_PATH="$RUNNER_TEMP/full35-dtb/board/terminal6-debian-ethernet-experimental.dtb"
+          if ! bash scripts/build-linux-6.18.sh > "$RUNNER_TEMP/full35-compile.log" 2>&1; then
+            echo FULL35_KERNEL_BUILD_FAIL
+            tail -180 "$RUNNER_TEMP/full35-compile.log"
+            exit 1
+          fi
+          grep -E 'DEBIAN_T6_|TERMINAL6_|PUBLIC_MT6990_' "$RUNNER_TEMP/full35-compile.log" | tail -40
+          wc -c "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/terminal6-lean-modules.tar"
+          cat "$WORKDIR/output/SHA256SUMS"
+          test "$(stat -c %s "$WORKDIR/output/Image")" -le 36700160
+          grep -q '^CONFIG_KVM=y$' "$WORKDIR/output/kernel.config"
+          grep -q '^CONFIG_MT7996E=m$' "$WORKDIR/output/kernel.config"
+          echo FULL35_IMAGE_AND_DRIVER_CONFIGURATION_ACCEPTANCE_PASS
+      - name: Manufacture and independently read back 32MiB unsigned P25
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/assemble-template-free-p25.py \
+            --source-stage "$RUNNER_TEMP/full35-public-stage" \
+            --profile "$GITHUB_WORKSPACE/configs/public-air6-boot-v2-profile.json" \
+            --kernel-image "$RUNNER_TEMP/full35-linux/output/Image" \
+            --initramfs-cpio-gz "$RUNNER_TEMP/p44-full35-initramfs.cpio.gz" \
+            --dtb "$RUNNER_TEMP/full35-dtb/board/terminal6-debian-ethernet-experimental.dtb" \
+            --output "$RUNNER_TEMP/full35-p25"
+          python3 scripts/verify-public-unsigned-p25.py \
+            --p25 "$RUNNER_TEMP/full35-p25/p25-unsigned.img" \
+            --kernel-image "$RUNNER_TEMP/full35-linux/output/Image" \
+            --initramfs-cpio-gz "$RUNNER_TEMP/p44-full35-initramfs.cpio.gz" \
+            --dtb "$RUNNER_TEMP/full35-dtb/board/terminal6-debian-ethernet-experimental.dtb" \
+            --profile "$GITHUB_WORKSPACE/configs/public-air6-boot-v2-profile.json" \
+            --receipt "$RUNNER_TEMP/full35-p25/p25-receipt.json"
+          test "$(stat -c %s "$RUNNER_TEMP/full35-p25/p25-unsigned.img")" = 33554432
+          sha256sum "$RUNNER_TEMP/full35-p25/p25-unsigned.img"
+          echo FULL35_PUBLIC_UNSIGNED_P25_32M_INDEPENDENT_READBACK_PASS
+          echo UNSIGNED_NO_PRIVATE_KEYS_LK_NOT_BOOT_VALIDATED
+      # Never upload owner-private firmware, calibration or images publicly.
