@@ -11,6 +11,12 @@ for tool in git make python3 sha256sum; do command -v "$tool" >/dev/null; done
 git clone --depth 1 --branch "v$VERSION" https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git "$WORKDIR"
 cd "$WORKDIR"
 test "$(make -s kernelversion)" = "$VERSION"
+if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
+  python3 "$ROOT/scripts/apply-public-mt6990-kernel.py" \
+    --source-stage "$PUBLIC_MT6990_STAGE" \
+    --kernel-tree "$WORKDIR" --scope "${PUBLIC_MT6990_SCOPE:-core}" \
+    --receipt "$WORKDIR/public-mt6990-kernel-inputs.json"
+fi
 if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
   make ARCH=arm64 tinyconfig
   scripts/config --enable ARM64 --enable MMU --enable SMP \
@@ -23,6 +29,9 @@ if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
     --enable MODULES --enable MODULE_UNLOAD
 else
   make ARCH=arm64 defconfig
+fi
+if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
+  scripts/config --enable COMMON_CLK_MT6990 --enable ARCH_MEDIATEK
 fi
 scripts/config --enable PRINTK --enable PRINTK_TIME --enable BINFMT_ELF \
   --enable BINFMT_SCRIPT --enable ARM_GIC --enable ARM_GIC_V3 \
@@ -72,4 +81,8 @@ if [[ -n "${DTB_PATH:-}" ]]; then
   (cd "$WORKDIR/output" && sha256sum terminal6-debian-experimental.dtb) >> "$WORKDIR/output/SHA256SUMS"
 fi
 printf '%s\n' LINUX_IMAGE_BUILT_ONLY NOT_A_TERMINAL6_BOOT_IMAGE BOARD_DTB_UNVERIFIED P25_PACKAGING_UNVERIFIED > "$WORKDIR/output/STATUS.txt"
+if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
+  cp "$WORKDIR/public-mt6990-kernel-inputs.json" "$WORKDIR/output/public-mt6990-kernel-inputs.json"
+  echo "PUBLIC_MT6990_STABLE_KERNEL_SOURCE_REPLAY_AND_BUILD_APPLIED; LK/board not verified"
+fi
 echo "ARM64_IMAGE_BUILT_WITH_OPTIONAL_P44_INITRAMFS; LK/DTB hardware compatibility not established"
