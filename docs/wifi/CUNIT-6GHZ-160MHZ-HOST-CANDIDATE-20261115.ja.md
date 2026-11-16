@@ -1,11 +1,11 @@
-# C-unit 6 GHz / 160 MHz candidate (host-only)
+# C-unit 6 GHz / 160 MHz implementation candidate
 
 Date: 2026-11-15
 
 ## State
 
 - Kernel patch `patches/0002-mt7996-cunit-6ghz-cap-160mhz-no320.patch` removes the MT7996-family driver's 6 GHz EHT 320 MHz capability advertisement and 320 MHz MCS/NSS and AP MU capability fields. The 80/160 MHz EHT capability fields remain.
-- Host module build completed for ARM64 against the staged Linux 6.18.63 source/config, which already contains PR #9’s OTP calibration merge, EFUSE timeout, and EEPROM upload error handling. Thus the host-built module compiles those fixes together with the 320 MHz suppression. `mt7996e-160mhz-no320-hostbuild.ko` is a host build artifact only; it has not been signed, deployed, loaded, or tested on C-unit.
+- ARM64 module build completed against the staged Linux 6.18.63 source/config, including PR #9’s OTP calibration merge, EFUSE timeout, and EEPROM upload error handling. The `mt7996e-160mhz-no320-hostbuild.ko` artifact was applied to C-unit on 2026-11-16, loaded successfully, and confirmed after a normal reboot. Runtime `iw phy` retains 160 MHz capability and no longer advertises EHT 320 MHz. This is capability/configuration evidence only; no 6 GHz RF transmission or client link was attempted.
 - `hostapd-6ghz-160mhz.example.conf` is a placeholder-only configuration. It uses Japan operating class 134, primary channel 33 (6115 MHz), and center frequency index 47 (6185 MHz), which corresponds to a 160 MHz allocation 6105–6265 MHz. The MIC Information and Communications Council public-comment draft for standard-power (SP) operation lists 6185 MHz among lower-band 160 MHz center frequencies. Because that document is a draft for SP, it is only a channel-plan cross-check, not authority for this C-unit LPI device. The selected 160 MHz span is 6105–6265 MHz, inside both the 5925–6425 MHz Japanese low band and the A775 / 020-240075 certificate record’s 5955–6415 MHz frequency interval; the exact C-unit label/certificate and operating conditions remain unverified.
 - The config requires SAE and PMF and encodes AP type 0 (indoor AP/LPI in hostapd 2.12). This is a candidate value only: do not start it until the exact C-unit label/certification and indoor installation are verified.
 - No 6 GHz RF transmission has been attempted. The 2026 MIC report cited below is explicitly a draft on SP conditions and does not itself clear this device for transmission.
@@ -14,17 +14,19 @@ Date: 2026-11-15
 ## Verification performed
 
 - ARM64 module compilation: `make -C work/wifi/build/kernel ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- M=drivers/net/wireless/mediatek/mt76/mt7996 modules` — PASS; modpost emitted a missing `MODULE_DESCRIPTION()` warning. Host module SHA256: `512937107627c2fcd075d8a36cf2573d024f3e3d9da94a741650071f04527990` (artifact not committed).
+- C-unit module live load and reboot persistence: PASS. The device copy at `/lib/modules/6.18.63-debian-t6-proto2/updates/terminal6-mt76/mt7996e.ko` has SHA256 `512937107627c2fcd075d8a36cf2573d024f3e3d9da94a741650071f04527990`; enabled `terminal6-wifi-phy.service` accepted the updated `MODULE-SHA256SUMS` and loaded it after reboot. `iw phy` reports 160 MHz capability and no 320 MHz EHT capability. `wlp1s0` remains DOWN.
+- Regulatory DB still fails to load (`loaded regulatory.db is malformed or signature is missing/invalid`), global regulatory remains `00`, and no 6 GHz channels are exposed. This driver change does not address the regulatory signature.
+- eMMC remained HS400, 8-bit, 1.8 V, actual 94,999,965 Hz, requested 100 MHz, `cmdq_en=0`; the post-reboot log showed all 8 EEPROM pages uploaded and 46 OTP calibration-free bytes merged. No new MMC/CQE/ext4 I/O errors were present.
 - ARM64 hostapd v2.12 under QEMU accepted the template through config initialization and failed when QEMU could not connect to generic netlink. No AP/hardware behavior was tested.
 - Patch source review: 6 GHz 320 MHz width bit, 320 MHz MCS15, NSS320, beamformee/sounding and AP MU 320 capability are not advertised; 160 MHz fields remain.
 - Hostapd config values were matched to the staged hostapd 2.12 source's accepted fields and operating-class mapping. No hardware-backed config or RF test has run.
 
 ## Gates still open
 
-1. Obtain a permitted management route to raspi2; the latest allowed attempt from agent-101-vm returned `No route to host`. No C-unit live status was collected in this session.
-2. Confirm the physical C-unit product label and exact certification identity/conditions.
-3. From an approved management host, apply the signed regdb P25 using the documented slot recovery path, verify the exact target and full readback SHA, then boot it and prove the signed regulatory.db loads and record effective rules/channels. Signing and prior slot-B recovery history do not constitute a test of this candidate's write/readback/boot.
-4. Rebuild the complete P25 image from this combined source and the matching PR #9 driver, then authorize/sign that exact integrated image and independently verify it. Deployment still requires candidate-specific readback/recovery checks.
-5. Confirm the client supports 6 GHz, WPA3-SAE, PMF, EHT and 160 MHz. Then proceed through AP beacon, association, IP traffic, measured link width, and reboot recovery. No 320 MHz operation.
+1. The first signed regdb P25 (`8457ae5b31d38a754442ed0826544e19cf262059d8578b1eb0218d1cc3f2beb8`) was written to `boot_a`, read back in full with matching SHA256, booted in slot A, and verified after reboot. It did not load regdb because initramfs contained a Debian `benh@debian.org` signature untrusted by this kernel's compiled-in regulatory keys.
+2. A replacement unsigned P25 is prepared with the same regulatory.db payload and the upstream `wens` PKCS#7 signature trusted by this kernel. Exact SHA256: `695e88e4de17c673411e8c8b02db1844651558d039c6779ee8b15ffcb83f6208`. It has not been signed, applied, or booted. It requires exact-candidate protected signing and independent verification before the next boot test.
+3. Confirm the physical C-unit product label and exact certification identity/conditions before any 6 GHz RF operation.
+4. Confirm a client supports 6 GHz, WPA3-SAE, PMF, EHT and 160 MHz. After the regulatory gate is satisfied, proceed through AP beacon, association, IP traffic, measured link width, and reboot recovery. No 320 MHz operation.
 
 ## Sources
 

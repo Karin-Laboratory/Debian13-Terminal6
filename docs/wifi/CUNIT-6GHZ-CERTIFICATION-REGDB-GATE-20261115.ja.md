@@ -1,5 +1,7 @@
 # C号機 6GHz技適・regdbゲート (2026-11-15)
 
+> **最新状態 (2026-11-16):** 署名済みP25 `8457ae5…` は `boot_a` に書込み、全量readback一致、slot A起動まで実機確認済み。ただしregdb署名者が当該kernelの信頼鍵と不一致で、起動時読込みは失敗。6GHzチャネルは依然利用不可、RF送信は未実施。信頼済み upstream `wens` 署名に置き換えた次候補のSHAは `695e88e4de17c673411e8c8b02db1844651558d039c6779ee8b15ffcb83f6208`。この候補は未署名・未適用。
+
 ## 判定
 
 **6GHz送信は未許可・未実施。** 技適データベースにAirターミナル6の製品型式に一致すると考えられるA775の6GHz認証記録が見つかった。一方、C号機の底面銘板にある認証番号・型式の現物照合、認証時と改造後の無線構成一致、規制DB候補の署名と実機起動はこの作業セッションでは未確認。認証記録だけから改造後の送信が認証範囲内とは断定しない。
@@ -54,6 +56,33 @@ PR #6/ #9にある最後のC号機測定では、Linux 6.18.63、global regulato
 3. 上記不足物を解消して正規署名し、既知のstock slot recoveryを維持できると確認した後にのみ候補を起動する。
 4. まずregdb署名読込、global/local regulatory、全チャネルdisabled flagsをread-onlyで確認。6GHz送信は別ゲートとして維持。
 5. 認証資料が改造後構成のチャネル幅・周波数・電力条件を保証できない限り、6GHz RF試験を行わない。少なくとも現時点では320MHzを無効とする。  
+
+## 2026-11-16 実機適用とregdb署名不一致
+
+既知のslot B復旧手順でslot Bに起動し、候補P25を正確なSHAと照合した後、対象を`boot_a`に限定して書き込んだ。SSHストリーム経由の初回書込みでは短い読み込みが検出され、予定サイズ未達のため再起動前に中止した。`iflag=fullblock`で再実行し、32MiB全量readback SHAは署名済み候補と一致。`boot_b`は書込み前後の全量SHAが一致した。純正`quec_bootctrl`でslot Aへ戻してDebianを起動し、実機の`boot_a`全量SHAも一致した。詳細な個体ログとバックアップはraspi4のprivate領域に保管し、公開しない。
+
+slot A起動後、`/dev/mmcblk1p25`（`PARTNAME=boot_a`）は`8457ae5b31d38a754442ed0826544e19cf262059d8578b1eb0218d1cc3f2beb8`。起動ログには`cfg80211: loaded regulatory.db is malformed or signature is missing/invalid`があり、`iw reg get`はglobal `00`、6GHz規制ルールなし、PHYの6GHzチャネルはdisabled状態。したがって署名済みP25の書込み・起動はPASSだがregdb実効ロードはFAIL。署名不一致の原因は特定済み。
+
+当該kernelは`CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y`および`CONFIG_CFG80211_USE_KERNEL_REGDB_KEYS=y`。initramfsへ入れたDebian `regulatory.db.p7s`はCN=`benh@debian.org`の署名で、kernelに同梱されたtrusted regulatory keysにない。一方、同じ`regulatory.db` payload (SHA256 `2fb33ca0074db573e05ef7dd50bb45b63c0ff98b7e852e1105ebad536fae8e6b`)へのupstream `.p7s`はCN=`wens`で、同梱`wens`証明書fingerprintと一致し、OpenSSL CMS検証に成功した。
+
+そのため`prepare-wens-regdb-p25.py`でinitramfs内の署名ファイルだけをupstream `wens`署名へ置換し、kernel bytesと安全な100MHz/no-CQE DTBを保持した候補を作成。新CPIO gzip SHA256は`4f97c2447a742916f7acdf554b1dd8fd3beb6f9cbc2fce916f31184a77082043`、新unsigned P25 SHA256は`695e88e4de17c673411e8c8b02db1844651558d039c6779ee8b15ffcb83f6208`。P25構造とupstream CMS署名検証はPASS。**この新しい正確なSHAに対する保護署名は未実施で、実機適用もしていない。** 既存signed P25の署名は別内容なので転用しない。
+
+同日に、PR #6の160MHz/no-320MHzドライバ候補を実機ロードし通常再起動後の復帰も確認した。モジュールSHA256は`512937107627c2fcd075d8a36cf2573d024f3e3d9da94a741650071f04527990`。`terminal6-wifi-phy.service`のモジュールSHA検査一覧を同SHAへ更新後、再起動後サービスは成功。`iw phy`は160MHzを広告し320MHz EHT capabilityを広告しない。`wlp1s0`はDOWNのまま。これは能力表示と再起動後のモジュール復帰であり、6GHzチャネル認可、ビーコン、association、IP通信の証拠ではない。
+
+再起動後もeMMCはHS400、8-bit、1.8V、実クロック94,999,965Hz、`cmdq_en=0`。ドライバログは8 EEPROMページのuploadと46 OTP校正free bytesのmergeを示し、新規MMC/CQE/ext4 I/O errorは確認されなかった。管理LAN/SSHは再起動後に復帰。UARTは接続可能な復旧経路として維持し、操作していない。
+
+### 現在の判定
+
+| 段階 | 状態 | 根拠 |
+|---|---|---|
+| 160MHz capability / 320MHz非広告 | PASS、再起動後も再現 | `iw phy` + 起動時service + module SHA |
+| 信頼されたregdbの初期起動ロード | BLOCKED | Debian署名者がkernel trust keyと不一致。`wens`署名候補は作成済みだが未署名 |
+| 6GHzチャネル使用可能 | FAIL / 未確立 | global `00`、6GHzルールと利用可能チャネルなし |
+| 6GHz AP/STA、実160MHz link | 未実施 | 規制DBと個体認証ゲート未達。RF送信なし |
+| 6GHz双方向IP通信 | 未実施 | AP/STA link未成立 |
+| eMMC設定維持 | PASS | 100MHz設定・実測約95MHz・CQE無効、再起動後維持 |
+
+改造後の認証適合を断定できるC号機銘板/設計条件資料は未取得。次の実機試験は、unsigned SHA `695e88e4…`への候補専用protected signing、独立receipt確認、boot_a限定のwrite/readback、slot A boot、`iw reg get`と6GHz channel flagsの再確認。規制が適正に反映され、銘板・認証条件が合致するまで6GHz RF送信を行わない。
 
 ## 2026-11-16 実機適用準備の再開
 
