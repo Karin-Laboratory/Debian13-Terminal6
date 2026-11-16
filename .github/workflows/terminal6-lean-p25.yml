@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/terminal6-lean-p25.yml
       - scripts/build-linux-6.18.sh
+      - scripts/make-initramfs.sh
       - scripts/configure-terminal6-lean.sh
       - scripts/verify-kconfig.py
       - tests/test_terminal6_lean_config.py
@@ -37,7 +38,13 @@ jobs:
       - name: Prepare public source-only DTB, P44 initramfs, MT6990 stage
         run: |
           set -euo pipefail
-          bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-lean-initramfs.cpio.gz"
+          TERMINAL6_REPRODUCIBLE_INITRAMFS=1 SOURCE_DATE_EPOCH=0 \
+            bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-lean-initramfs.cpio.gz"
+          TERMINAL6_REPRODUCIBLE_INITRAMFS=1 SOURCE_DATE_EPOCH=0 \
+            bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-lean-initramfs-repeat.cpio.gz"
+          cmp "$RUNNER_TEMP/p44-lean-initramfs.cpio.gz" "$RUNNER_TEMP/p44-lean-initramfs-repeat.cpio.gz"
+          sha256sum "$RUNNER_TEMP/p44-lean-initramfs.cpio.gz"
+          echo "P44_INITRAMFS_REPRODUCIBLE_BYTES_PASS"
           bash scripts/stage-experimental-dtb.sh "$RUNNER_TEMP/lean-dtb"
           python3 scripts/stage-public-mt6990-sources.py --output "$RUNNER_TEMP/lean-public-stage"
       - name: Compile lean Linux 6.18.63 and save local same-build modules
