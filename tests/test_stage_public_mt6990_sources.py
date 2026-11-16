@@ -95,7 +95,7 @@ class TestPublicSourceStaging(unittest.TestCase):
     def test_manifest_real_paths_are_pinned_and_safe(self):
         manifest = json.loads((SCRIPT.parent.parent / "configs/public-mt6990-sources.json").read_text())
         files = mod.check_manifest(manifest)
-        self.assertGreaterEqual(len(files), 12)
+        self.assertEqual(len(files), 17)
         self.assertTrue(all(f["destination"].startswith(("kernel/", "patches/", "tools/public-donor/")) for f in files))
 
 
