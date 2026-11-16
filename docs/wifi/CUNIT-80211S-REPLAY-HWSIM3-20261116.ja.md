@@ -1,6 +1,12 @@
 # C号機802.11s: ソース再現と3ノード仮想試験の実行手順（2026-11-16）
 
-## 判定
+## 第3段階の追試結果（2026-11-16）
+
+- host-only 3-node A-B-C中継/HWMP復旧は**明示的B mesh_group再参加によるPASS（独立CI VM 3/3）**。[実CI #43787300664](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43787300664)。
+- BのDOWN/UPのみの自動復旧は**FAIL（3/3）**。一般`reconnect`/network disable/enableも失敗し、`mesh_group_remove meshB` / `mesh_group_add 0` で復旧。
+- AMPEのPCAP独立検証、実private kernel source replay/ARM64再現build、および物理C号機試験は未達。詳細は[第3段階受入証拠](CUNIT-80211S-PHASE3-EVIDENCE-20261116.ja.md)。
+
+## 以前の判定（実通信試験導入前の履歴）
 
 - 既存ARM64 Image/modulesと2ノードhwsim成功は記録済み。ただし**既存成果物のハッシュ一致は、ビルドの再現性を証明しない**。
 - 標準Linux 6.18.63のtarにはMT6990 vendor sourceが足りない。既存private treeに相当する完全な差分・ライセンス確認済みのpatch seriesが必要。**現時点で完備していない**。
