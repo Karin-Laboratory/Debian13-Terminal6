@@ -54,7 +54,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_real_ping_marker_parses_only_measured_counts(self):
         text = ("CUNIT_MLO_IP_BIDIRECTIONAL_PASS "
-                "tx_sta=6 rx_sta=5 tx_ap=6 rx_ap=6\\n")
+                "tx_sta=6 rx_sta=5 tx_ap=6 rx_ap=6\n")
         record = parse_ip_ping_marker(text)
         self.assertEqual(record["sta_to_ap"], {"sent": 6, "received": 5})
         self.assertEqual(record["ap_to_sta"], {"sent": 6, "received": 6})
@@ -65,7 +65,7 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(summary["acceptance_v2"], "NOT_PROVEN")
 
     def test_ping_marker_rejects_missing_and_impossible_counts(self):
-        self.assertIsNone(parse_ip_ping_marker("PASS cunit_mlo_5g160_6g160\\n"))
+        self.assertIsNone(parse_ip_ping_marker("PASS cunit_mlo_5g160_6g160\n"))
         self.assertIsNone(parse_ip_ping_marker(
             "CUNIT_MLO_IP_BIDIRECTIONAL_PASS tx_sta=6 rx_sta=7 tx_ap=6 rx_ap=6"))
         self.assertIsNone(parse_ip_ping_marker(
