@@ -89,7 +89,8 @@ def validate_install_target(target: str) -> str:
 
 def run_container(name: str, network: str, image: str, startup: str,
                   install_tree: Path | None = None, bridge_al: bytes | None = None,
-                  install_target: str = "/opt/t6-prplmesh") -> str:
+                  install_target: str = "/opt/t6-prplmesh",
+                  amx_ubus: bool = False) -> str:
     argv = [
         "docker", "run", "--detach", "--rm", "--name", name,
         "--network", network, "--cap-add=NET_RAW", "--cap-add=NET_ADMIN",
@@ -103,6 +104,8 @@ def run_container(name: str, network: str, image: str, startup: str,
         target = validate_install_target(install_target)
         argv += ["--mount", f"type=bind,source={install_tree},target={target}",
                  "--env", f"INSTALL_DIR={target}"]
+    if amx_ubus and (install_tree is None or bridge_al is None):
+        raise LabError("AMX UBus requires staged install and pinned isolated AL identity")
     if bridge_al is not None:
         if install_tree is None:
             raise LabError("fixed bridge identity requires the upstream install-tree runner")
@@ -111,8 +114,17 @@ def run_container(name: str, network: str, image: str, startup: str,
         # before starting prplMesh. Re-apply on Agent restart.
         al = ":".join(f"{byte:02x}" for byte in bridge_al)
         argv += ["--env", f"T6_AL_MAC={al}"]
-        return command([*argv, image, "-c",
-                        'ip link set dev br-lan address "$T6_AL_MAC" && exec ' + startup])
+        command_prefix = 'ip link set dev br-lan address "$T6_AL_MAC" && '
+        if amx_ubus:
+            # A dedicated UBus socket in each Docker namespace, not host UBus.
+            # A valid socket does not yet establish Controller/Agent success.
+            command_prefix += (
+                'test -r "$INSTALL_DIR/lib/amxb/mod-amxb-ubus.so" && '
+                'command -v ubusd >/dev/null && '
+                'mkdir -p /var/run && '
+                '(ubusd -s /var/run/ubus.sock >/dev/null 2>&1 &) && '
+                'sleep 1 && test -S /var/run/ubus.sock && ')
+        return command([*argv, image, "-c", command_prefix + 'exec ' + startup])
     return command([*argv, image, startup])
 
 
@@ -245,6 +257,12 @@ def lab(args) -> dict:
     source_tree = validate_install_tree(args.install_tree) if args.install_tree else None
     if source_tree is not None:
         validate_install_target(args.install_target)
+    if args.amx_ubus:
+        if source_tree is None:
+            raise LabError("--amx-ubus requires --install-tree")
+        backend = source_tree / "lib/amxb/mod-amxb-ubus.so"
+        if not backend.is_file() or not backend.stat().st_size:
+            raise LabError("missing staged AMXRT UBus backend module")
     os.umask(0o077)
     if args.output.exists() or args.output.is_symlink():
         raise LabError("choose a new private output directory")
@@ -302,10 +320,11 @@ def lab(args) -> dict:
             nonlocal ctrl_al, agent_al
             run_container(controller, network, args.controller_image, "start-controller-agent",
                           controller_tree, ctrl_al if source_tree is not None else None,
-                          args.install_target)
+                          args.install_target, amx_ubus=args.amx_ubus)
             resources["controller"] = True
             run_container(agent, network, args.agent_image, "start-agent", agent_tree,
-                          agent_al if source_tree is not None else None, args.install_target)
+                          agent_al if source_tree is not None else None,
+                          args.install_target, amx_ubus=args.amx_ubus)
             resources["agent"] = True
             if not (container_running(controller) and container_running(agent)):
                 raise LabError("at least one node stopped before initial capture")
@@ -353,7 +372,7 @@ def lab(args) -> dict:
         def restart_agent():
             run_container(agent, network, args.agent_image, "start-agent", agent_tree,
                           agent_al if source_tree is not None else None,
-                          args.install_target)
+                          args.install_target, amx_ubus=args.amx_ubus)
             resources["agent"] = True
             if not container_running(agent) or not wait_for_processes(
                     agent, ("ieee1905_transport", "beerocks_agent")):
@@ -412,6 +431,8 @@ def main() -> int:
                     help="in-container CMAKE_INSTALL_PREFIX; use the compiled path if absolute")
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--controller-db-command", help="optional in-container CLI command, e.g. beerocks_cli -c bml_conn_map")
+    ap.add_argument("--amx-ubus", action="store_true",
+                    help="isolated lab: require staged backend and per-node ubusd")
     ap.add_argument("--duration", type=int, default=60)
     ap.add_argument("--outage", type=int, default=45)
     ap.add_argument("--execute", action="store_true", help="permit temporary Docker network/containers")
