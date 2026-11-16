@@ -21,6 +21,8 @@ prplMesh **6.0.1固定source commit 5ba21ee04a3b34f0d99635eeacd547d78cb67efe** �
 
 旧上流の公式 [Docker runner](https://github.com/prplfoundation/prplMesh/blob/master/tools/docker/run.sh) は、完成した `build/install` をコンテナへbind mountし、`INSTALL_DIR` を指定してから `start-controller-agent` / `start-agent` を起動する。runnerイメージ単体には実バイナリが含まれない構成がある。**6.0.1固定commitでこの契約を再照合し、実際のimage entrypointがbash `-c` を受け取るか確認する。** 旧GitHubミラーを6.0.1の正本と取り違えない。
 
+Docker runnerのCPUアーキテクチャと、利用する実バイナリのELFアーキテクチャを**一致**させる。一般的なx86_64ラボ用にはprplMesh 6.0.1のネイティブx86_64ビルドが必要で、既存AArch64 cross-buildをx86_64イメージへ直接マウントしても動かない。arm64イメージを使う場合はarm64 Docker実行環境または明示的なQEMU/binfmt設定が必要。スクリプトは `readelf` とDocker imageのarchitectureを照合し、不一致なら起動前に拒否する。
+
 既存のprivate成果物の `build/install`（`bin/beerocks_agent`、`bin/beerocks_controller`、`scripts/prplmesh_utils.sh` を含む）を入力に、隔離ホストで次を実行する。runnerは元のinstall treeをコンテナに直接マウントせず、private output以下へController用・Agent用の**別々のコピー**を作り、その各コピーをマウントする。上流起動スクリプトに必要な `INSTALL_DIR` を設定し、各コンテナ内の `br-lan` に固定AL MACを付与した後にサービスを起動する。Agent再起動にも同じAL MACを適用する。これらの変更はコンテナ内だけで行い、C号機やホスト管理LANには触れない。
 
 ~~~sh
