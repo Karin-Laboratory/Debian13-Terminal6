@@ -1,0 +1,107 @@
+name: Public Air6 NETSYS enabled Debian P44 unsigned P25 research build
+on:
+  push:
+    paths:
+      - scripts/build-linux-6.18.sh
+      - scripts/make-initramfs.sh
+      - scripts/prepare-experimental-dts.py
+      - scripts/stage-experimental-dtb.sh
+      - initramfs/init
+      - .github/workflows/kernel-network-candidate.yml
+      - scripts/port-public-mt6990-pcs.py
+      - scripts/port-public-mt6990-ethernet.py
+      - scripts/port-public-mt6990-hwv.py
+      - scripts/stage-public-mt6990-sources.py
+      - scripts/apply-public-mt6990-kernel.py
+      - scripts/assemble-template-free-p25.py
+      - scripts/derive-public-boot-v2-profile.py
+      - scripts/verify-public-unsigned-p25.py
+      - scripts/port-public-mt6990-clock.py
+      - configs/public-mt6990-sources.json
+      - configs/public-air6-boot-v2-profile.json
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-network-p25-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  research:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq flex bison libssl-dev libelf-dev bc \
+            device-tree-compiler busybox-static cpio
+      - name: Assemble Debian rootfs handoff initramfs
+        run: |
+          set -euo pipefail
+          bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-initramfs.cpio.gz"
+          gzip -t "$RUNNER_TEMP/p44-initramfs.cpio.gz"
+      - name: Compile pinned source experimental DTB (unvalidated hardware)
+        run: |
+          set -euo pipefail
+          bash scripts/stage-experimental-dtb.sh "$RUNNER_TEMP/dtb"
+      - name: Compile ARM64 Linux with PUBLIC NETSYS PHY PCS MT7531 drivers and P44 initramfs
+        run: |
+          set -euo pipefail
+          python3 scripts/stage-public-mt6990-sources.py --output "$RUNNER_TEMP/public-donor-stage"
+          export PUBLIC_MT6990_STAGE="$RUNNER_TEMP/public-donor-stage"
+          export PUBLIC_MT6990_SCOPE=network
+          export WORKDIR="$RUNNER_TEMP/debian-t6-linux"
+          export INITRAMFS_ARCHIVE="$RUNNER_TEMP/p44-initramfs.cpio.gz"
+          export DTB_PATH="$RUNNER_TEMP/dtb/board/terminal6-debian-ethernet-experimental.dtb"
+          export JOBS=4
+          bash scripts/build-linux-6.18.sh
+          cat "$WORKDIR/output/SHA256SUMS"
+          cat "$WORKDIR/output/STATUS.txt"
+          wc -c "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/terminal6-debian-experimental.dtb"
+          echo 'PUBLIC_NETWORK_P25_COMPILATION_ONLY_CUNIT_LK_UNPROVEN'
+      - name: Construct 32MiB unsigned P25 from real publicly built Linux Image
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/assemble-template-free-p25.py \
+            --source-stage "$RUNNER_TEMP/public-donor-stage" \
+            --profile "$GITHUB_WORKSPACE/configs/public-air6-boot-v2-profile.json" \
+            --kernel-image "$RUNNER_TEMP/debian-t6-linux/output/Image" \
+            --initramfs-cpio-gz "$RUNNER_TEMP/p44-initramfs.cpio.gz" \
+            --dtb "$RUNNER_TEMP/dtb/board/terminal6-debian-ethernet-experimental.dtb" \
+            --output "$RUNNER_TEMP/debian-source-p25"
+          python3 - "$RUNNER_TEMP/debian-source-p25" <<'PY'
+          import hashlib, json, struct, sys
+          from pathlib import Path
+          d=Path(sys.argv[1])
+          img=(d/"p25-unsigned.img").read_bytes()
+          r=json.loads((d/"p25-receipt.json").read_text())
+          assert len(img) == 33554432
+          assert hashlib.sha256(img).hexdigest() == r["unsigned_p25_sha256"]
+          kernel_bytes=struct.unpack_from("<I",img,8)[0]
+          off=2048+((kernel_bytes+2047)//2048)*2048
+          total=struct.unpack_from("<I",img,1648)[0]
+          table=img[off:off+total]
+          head=struct.unpack_from(">8I",table)
+          entry=struct.unpack_from(">8I",table,32)
+          assert head==(0xd7b7ab1e,total,32,32,1,32,2048,0)
+          assert entry==(total-64,64,0,0,0,0,0,0)
+          assert struct.unpack_from(">I",table,68)[0]==total-64
+          assert img[off+total:] == bytes(len(img)-off-total)
+          print("PUBLIC_NETWORK_SOURCE_ARM64_UNSIGNED_P25_32M_READBACK_PASS")
+          print("P25_SHA256",r["unsigned_p25_sha256"])
+          print("AIR6_ETHERNET_DTB_EXPERIMENTAL_NOT_BOOT_VALIDATED")
+          PY
+          python3 scripts/verify-public-unsigned-p25.py \
+            --p25 "$RUNNER_TEMP/debian-source-p25/p25-unsigned.img" \
+            --kernel-image "$RUNNER_TEMP/debian-t6-linux/output/Image" \
+            --dtb "$RUNNER_TEMP/dtb/board/terminal6-debian-ethernet-experimental.dtb" \
+            --initramfs-cpio-gz "$RUNNER_TEMP/p44-initramfs.cpio.gz" \
+            --profile "$GITHUB_WORKSPACE/configs/public-air6-boot-v2-profile.json" \
+            --receipt "$RUNNER_TEMP/debian-source-p25/p25-receipt.json"
+      # No artifact upload, release, signing, device action or RF access.
+

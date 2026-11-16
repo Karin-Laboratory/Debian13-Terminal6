@@ -8,9 +8,25 @@ case "$WORKDIR" in /*) ;; *) echo 'WORKDIR must be absolute' >&2; exit 2;; esac
 test ! -e "$WORKDIR" || { echo 'Refusing existing WORKDIR' >&2; exit 2; }
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 for tool in git make python3 sha256sum; do command -v "$tool" >/dev/null; done
-git clone --depth 1 --branch "v$VERSION" https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git "$WORKDIR"
+# Official stable v6.18.63 commit, independently confirmed via public tag.
+EXPECTED_LINUX_SHA=1cdda838e8475edf89b73ff0cc952005dd0b1fa7
+if ! git clone -q --depth 1 --branch "v$VERSION" \
+  https://github.com/gregkh/linux.git "$WORKDIR"; then
+  rm -rf -- "$WORKDIR"
+  git clone -q --depth 1 --branch "v$VERSION" \
+    https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git "$WORKDIR"
+fi
+test "$(git -C "$WORKDIR" rev-parse HEAD)" = "$EXPECTED_LINUX_SHA"
 cd "$WORKDIR"
 test "$(make -s kernelversion)" = "$VERSION"
+if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
+  python3 "$ROOT/scripts/apply-public-mt6990-kernel.py" \
+    --source-stage "$PUBLIC_MT6990_STAGE" \
+    --kernel-tree "$WORKDIR" --scope "${PUBLIC_MT6990_SCOPE:-core}" \
+    --receipt "$WORKDIR/public-mt6990-kernel-inputs.json"
+  python3 "$ROOT/scripts/port-public-mt6990-clock.py" \
+    "$WORKDIR/drivers/clk/mediatek/clk-mt6990.c"
+fi
 if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
   make ARCH=arm64 tinyconfig
   scripts/config --enable ARM64 --enable MMU --enable SMP \
@@ -23,6 +39,19 @@ if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
     --enable MODULES --enable MODULE_UNLOAD
 else
   make ARCH=arm64 defconfig
+fi
+if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
+  scripts/config --enable COMMON_CLK_MT6990 --enable ARCH_MEDIATEK
+fi
+if [[ -n "${PUBLIC_MT6990_STAGE:-}" && "${PUBLIC_MT6990_SCOPE:-core}" = network ]]; then
+  # NET_DSA=m or HSR=m caps NET_MEDIATEK_SOC at module tristate.
+  # P25 must have built-in Ethernet/PCS before Debian P44 userspace starts.
+  scripts/config --disable HSR --enable IPV6
+  scripts/config --enable COMMON_CLK_MT6990_PERI --enable BRIDGE \
+    --enable NET_DSA --enable NET_VENDOR_MEDIATEK \
+    --enable NET_MEDIATEK_SOC --enable PCS_MTK_LYNXI \
+    --enable NET_DSA_MT7530 --enable NET_DSA_MT7530_MDIO \
+    --enable PHY_MTK_MT6990_SGMII --enable PHYLINK
 fi
 scripts/config --enable PRINTK --enable PRINTK_TIME --enable BINFMT_ELF \
   --enable BINFMT_SCRIPT --enable ARM_GIC --enable ARM_GIC_V3 \
@@ -44,6 +73,12 @@ if [[ -n "${INITRAMFS_ARCHIVE:-}" ]]; then
   scripts/config --set-str INITRAMFS_SOURCE "$INITRAMFS_ARCHIVE"
 fi
 make ARCH=arm64 olddefconfig
+if [[ -n "${PUBLIC_MT6990_STAGE:-}" && "${PUBLIC_MT6990_SCOPE:-core}" = network ]]; then
+  grep -E '^CONFIG_(NET_DSA|BRIDGE|HSR|NET_MEDIATEK_SOC|PCS_MTK_LYNXI|PHY_MTK_MT6990_SGMII|COMMON_CLK_MT6990_PERI)=' .config || :
+  for key in NET_DSA NET_MEDIATEK_SOC PCS_MTK_LYNXI PHY_MTK_MT6990_SGMII; do
+    grep -qx "CONFIG_${key}=y" .config || { echo "PUBLIC_NETWORK_BUILTIN_REQUIRED: ${key}" >&2; exit 1; }
+  done
+fi
 python3 "$ROOT/scripts/verify-kconfig.py" .config
 if [[ "${KERNEL_PROFILE:-generic}" = "minimal" ]]; then
   for option in ARCH_MEDIATEK MMC_MTK SERIAL_8250_MT6577; do
@@ -72,4 +107,8 @@ if [[ -n "${DTB_PATH:-}" ]]; then
   (cd "$WORKDIR/output" && sha256sum terminal6-debian-experimental.dtb) >> "$WORKDIR/output/SHA256SUMS"
 fi
 printf '%s\n' LINUX_IMAGE_BUILT_ONLY NOT_A_TERMINAL6_BOOT_IMAGE BOARD_DTB_UNVERIFIED P25_PACKAGING_UNVERIFIED > "$WORKDIR/output/STATUS.txt"
+if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
+  cp "$WORKDIR/public-mt6990-kernel-inputs.json" "$WORKDIR/output/public-mt6990-kernel-inputs.json"
+  echo "PUBLIC_MT6990_STABLE_KERNEL_SOURCE_REPLAY_AND_BUILD_APPLIED; LK/board not verified"
+fi
 echo "ARM64_IMAGE_BUILT_WITH_OPTIONAL_P44_INITRAMFS; LK/DTB hardware compatibility not established"

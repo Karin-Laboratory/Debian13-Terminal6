@@ -9,7 +9,15 @@ class TestDTS(unittest.TestCase):
     def test_only_mmc0(self):
         data='model = "SoftBank Air Terminal 6 (research)";\n&mmc0 {\n status = "disabled";\n};\n&eth { status = "disabled"; };'
         result=m.enable_emmc(data)
-        self.assertIn('&mmc0 {\n status = "okay";',result)
+        self.assertIn('&mmc0 {',result)
+        self.assertIn('status = "okay";',result)
+        self.assertIn('max-frequency = <100000000>;',result)
+        self.assertNotIn('supports-cqe',result)
         self.assertIn('&eth { status = "disabled"; };',result)
+    def test_refuse_both_existing_frequency_and_cqe(self):
+        base='&mmc0 {\\n max-frequency = <200000000>;\\n status = "disabled";\\n};'
+        with self.assertRaises(ValueError):m.enable_emmc(base)
+        base='&mmc0 {\\n supports-cqe;\\n status = "disabled";\\n};'
+        with self.assertRaises(ValueError):m.enable_emmc(base)
     def test_missing(self):
         with self.assertRaises(ValueError):m.enable_emmc('&mmc1 { status = "disabled"; };')

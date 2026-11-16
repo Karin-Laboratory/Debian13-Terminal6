@@ -13,4 +13,5 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 -m unittest discover -s tests -v
-      - run: bash -n scripts/build-linux-6.18.sh
+      - run: bash -n scripts/build-linux-6.18.sh scripts/build-public-p44-rootfs.sh scripts/reproduce-public-unsigned-p25.sh
+      - run: sh -n scripts/verify-public-p25-cunit-readonly.sh public-management/start-management.sh

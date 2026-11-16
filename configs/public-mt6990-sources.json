@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "donor": "13179415360/openwrt-mt6990-lg6851f",
+  "revision": "a40df9a5afb46716dea799acea69f17480df4d82",
+  "purpose": "Public text acquisition only; no OEM inputs, firmware, or hardware-boot proof. Source copyright and license obligations remain with upstream authors.",
+  "files": [
+    {
+      "source": "target/linux/mediatek/files-6.18/drivers/clk/mediatek/clk-mt6990.c",
+      "destination": "kernel/drivers/clk/mediatek/clk-mt6990.c",
+      "git_blob_sha1": "db78aae0f50750ecf69d42b1178bdd56e41bd629"
+    },
+    {
+      "source": "target/linux/mediatek/files-6.18/drivers/clk/mediatek/clk-mt6990-ifrao.c",
+      "destination": "kernel/drivers/clk/mediatek/clk-mt6990-ifrao.c",
+      "git_blob_sha1": "298a335231da6d1c7c150a49106211f2adf36128"
+    },
+    {
+      "source": "target/linux/mediatek/files-6.18/drivers/clk/mediatek/clk-mt6990-peri.c",
+      "destination": "kernel/drivers/clk/mediatek/clk-mt6990-peri.c",
+      "git_blob_sha1": "da5bb34e33944bd969fa5aa34a74d13c71c510c9"
+    },
+    {
+      "source": "target/linux/mediatek/files-6.18/drivers/clk/mediatek/clk-mt6990-vlpcfg.c",
+      "destination": "kernel/drivers/clk/mediatek/clk-mt6990-vlpcfg.c",
+      "git_blob_sha1": "edec1505e59e18766a7336e4c32d4ee0ed8b112b"
+    },
+    {
+      "source": "target/linux/mediatek/files-6.18/drivers/clk/mediatek/clk-mt6990-fmeter.h",
+      "destination": "kernel/drivers/clk/mediatek/clk-mt6990-fmeter.h",
+      "git_blob_sha1": "a2abb17736344de0b14c5c60d35fa6c5aa9a7bce"
+    },
+    {
+      "source": "target/linux/mediatek/files-6.18/drivers/phy/mediatek/phy-mtk-mt6990-sgmii.c",
+      "destination": "kernel/drivers/phy/mediatek/phy-mtk-mt6990-sgmii.c",
+      "git_blob_sha1": "598f9c8d0a905bf6e293157d2fd475fef54bfacd"
+    },
+    {
+      "source": "target/linux/mediatek/files-6.18/include/dt-bindings/clock/mt6990-clk.h",
+      "destination": "kernel/include/dt-bindings/clock/mt6990-clk.h",
+      "git_blob_sha1": "eea7fbe58a5d5b7357c5ddb83eff6ffb74b3801a"
+    },
+    {
+      "source": "target/linux/mediatek/files-6.18/include/dt-bindings/power/mt6990-power.h",
+      "destination": "kernel/include/dt-bindings/power/mt6990-power.h",
+      "git_blob_sha1": "c221b322fb437683d052ec4241a33afaecb33979"
+    },
+    {
+      "source": "target/linux/mediatek/patches-6.18/970-clk-mediatek-mt6990-basic-clock-providers.patch",
+      "destination": "patches/970-clk-mediatek-mt6990-basic-clock-providers.patch",
+      "git_blob_sha1": "3fe19eb8b379883cdce56dfd9dfd283612281142"
+    },
+    {
+      "source": "target/linux/mediatek/patches-6.18/973-phy-mediatek-add-mt6990-sgmii.patch",
+      "destination": "patches/973-phy-mediatek-add-mt6990-sgmii.patch",
+      "git_blob_sha1": "7caf532647443859a525ffa3b91e9a959473f6e5"
+    },
+    {
+      "source": "target/linux/mediatek/patches-6.18/823-mmc-mtk-sd-add-mt6990-compatible.patch",
+      "destination": "patches/823-mmc-mtk-sd-add-mt6990-compatible.patch",
+      "git_blob_sha1": "dd3852533fc8978737cf23a31fc36f24108d0b27"
+    },
+    {
+      "source": "target/linux/mediatek/patches-6.18/969-arm64-dts-mediatek-add-mt6990-soc.patch",
+      "destination": "patches/969-arm64-dts-mediatek-add-mt6990-soc.patch",
+      "git_blob_sha1": "4f24ec8183c5495a312ec5f1109164d7b770a770"
+    },
+    {
+      "source": "target/linux/mediatek/patches-6.18/972-net-ethernet-mediatek-add-mt6990-support.patch",
+      "destination": "patches/972-net-ethernet-mediatek-add-mt6990-support.patch",
+      "git_blob_sha1": "b10861891967d8ed31a1f6b84264b6076c0da628"
+    },
+    {
+      "source": "target/linux/mediatek/patches-6.18/972a-net-ethernet-mediatek-register-mt6990.patch",
+      "destination": "patches/972a-net-ethernet-mediatek-register-mt6990.patch",
+      "git_blob_sha1": "5c13cd95611d02aa234923ad79f044d916b9e734"
+    },
+    {
+      "source": "target/linux/mediatek/patches-6.18/974-net-pcs-mtk-lynxi-add-mt6990-variant.patch",
+      "destination": "patches/974-net-pcs-mtk-lynxi-add-mt6990-variant.patch",
+      "git_blob_sha1": "9e9c8c398d50fe20435882ef35a92850cee3b266"
+    },
+    {
+      "source": "scripts/lg6851f_mkbootimg_v2.py",
+      "destination": "tools/public-donor/lg6851f_mkbootimg_v2.py",
+      "git_blob_sha1": "00e2abd7f1aa427145ab547587702f349ecc789c"
+    },
+    {
+      "source": "target/linux/mediatek/patches-6.18/0956-clk-mediatek-add-real-hwv-only-mux-ops.patch",
+      "destination": "patches/0956-clk-mediatek-add-real-hwv-only-mux-ops.patch",
+      "git_blob_sha1": "dc68bf5e2cc32ddf7830d07f0560ddfd038d35cd"
+    }
+  ]
+}
