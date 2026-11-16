@@ -27,7 +27,7 @@ def pcap(frames):
 
 
 def protected_mesh_frames(address):
-    mic = b"\x4c\x10" + bytes(range(16)) + bytes(range(20, 80))
+    mic = b"\x8c\x10" + bytes(range(16)) + bytes(range(20, 80))
     return [
         packet(address, 0x00B0, b"\x03\x00\x01\x00"),
         packet(address, 0x00D0, b"\x0f\x01" + b"\x00" * 5 + mic),
