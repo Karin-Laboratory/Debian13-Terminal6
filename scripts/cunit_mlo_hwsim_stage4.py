@@ -155,7 +155,7 @@ def kernel_info() -> dict:
     }
 
 
-def virtual_runtime_inventory() -> dict:
+def virtual_runtime_inventory(suite: Path | None = None, private_logs: Path | None = None) -> dict:
     """Observe simulator state via counts, never expose actual interface identifiers."""
     commands = {
         "phy_count": (["iw", "phy"], r"(?m)^Wiphy\s+"),
@@ -174,6 +174,24 @@ def virtual_runtime_inventory() -> dict:
                 data[name] = int(p.stdout.strip()) if p.stdout.strip().isdigit() else 0
         except (OSError, subprocess.TimeoutExpired):
             data[name] = None
+    if suite is not None:
+        cli = suite.parents[1] / "wpa_supplicant/wpa_cli"
+        for n in (0, 1, 2, 5, 6, 7):
+            sock = Path("/tmp/wpas-wlan" + str(n))
+            entry = {"socket_exists": sock.is_socket(), "cli_pong": False}
+            if cli.is_file() and entry["socket_exists"]:
+                try:
+                    p = subprocess.run([str(cli), "-g", str(sock), "ping"],
+                                       text=True, capture_output=True,
+                                       timeout=3, check=False)
+                    entry["cli_pong"] = p.returncode == 0 and "PONG" in p.stdout
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+            if private_logs:
+                content = read_safe_tail(private_logs / ("log" + str(n)))
+                entry["startup_error_classes"] = classify_startup_errors(content)["error_classes"]
+            data["supplicant_" + str(n)] = entry
+        data["hostapd_global_socket"] = Path("/var/run/hostapd-global").is_socket()
     return data
 
 
@@ -211,7 +229,7 @@ def run_isolated(hostap_tree: Path, output_dir: Path, tests: list[str],
                 "start", [str(suite / "start.sh"), "channels=2"],
                 cwd=suite, out=output_dir, seconds=PHASE_TIMEOUTS["start"], env=env)
             phases.append(info)
-            info["post_start_inventory"] = virtual_runtime_inventory()
+            info["post_start_inventory"] = virtual_runtime_inventory(suite, private_logs)
             if rc == 0:
                 started = True
             else:
