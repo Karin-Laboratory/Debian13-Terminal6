@@ -24,6 +24,7 @@ import tempfile
 SIZE = 33554432
 PAGE = 2048
 HEADROOM = 8192 + 262144
+MAX_ARM64_IMAGE_SIZE = 128 * 1024 * 1024  # Uncompressed; P25 budget applies after gzip.
 PACKER_BLOB = "00e2abd7f1aa427145ab547587702f349ecc789c"
 REQUIRED = {"cmdline", "dtb_addr", "header_size", "header_version",
             "kernel_addr", "name", "os_version", "page_size", "ramdisk_addr",
@@ -135,7 +136,7 @@ def build(stage: Path, profile_path: Path, image_path: Path, initramfs_path: Pat
     profile_bytes = require_file(profile_path, 16384)
     profile = json.loads(profile_bytes)
     check_meta(profile)
-    kernel = require_file(image_path, 35000000)
+    kernel = require_file(image_path, MAX_ARM64_IMAGE_SIZE)
     cpio = require_file(initramfs_path, 12000000)
     dtb = require_file(dtb_path, 3000000)
     if len(kernel) < 64 or kernel[56:60] != b"ARM\x64":
