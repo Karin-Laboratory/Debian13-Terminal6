@@ -102,7 +102,7 @@ def main():
     for p in ("p25","kernel-image","dtb","initramfs-cpio-gz","profile","receipt"):
         ap.add_argument("--"+p, required=True, type=Path)
     a=ap.parse_args()
-    out=check(read(a.p25,PARTITION_SIZE),read(a.kernel_image,35000000),
+    out=check(read(a.p25,PARTITION_SIZE),read(a.kernel_image,128 * 1024 * 1024),
               read(a.dtb,3000000),read(a.initramfs_cpio_gz,12000000),
               json.loads(read(a.profile,16384)),
               json.loads(read(a.receipt,16384)))
