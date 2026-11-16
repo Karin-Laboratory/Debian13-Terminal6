@@ -34,5 +34,33 @@ cpp -nostdinc -undef -D__DTS__ -x assembler-with-cpp \
 dtc -I dts -O dtb -o "$out/board/terminal6-debian-experimental.dtb" "$out/board/preprocessed.dts"
 dtc -I dtb -O dts -o "$out/board/roundtrip.dts" "$out/board/terminal6-debian-experimental.dtb"
 grep -q 'softbank,air-terminal-6' "$out/board/roundtrip.dts"
+# The opt-in SGMII1/NETSYS board overlay is pinned to the same PUBLIC
+# Air Terminal 6 revision. Compile it alongside the safe eMMC-only variant,
+# but do NOT select it as the installable/bootable DTB.
+download "$src/board/mt6990-air-terminal-6-ethernet-test.dts" \
+  "$out/board/ethernet-source.dts" 80a97fda52e315b4c733c4655afeade181f88522
+python3 - "$out/board/ethernet-source.dts" "$out/board/terminal6-debian-ethernet-experimental.dts" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]); out=Path(sys.argv[2])
+src=p.read_text()
+needle='#include "mt6990-air-terminal-6.dts"'
+if src.count(needle)!=1:
+    raise SystemExit("PINNED_PUBLIC_ETHERNET_DTS_NOT_RECOGNIZED")
+out.write_text(src.replace(needle, '#include "terminal6-debian-experimental.dts"'))
+PY
+cpp -nostdinc -undef -D__DTS__ -x assembler-with-cpp \
+  -I "$out/include" -I "$out/board" \
+  "$out/board/terminal6-debian-ethernet-experimental.dts" \
+  "$out/board/ethernet-preprocessed.dts"
+dtc -I dts -O dtb -o "$out/board/terminal6-debian-ethernet-experimental.dtb" \
+  "$out/board/ethernet-preprocessed.dts"
+dtc -I dtb -O dts -o "$out/board/ethernet-roundtrip.dts" \
+  "$out/board/terminal6-debian-ethernet-experimental.dtb"
+grep -q 'softbank,air-terminal-6' "$out/board/ethernet-roundtrip.dts"
+grep -q 'mediatek,mt6990-sgmii-phy' "$out/board/ethernet-roundtrip.dts"
+grep -q 'mediatek,mt7531' "$out/board/ethernet-roundtrip.dts"
+echo "PUBLIC_AIR6_MMC_NETSYS_SGMII1_DTB_COMPILED_NOT_HW_VALIDATED"
+sha256sum "$out/board/terminal6-debian-ethernet-experimental.dtb"
 echo "EXPERIMENTAL_DTB_COMPILED_NOT_BOOT_VALIDATED"
 sha256sum "$out/board/terminal6-debian-experimental.dtb"
