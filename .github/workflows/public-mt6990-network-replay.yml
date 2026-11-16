@@ -24,8 +24,9 @@ jobs:
         run: |
           set -euo pipefail
           git clone -q --depth 1 --branch v6.18.63 \
-            https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git \
+            https://github.com/gregkh/linux.git \
             "$RUNNER_TEMP/linux"
+          test "$(git -C "$RUNNER_TEMP/linux" rev-parse HEAD)" = 1cdda838e8475edf89b73ff0cc952005dd0b1fa7
       - name: Replay MT6990 core plus Ethernet PHY PCS source patches
         run: |
           set -euo pipefail
