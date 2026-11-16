@@ -40,7 +40,7 @@ jobs:
           x=json.load(open(sys.argv[1]))
           assert x["scope"]=="network"
           assert x["status"]=="PUBLIC_KERNEL_PATCHES_APPLIED_NOT_BUILT"
-          assert len(x["patches"])==7
+          assert len(x["patches"])==8
           print("PUBLIC_MT6990_NETSYS_PHY_PCS_SOURCE_REPLAY_PASS_NOT_HW_TESTED")
           PY
       # No binary artifacts, no signing, no physical device write.
