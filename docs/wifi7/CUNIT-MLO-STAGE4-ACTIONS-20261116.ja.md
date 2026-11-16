@@ -59,6 +59,8 @@ sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_stage4.py \
 
 同じ実行のJSON artifactは、Pythonがroot/0700 directoryで保存したデータを非rootのupload actionへ直接渡し、`EACCES` となった。このため、rootが特定の **sanitized JSONだけ** をrunnerの可読ディレクトリへコピーしてからアップロードする修正を追加。生ログは引き続きprivate保管。以後のrunで新しいartifactの保存結果と `start.sh` の失敗分類（WPAソケット/hostapd/カーネル/権限など）を照合する。
 
+[run #43808048460](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808048460) はさらに `hwsim_module_loaded=true`、`phy_count=7`、`netdev_count=7`、`hostapd_processes=2`、`wpa_supplicant_processes=3` を確認。初期化が全く始まらないのではなく、仮想PHY生成後に停止したことを示す。[run #43808212246](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43808212246) は `wpa_control_socket` の接続失敗を分類し、サニタイズ済みartifactの保存も成功した。**初期化失敗原因の最終確定ではなく、個別ソケットの疎通確認へ進む。**
+
 ### 最新到達点の判定
 
 - 診断器単体のホストCIはPASS。
