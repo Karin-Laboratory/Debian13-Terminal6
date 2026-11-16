@@ -15,7 +15,9 @@ PR #13のHEAD `33102b1c5d843f3ecc89790530c7864b5ed51467` を起点に、PR #16 `
 - `TMPDIR=/var/tmp python3 -m unittest discover -s tests -p 'test_*.py' -q`: **164件PASS**。
 - `python3 -m compileall -q scripts tests packaging/easymesh`: PASS。
 - tracked shellへの `bash -n`、`git diff --check`: PASS。
-- 統合HEADのActions hwsim結果は別途run IDで確認する。元ブランチのsuccessを統合HEADのPASSへ自動転記しない。
+- 統合HEAD `aeb56b2e0dd4f2cc4e22c48090d0e030388aab0a`の[EasyMesh host checks #43811042009](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43811042009)はsuccess。
+- 同HEADの[MLO hwsim #43811038087](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43811038087)はsuccess。sanitized artifactでMLD smoke 3/3、仮想5+6GHz各160MHzの双方向IPはSTA→AP 6/6、AP→STA 6/6。ただしlink別カウンタ・failoverの受入証拠はなく`acceptance_v2=NOT_PROVEN`。
+- 同HEADの[802.11s hwsim #43811038073](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/43811038073)は3 jobs success。2-nodeのSAE設定peer/IP、3-nodeのA↔C HWMP via Bと双方向IP、監督プロセスによるB再参加は2試行でPASS。on-wire MIC element形式は確認済み、暗号学的MICの独立検証は未実施。PCAP原本はGitHubへアップロードしていない。
 
 ## EasyMesh実通信の現在の阻害点
 
@@ -29,8 +31,8 @@ owner-privateのAArch64 prplMesh install treeとAmbiorix source/sysrootは見つ
 |---|---|---|
 | 3 PRの履歴付き統合 | PASS | 通常merge、競合なし |
 | 164件単体テスト・構文 | PASS | ローカル実行 |
-| MLO hwsim実通信 | PASS（元ブランチ）/ NOT_TESTED（統合HEAD） | 統合CIのrun確認待ち |
-| 802.11s hwsim実通信 | PASS（元ブランチ）/ NOT_TESTED（統合HEAD） | 統合CIのrun確認待ち |
+| MLO hwsim実通信 | PASS（統合HEAD） | Actions #43811038087。実機受入v2はNOT_PROVEN |
+| 802.11s hwsim実通信 | PASS（統合HEAD） | Actions #43811038073。仮想3-node・2試行 |
 | EasyMesh隔離1905/DB | BLOCKED | AMXRT backend/ubusd/隔離runner不足 |
 | C号機802.11s peer/IP | BLOCKED | C号機root接続、独立peer不足 |
 | C号機MLO 5+6GHz/IP | BLOCKED | root接続、MLO STA、radio inventory、6GHz認証ゲート不足 |
