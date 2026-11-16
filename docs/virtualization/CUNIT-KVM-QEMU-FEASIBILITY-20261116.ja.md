@@ -2,11 +2,38 @@
 
 調査日: 2026-11-16  
 対象: Debian 13 / `6.18.63-debian-t6-proto2` / MT6990 C号機  
-実機変更: なし
+初回記録時の実機変更: なし（後続の実機検証記録を参照）
+
+## 2026-11-16 続行記録：署名済み候補の実機起動とKVMゲスト
+
+この節は同日後刻の最終実機検証を記録する。過去の「未試験」「実機変更なし」は当時の状態であり、以下の結果で更新する。
+
+- ユーザー承認の範囲で、署名済みKVM候補をslot Bの純正Linux環境から`boot_a`だけへ書き込んだ。対象は32 MiBの`boot_a`で、書込み後の全量readback SHA-256は署名済み候補と一致した。P26、slot B、GPT、OEM領域は書き換えていない。P44へraw/image書込みはしていないが、後述のQEMUパッケージをAPTで導入した。候補・署名レシート・個体固有ログは非公開保管し、公開しない。
+- 純正boot controlでslot Aを選択して起動。Debian復帰後に`bootslot=a`、`Linux 6.18.63-debian-t6-proto2`、`CONFIG_VIRTUALIZATION=y`、`CONFIG_KVM=y`を実測した。カーネルログは`kvm [1]: VHE mode initialized successfully`および`kvm_arm_init ... returned 0`。`/dev/kvm`は`root:kvm`のcharacter deviceとして出現した。これらはC号機LinuxがKVM用EL2を確保してKVMを初期化した肯定的な実機証拠である。
+- eMMCは`/sys/kernel/debug/mmc1/ios`で要求100,000,000 Hz、実測94,999,965 Hz、HS400、8-bit、1.8 V。`cmdq_en=0`。rootは`/dev/mmcblk1p44`のext4 `rw,noatime`で正常マウント。QEMU試験後に採取したカーネルログにはMMC timeout/error、ext4 I/O errorの新規記録なし。温度sysfsの読み取り値は試験後約57–65°Cの範囲だった（複数センサーの生値であり、特定センサーをCPU温度とは解釈しない）。
+- C号機へDebianの`qemu-system-arm`パッケージを追加。APTは新規31パッケージ、0 upgrade、0 removal。QEMU 10.0.13を使用し、`qemu-system-aarch64 -accel kvm -machine virt -cpu host -m 256 -smp 1`で、公式OpenWrt 25.12.6 `armsr/armv8/generic-initramfs-kernel.bin`（SHA-256 `2b1f0796ec31201b609643beca48de20d75f2879104a20adba327cbaf64b5f2b`）を起動した。ゲストはLinux 6.12.112 / aarch64、`/init`、procd early/ubus/initを通過して対話コンソールに到達した。
+- 稼働中にホスト側QEMU PIDの`/proc/<pid>/fd`から`/dev/kvm`が開かれていることを直接確認した。ゲストのvirtio-net `eth0`は`br-lan`へ接続されUP。試験中だけゲストのアドレスを`10.0.2.15/24`へ設定し、QEMU user-mode networkingの仮想gateway `10.0.2.2`へping 3/3成功（損失0%）。このuser-modeネットワークは家庭内LAN/管理LANへbridgeしていない。ゲストには仮想ディスクを付けず、ゲストの書込みはRAM initramfs内に限定した。
+- ゲストを終了し、QEMUプロセス停止、Debian SSH・管理Ethernetが維持されていることを確認。UARTロガーは起動ログをraspi4上の非公開ディレクトリへ保存した。C号機上のOpenWrt kernel imageは`/run`に置いたRAM上の一時ファイルで、検証後に削除した。P44上のネットワークや起動設定は変更していない（QEMUパッケージ導入による通常のAPT書込みを除く）。
+- boot controlはAをtrialのまま保持した（A success=0、B success=1）。試験後にmiscを変更してAを恒久成功扱いにする操作はしていない。slot Bの成功フラグと復旧可能性を維持した。候補の通常再起動後の自動選択・再現性は未試験であり、追加再起動もしていない。
+
+### この検証の判定
+
+| 項目 | 判定 | 実測 |
+|---|---|---|
+| KVM対応Linux全体のビルド | PASS（private source制約あり） | Imageと105 modulesを生成、release一致 |
+| 署名済み候補の`boot_a`書込み/readback | PASS | 対象限定、全量readback一致。生SHA/署名レシートはprivate |
+| EL2/KVM初期化 | PASS | VHE initialized、`kvm_arm_init`戻り値0 |
+| `/dev/kvm` | PASS | device出現、QEMU稼働中にQEMUがopenしているFDを確認 |
+| ARM64 OpenWrtゲスト | PASS | OpenWrt 25.12.6、Linux 6.12.112、procd console |
+| 仮想ネットワーク | PASS | virtio-net、仮想gateway ping 3/3 |
+| C号機ホストの再起動後復帰 | NOT_TESTED | KVM候補boot後の追加再起動は未実施 |
+| A trialの恒久成功化 | NOT_PERFORMED | B success=1維持、A success=0 |
+
+したがってC号機の判定は**「実機KVM動作確認済み」**。公開PR #14の入力だけからprivate C-unit kernel buildを再現できること、および候補の再起動後自動復帰は別途未達。
 
 ## 2026-11-16 続行記録：C-unit向けホストビルド
 
-この節は上記の初期調査を更新する。以降の記述を最新状態として扱う。
+この節は実機署名・起動試験前に作成したホストビルド時点の履歴である。直前の実機検証節が最終状態であり、以下の当時のNOT_TESTED記載は後続試験で解消した。
 
 - PR #14の最新確認HEADは `e05811f8d4d3ee2606f44f27218ef59132a39a5f`。公開kernel/network/experimental-DTB/P44-rootfs再現CIはPASS。公開kernel archiveのSHA-256は `c0127d88bdf6cb7a6ff9c81563f17dc059ace870c0e1a10e87dee5a1904158f8`（Linux 6.18.63、source commit `1cdda838e8475edf89b73ff0cc952005dd0b1fa7`）。この公開再現成果はMT6990向け全C-unit本番ソース一式ではない。
 - C-unit用のKVM有効全kernel buildは、既存の非公開C-unitソースツリーを複製した隔離コピー上で完了した。元ツリーは変更していない。releaseは `6.18.63-debian-t6-proto2`、`Image`と105 modulesを生成し、所要時間は約26分19秒。設定は一致するproto2製造config（SHA-256 `a96a7d4f563f828df8b81a1f305c24e37443c1c63be149cf6c894772aacdb9b9`）から `configs/cunit-kvm.fragment` を適用し、`CONFIG_VIRTUALIZATION=y`, `CONFIG_KVM=y` を確認した。解決後config SHA-256は `d5c4ac7b7f7d9da9f3fbbd62cb1e8dcf16284faa17e07877c844f76a0f1a53b8`。
@@ -16,11 +43,11 @@
 - このKVM候補をC号機へ署名・書込み・起動していない。従ってEL2、KVM初期化、`/dev/kvm`、C-unit上のQEMU/OpenWrt KVMゲストはすべてNOT_TESTEDのまま。既存のx86_64ホスト上OpenWrt TCG起動結果はC-unitのKVM証拠ではない。
 - 実機ゲートの現状: AGENTS.mdで許可された経路はraspi2 gatewayのみ。raspi2の非特権codexからC-unit用SSH秘密鍵/agent keyが利用できず、serial deviceも見つからなかった。従って実機の現在状態をこのセッションから取得できず、起動操作はしていない。安全な実機試験には許可されたC-unit管理資格情報またはUART経路の復旧が必要。また実機操作前にこの候補の正確なSHAに対する署名および一回起動の承認が必要。
 
-## 結論
+## 初回調査時点の結論（後続の実機検証で更新済み）
 
-現行カーネルで `/dev/kvm` がない直接原因は、**カーネル設定で仮想化が無効**なこと。保存済みの製造証拠にある、実機リリースと一致する6.18.63カーネル設定は `CONFIG_VIRTUALIZATION` が未設定で、KVM本体も選択されていない。よって、現時点の証拠は「KVM未ビルド」を示し、「KVMモジュールの欠落」や「EL2取得失敗」を直接原因とはしない。
+当時の現行カーネルで `/dev/kvm` がなかった直接原因は、**カーネル設定で仮想化が無効**だったこと。保存済み製造証拠の6.18.63設定は `CONFIG_VIRTUALIZATION` 未設定、KVM本体も未選択だった。これはKVM候補起動前のベースラインである。
 
-ARM Cortex-A55自体はEL2仮想化拡張を実装するCPUである。しかし、実際にLinuxがEL2で起動したこと、LK/ATFが非secure EL2をLinuxへ渡すことはまだ確認できていない。従って、KVM有効化後の実機利用可否は **BLOCKED / NOT_TESTED**。CPUの能力だけではboot chainのEL2引き渡しを証明しない。
+当時はEL2引き渡しが未確認だった。後続のKVM候補起動ではLinuxログにVHE初期化成功と`kvm_arm_init`戻り値0が記録され、C号機で利用可能なEL2が確認された。現在の最終判定は本書冒頭の「実機KVM動作確認済み」である。
 
 ## 根拠
 
@@ -78,7 +105,7 @@ OpenWrt公式`armsr/armv8`ターゲットはQEMUの`virt`機を対象とするAR
 - 公式OpenWrt 25.12.6 armsr/armv8 `generic-initramfs-kernel.bin`（35,754,496 bytes、SHA-256 `2b1f0796ec31201b609643beca48de20d75f2879104a20adba327cbaf64b5f2b`）をx86_64ホスト上QEMU 10.0.13 / `virt` / 256 MiB / 2 vCPU / TCGで直接起動。`/init`、procd early/ubus/init、およびconsole待受まで到達した。120秒で外部timeoutをかけて終了したため、timeoutは対話consoleを残すための試験終了であり、起動エラーではない。TCGログに`HYP mode not available`があるのはこのx86_64ホスト上のTCGゲストについてであり、C号機のEL2判定には使えない。
 - C号機のKVM有効カーネル製造、P25作成、署名、実機書き込み、再起動、QEMUゲスト起動、TCG性能試験は実施していない。
 
-## 受入マトリクス
+## 初回調査時点の受入マトリクス（後続結果で更新済み）
 
 | 項目 | 判定 | 根拠 / 次の条件 |
 |---|---|---|
@@ -87,15 +114,14 @@ OpenWrt公式`armsr/armv8`ターゲットはQEMUの`virt`機を対象とするAR
 | 現boot chainのEL2提供 | UNKNOWN | KVM有効カーネル起動後のEL行を採取する必要。 |
 | 必要なLinux設定 | PASS | VIRTUALIZATION=y、KVM=y。 |
 | MT6990/C-unit KVMカーネル全体のホストビルド | PASS_WITH_PRIVATE_SOURCE_LIMITATION | C-unit向けprivate treeの隔離コピーからImage/modules全体を生成。公開PR #14の入力のみで同一buildを再現する工程は未整備。 |
-| 実機KVM初期化と`/dev/kvm` | NOT_TESTED | 別途カーネル起動試験が必要。 |
-| OpenWrt ARM64 QEMUゲスト | TCG_HOST_ONLY | x86_64 hostのTCGでprocd consoleまで起動済み。C-unit上KVM guestはNOT_TESTED。 |
-| TCG性能・RAM余力 | NOT_TESTED | eMMCに負荷をかけない一時領域で計測。 |
+| 実機KVM初期化と`/dev/kvm` | PASS | 後続の署名済み候補起動でVHE初期化、`/dev/kvm`、QEMU FDを確認。 |
+| OpenWrt ARM64 QEMUゲスト | PASS | 後続のC-unit KVMでLinux/procd consoleとuser-mode仮想gateway疎通を確認。 |
+| TCG性能・RAM余力 | NOT_TESTED | 今回はKVMを使用。C-unit TCG性能は未測定。 |
 
-## 次の最小検証
+## 初回調査時点での次の検証案（完了済み項目を除く）
 
-1. PR #14の公開再現をC-unit完全ソースへ拡張するか、private source provenanceをレビュー可能な形で固定し、buildを第三者再現可能にする。
-2. 現在利用可能な実機管理鍵/UART経路を確保する。raspi2 gatewayの境界を越える回避は行わない。
-3. 別途承認後、署名・LK適合性・対象P25 SHA・slot B復旧を確認して単回起動し、UART/dmesgのEL2行、KVM init、`/dev/kvm`を観測する。
-4. KVMが成立した場合に限り、RAM 256 MiBのOpenWrt armsr/armv8 initramfsを独立ネットワークで起動し、procdとゲスト内Linuxを確認する。
+1. PR #14の公開再現をC-unit完全ソースへ拡張するか、private source provenanceをレビュー可能な形で固定し、KVM対応kernel buildを第三者再現可能にする。
+2. KVM候補の追加再起動試験は別の安全サイクルで行い、slot B成功フラグと復旧手順を維持する。
+3. A trialを恒久成功へ変更する必要がある場合は、そのboot-control更新と復旧条件を別途確認する。現在はA success=0、B success=1のまま。
 
-今回、C号機のP25/P26/P44、boot slot、bootloader、ATF、署名済みイメージは変更していない。
+後続の実機試験では署名済み候補を`boot_a`へ書き込み、全量readback後にslot Aから起動した。P26、P44、slot B、GPT、OEM領域、bootloader、ATFは変更していない。QEMU導入パッケージによる通常のAPT書込みを除き、P44の永続設定は変更していない。
