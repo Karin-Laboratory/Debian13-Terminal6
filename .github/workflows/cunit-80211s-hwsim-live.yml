@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - codex/cunit-80211s-mesh-20261115
+    paths:
+      - scripts/run_80211s_hwsim_3node.sh
+      - .github/workflows/cunit-80211s-hwsim-live.yml
   workflow_dispatch:
 
 permissions:
