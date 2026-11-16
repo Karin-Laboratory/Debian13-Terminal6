@@ -44,7 +44,7 @@ def port(path: Path):
             or "subsys_force_off(" not in unwanted):
         raise ValueError("donor LDVT block changed shape")
     src = pre + end + post
-    callback = "#ifdef CONFIG_MTK_CLK_CHECK\\n\\tset_custom_cmds(cmds);\\n#endif\\n"
+    callback = "#ifdef CONFIG_MTK_CLK_CHECK\n\tset_custom_cmds(cmds);\n#endif\n"
     if src.count(callback)!=1:
         raise ValueError("LDVT-only probe hook missing")
     src = src.replace(callback, "")
