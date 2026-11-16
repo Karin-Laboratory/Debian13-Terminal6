@@ -17,6 +17,30 @@ prplMesh **6.0.1固定source commit 5ba21ee04a3b34f0d99635eeacd547d78cb67efe** �
 
 両ノードは別AL MAC、別container/namespaceで動作する必要がある。必要なdummy WLAN、br-lan、上流platform_initの操作は**隔離コンテナ内部だけ**に限る。C号機上ではplatform_initを呼ばない。上流にも[2コンテナのController+Agent / Agent runnerの説明](https://github.com/prplfoundation/prplMesh/blob/master/tools/docker/README.md)があるが、旧リポジトリと今回の固定版の互換性は実測前提。
 
+## 第3段階：上流Docker runnerの実バイナリ受け渡し
+
+旧上流の公式 [Docker runner](https://github.com/prplfoundation/prplMesh/blob/master/tools/docker/run.sh) は、完成した `build/install` をコンテナへbind mountし、`INSTALL_DIR` を指定してから `start-controller-agent` / `start-agent` を起動する。runnerイメージ単体には実バイナリが含まれない構成がある。**6.0.1固定commitでこの契約を再照合し、実際のimage entrypointがbash `-c` を受け取るか確認する。** 旧GitHubミラーを6.0.1の正本と取り違えない。
+
+既存のprivate成果物の `build/install`（`bin/beerocks_agent`、`bin/beerocks_controller`、`scripts/prplmesh_utils.sh` を含む）を入力に、隔離ホストで次を実行する。runnerは元のinstall treeをコンテナに直接マウントせず、private output以下へController用・Agent用の**別々のコピー**を作り、その各コピーをマウントする。上流起動スクリプトに必要な `INSTALL_DIR` を設定し、各コンテナ内の `br-lan` に固定AL MACを付与した後にサービスを起動する。Agent再起動にも同じAL MACを適用する。これらの変更はコンテナ内だけで行い、C号機やホスト管理LANには触れない。
+
+~~~sh
+python3 packaging/easymesh/run-easymesh-two-node-lab.py \
+  --controller-image <local-prplmesh-6.0.1-runner-image> \
+  --agent-image <local-prplmesh-6.0.1-runner-image> \
+  --install-tree <private-prplmesh-build-install> \
+  --controller-al <private-controller-AL-MAC> \
+  --agent-al <private-agent-AL-MAC> \
+  --controller-db-command 'beerocks_cli -c bml_conn_map' \
+  --output <new-private-directory> --duration 60 --outage 45 --execute
+~~~
+
+- `--install-tree` 省略時は実バイナリをすでに含む独自のprebuilt image向け従来動作のまま。イメージ単体に必要な実バイナリが存在するか確認すること。
+- `--auto-al` はコンテナ起動後に `br-lan` MACを読み取る調査用モード。Agent再作成後のMAC不一致を復旧成功と扱わず停止するため、**完全な復旧実証には固定の明示AL MACを使う**。
+- 参照イメージのtagではなく、実image digest・ソースcommit・設定・実プロセス・実PCAPをprivate記録に残す。合成テストや単なるdaemon PIDだけでは合格としない。
+- upstreamの `platform_init` やネットワーク再構成が必要なときも、許すのはこの隔離ラボ内だけ。ホスト・C号機での実行は禁止。
+
+現セッションで実行可能な環境にはDocker、tcpdump、QEMU-user、private ARM64 sysrootがないため、**本変更は起動契約の修正であり、実プロセス成功や実1905通信成功を示すものではない**。次に実ラボで上記コマンドを実行し、起動ログ、3つの実PCAP、Controller DBスナップショットを検証する。
+
 ## ARM64の第1ゲート
 
 ~~~sh
