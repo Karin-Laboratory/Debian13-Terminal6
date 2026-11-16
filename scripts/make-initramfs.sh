@@ -17,7 +17,19 @@ if [[ $# -eq 3 ]]; then
 fi
 cp "$root/initramfs/init" "$tmp/init"
 chmod 755 "$tmp/init" "$tmp/bin/busybox"
-# preserve deterministic ownership; no device nodes are required with devtmpfs.
-(cd "$tmp" && find . -print0 | LC_ALL=C sort -z | cpio --null -o -H newc --quiet --owner=0:0 | gzip -n -9) > "$output"
+# Owner IDs are always stable; no device nodes are required with devtmpfs.
+# For public lean P25 reproducibility, the cpio inode/device numbers and the
+# timestamps of *all* files, directories and symlinks must also be stable.
+# Keep this opt-in so unrelated historic P25 recipes do not silently change.
+if [[ "${TERMINAL6_REPRODUCIBLE_INITRAMFS:-0}" = 1 ]]; then
+  epoch="${SOURCE_DATE_EPOCH:-0}"
+  [[ "$epoch" =~ ^[0-9]+$ ]] || { echo 'Invalid SOURCE_DATE_EPOCH' >&2; exit 2; }
+  find "$tmp" -print0 | xargs -0 -r touch -h -d "@$epoch"
+  (cd "$tmp" && find . -print0 | LC_ALL=C sort -z | \
+    cpio --null -o -H newc --quiet --owner=0:0 --reproducible | gzip -n -9) > "$output"
+else
+  (cd "$tmp" && find . -print0 | LC_ALL=C sort -z | \
+    cpio --null -o -H newc --quiet --owner=0:0 | gzip -n -9) > "$output"
+fi
 gzip -t "$output"
 echo "P44_INITRAMFS_CPIO_BUILT $(sha256sum "$output")"
