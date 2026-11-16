@@ -39,6 +39,7 @@ class TestPublicBootProfile(unittest.TestCase):
         self.assertEqual(d["dtb_addr"],0x1F00000)
         self.assertEqual(d["kernel_addr"],0x81000000)
         self.assertEqual(d["header_version"],2)
+        self.assertEqual(d["name"],"mt6990")
         self.assertIn("rootfs_data",d["cmdline"])
         self.assertNotIn("bootopt",d["cmdline"])
 
