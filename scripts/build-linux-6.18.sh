@@ -163,7 +163,7 @@ if [[ "${KERNEL_PROFILE:-generic}" = terminal6-capable || "${KERNEL_PROFILE:-gen
     module_name="terminal6-pcieusb-modules.tar"
   fi
 fi
-if [[ "${KERNEL_PROFILE:-generic}" = terminal6-lean || "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
+if [[ "${KERNEL_PROFILE:-generic}" = terminal6-lean || "${KERNEL_PROFILE:-generic}" = terminal6-capable || "${KERNEL_PROFILE:-generic}" = terminal6-pcieusb ]]; then
   make ARCH=arm64 INSTALL_MOD_PATH="$WORKDIR/output/module-tree" modules_install
   test -d "$WORKDIR/output/module-tree/lib/modules"
   (cd "$WORKDIR/output/module-tree" && tar -cf "$WORKDIR/output/$module_name" lib/modules)
@@ -178,7 +178,7 @@ if [[ -n "${DTB_PATH:-}" ]]; then
 fi
 cp .config "$WORKDIR/output/kernel.config"
 sha256sum "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/kernel.config" > "$WORKDIR/output/SHA256SUMS"
-if [[ "${KERNEL_PROFILE:-generic}" = terminal6-lean || "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
+if [[ "${KERNEL_PROFILE:-generic}" = terminal6-lean || "${KERNEL_PROFILE:-generic}" = terminal6-capable || "${KERNEL_PROFILE:-generic}" = terminal6-pcieusb ]]; then
   # The Air Terminal 6 boot_a P25 is exactly 32 MiB as a *partition*;
   # 35 MiB is the separate cap on the decompressed Image.
   image_bytes="$(stat -c %s "$WORKDIR/output/Image")"
