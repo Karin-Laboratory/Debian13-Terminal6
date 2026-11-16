@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-16
+
+- Added C-unit ARM64 KVM config fragment, fail-closed config validator/tests, and KVM/QEMU feasibility evidence. No device or boot artifacts were changed.
+
 ## 2026-11-14
 
 - Recorded live C-unit Debian 13 hardware inventory, driver/API mapping, Device Tree census, unknown candidates, radio findings and OpenWrt comparison.

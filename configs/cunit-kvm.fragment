@@ -1,0 +1,4 @@
+# Optional KVM/arm64 host support for a future C-unit kernel build.
+# EL2 must still be passed to Linux by the boot chain at runtime.
+CONFIG_VIRTUALIZATION=y
+CONFIG_KVM=y

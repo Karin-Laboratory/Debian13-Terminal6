@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "date": "2026-11-16",
+  "repository": "Karin-Laboratory/Debian13-Terminal6",
+  "branch": "codex/cunit-kvm-qemu-20261116",
+  "base_commit": "a05b39e162bbd044fa0d083ded81129e2e3bbc24",
+  "device_action": "NONE",
+  "observed_kernel_release": "6.18.63-debian-t6-proto2",
+  "matched_build_config_sha256": "a96a7d4f563f828df8b81a1f305c24e37443c1c63be149cf6c894772aacdb9b9",
+  "current_config_virtualization": "n",
+  "current_config_kvm": "not_selected",
+  "direct_reason": "KVM_NOT_BUILT",
+  "cpu": "4x Cortex-A55 r2p0; EL2 capability supported by CPU core specification",
+  "bootchain_el2_handoff": "UNKNOWN",
+  "required_config_fragment": "configs/cunit-kvm.fragment",
+  "config_validator_tests": {
+    "status": "PASS",
+    "count": 5
+  },
+  "generic_linux_6_18_63_kconfig_resolution": {
+    "status": "PASS",
+    "config_sha256": "ba746ce8b4aca5d6cdbaa4feb2622150681767ba9c6fa77c5005781434b83176",
+    "config_virtualization": "y",
+    "config_kvm": "y"
+  },
+  "generic_arm64_image_build": {
+    "status": "FAIL",
+    "reason": "unrelated clk-mt7987-apmixed.c passes struct device_node* to mtk_clk_register_plls(struct device*, ...)"
+  },
+  "openwrt_tcg_boot": {
+    "status": "PASS_TO_PROCD_CONSOLE_READY",
+    "release": "OpenWrt 25.12.6 armsr/armv8 generic-initramfs-kernel.bin",
+    "image_bytes": 35754496,
+    "image_sha256": "2b1f0796ec31201b609643beca48de20d75f2879104a20adba327cbaf64b5f2b",
+    "qemu": "QEMU 10.0.13",
+    "machine": "virt",
+    "acceleration": "tcg",
+    "guest_ram_mib": 256,
+    "guest_smp": 2,
+    "reached": [
+      "Run /init as init process",
+      "procd: - early -",
+      "procd: - ubus -",
+      "procd: - init -",
+      "Please press Enter to activate this console."
+    ],
+    "stop": "external 120s timeout after reaching interactive console prompt"
+  },
+  "c_unit_kvm_runtime": "NOT_TESTED",
+  "openwrt_guest_with_kvm": "NOT_TESTED",
+  "openwrt_virtual_disk_512m": "NOT_TESTED",
+  "tcg_performance_on_c_unit": "NOT_TESTED",
+  "p25_p26_p44_slot_or_firmware_modified": false,
+  "generic_arm64_kvm_translation_units": {
+    "status": "KBUILD_ARCHIVES_CREATED_NOT_IMAGE_LINKED",
+    "count": 86,
+    "archives": {
+      "arch/arm64/kvm/built-in.a": "f72660f69a10aadb764a84405e6186405938b8977c2592d7ec3f8e26b5492081",
+      "arch/arm64/kvm/hyp/built-in.a": "292ddec6b9454efe7307247065dd34aac027537147a106e4b60e2017dacef7e6",
+      "arch/arm64/kvm/hyp/nvhe/built-in.a": "9179edfa83b0d740c5a3d65871c8067bcc726c398ab59339648c9edd6f360a34",
+      "arch/arm64/kvm/hyp/vhe/built-in.a": "34f53b4551d80d5eb397870e3b5671e3e81c5ac625e5af3b0d6cf9fd6f84634b"
+    },
+    "symbol_check": "kvm_init present in KVM archive"
+  },
+  "related_ci_at_start": {
+    "pr13_wifi_integration": "SUCCESS",
+    "pr14_public_source_replay": {
+      "head": "6948df2747fe57f89e7d8b4701324d8eeeb0dee3",
+      "checks": "ALL_SUCCESS"
+    }
+  }
+}
