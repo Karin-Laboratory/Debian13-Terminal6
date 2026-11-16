@@ -32,7 +32,8 @@ jobs:
           sudo bash scripts/build-public-p44-rootfs.sh "$RUNNER_TEMP/p44-public-smoke"
       - name: Confirm software, services and no reused SSH host keys
         run: |
-          set -euo pipefail
+          # Builder uses a private (0700) rootfs directory so checks run as root.
+          sudo -E bash -euo pipefail <<'VERIFY_ROOTFS'
           out="$RUNNER_TEMP/p44-public-smoke"
           test -s "$out/debian13-p44-rootfs.tar.gz"
           test -s "$out/debian-package-manifest.txt"
@@ -46,4 +47,5 @@ jobs:
             exit 1
           fi
           echo 'PUBLIC_DEBIAN13_P44_ROOTFS_ARCHIVE_SMOKE_PASS_NOT_DEVICE_BOOT_VALIDATED'
+          VERIFY_ROOTFS
       # Intentionally no archive upload/release, no block device changes.
