@@ -3,6 +3,7 @@
 Debian on Air Terminal 6 の導入前に必要になる、**純正slot B側のUART・Linux shell・eMMC・分割準備に関する公開可能な実機知見**は、OpenWrt側の共通資料を正本とする。
 
 - [初期準備の共通入口（初めて触る人・AI向け）](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/START-HERE.ja.md)
+- [人間向け初期準備の流れ・P43未マウントの考え方](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/COMMON-INITIAL-PREPARATION-HUMAN-GUIDE.ja.md)
 - [初期準備と公開方針（公開範囲・正本の所在）](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/COMMON-INITIAL-PREPARATION-PUBLICATION.ja.md)
 - [日本語の実測知見と注意点](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/STOCK-UART-EMERGENCY-P43P44-EVIDENCE-20261113.ja.md)
 - [AIエージェント向け機械可読の観測情報](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/STOCK-UART-P43P44-EVIDENCE-20261113.json)
