@@ -20,7 +20,7 @@ Only publish independently redistributable code and documentation. Do not commit
 
 ## Stock UART / P43-P44 onboarding evidence
 
-Before working on partitions or stock SSH, read [the shared, sanitized stock UART / LK / Emergency Shell field guide](docs/COMMON-STOCK-UART-P43P44-ENTRY.ja.md). It distinguishes demonstrated observations from unverified generic installation steps; it is **not** a completed installer.
+Before working on partitions or stock SSH, start with [the shared OpenWrt/Debian initial preparation guide](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/START-HERE.ja.md) and [its publication boundaries](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/COMMON-INITIAL-PREPARATION-PUBLICATION.ja.md). The [Debian-facing index of shared UART / LK / Emergency Shell evidence](docs/COMMON-STOCK-UART-P43P44-ENTRY.ja.md) provides the related field guide. It distinguishes demonstrated observations from unverified generic installation steps; it is **not** a completed installer.
 
 ## Wi-Fi 7 / 320 MHz test-mode policy
 
