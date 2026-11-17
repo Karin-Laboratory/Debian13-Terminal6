@@ -1,0 +1,159 @@
+{"command": "AT", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.003}
+{"command": "AT+GMR", "payload_bytes": 0}
+{"reply": "AT version:3.1.0.0-dev(799ebf3 - ESP32C3 - Mar 16 2023 12:58:57)"}
+{"reply": "SDK version:v5.0-541-g885e501d99"}
+{"reply": "compile time(e9388b3):Mar 29 2023 11:52:15"}
+{"reply": "Bin version:2.5.0(MINI-1)"}
+{"result": "OK", "seconds": 0.018}
+{"command": "AT+CWMODE?", "payload_bytes": 0}
+{"reply": "+CWMODE:2"}
+{"result": "OK", "seconds": 0.005}
+{"command": "AT+BLEINIT?", "payload_bytes": 0}
+{"reply": "+BLEINIT:0"}
+{"result": "OK", "seconds": 0.005}
+{"command": "AT+SYSRAM?", "payload_bytes": 0}
+{"reply": "+SYSRAM:155132,76960"}
+{"result": "OK", "seconds": 0.006}
+{"command": "AT+SYSSTORE?", "payload_bytes": 0}
+{"reply": "+SYSSTORE:1"}
+{"result": "OK", "seconds": 0.006}
+{"command": "AT+BLEINIT?", "payload_bytes": 0}
+{"reply": "+BLEINIT:0"}
+{"result": "OK", "seconds": 0.005}
+{"command": "AT+BLEINIT=1", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.059}
+{"command": "AT+BLEINIT?", "payload_bytes": 0}
+{"reply": "+BLEINIT:1"}
+{"result": "OK", "seconds": 0.006}
+{"command": "AT+SYSSTORE?", "payload_bytes": 0}
+{"reply": "+SYSSTORE:1"}
+{"result": "OK", "seconds": 0.006}
+{"command": "AT+SYSSTORE=0", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.005}
+{"command": "AT+BLESECPARAM?", "payload_bytes": 0}
+{"reply": "+BLESECPARAM:<private>"}
+{"result": "OK", "seconds": 0.007}
+{"security_baseline_parameters": "0,0,0,0,0,0"}
+{"command": "AT+BLEENCDEV?", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.005}
+{"bonded_devices_before": 0}
+{"command": "AT+BLECONN=0,\"<address>\"", "payload_bytes": 0}
+{"event": "line", "line": "+BLESCANDONE"}
+{"event": "line", "line": "+BLECONN:0,\"<address>\""}
+{"result": "OK", "seconds": 5.144}
+{"command": "AT+BLECFGMTU=0,64", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.006}
+{"command": "AT+BLECFGMTU?", "payload_bytes": 0}
+{"reply": "+BLECFGMTU:0,23"}
+{"result": "OK", "seconds": 0.007}
+{"command": "AT+BLECONNPARAM?", "payload_bytes": 0}
+{"reply": "+BLECONNPARAM:0,10,12,11,0,600"}
+{"result": "OK", "seconds": 0.008}
+{"command": "AT+BLEGATTCPRIMSRV=0", "payload_bytes": 0}
+{"event": "line", "line": "+BLECFGMTU:0,64"}
+{"reply": "+BLECONNPARAM:0,24,40,40,0,400"}
+{"event": "line", "line": "+BLECFGMTU:0,64"}
+{"reply": "+BLEGATTCPRIMSRV:0,1,0x1800,1"}
+{"reply": "+BLEGATTCPRIMSRV:0,2,0x1801,1"}
+{"reply": "+BLEGATTCPRIMSRV:0,3,0x180A,1"}
+{"reply": "+BLEGATTCPRIMSRV:0,4,0xFA1C7E107BEA4A8EA9F05F476D6A0001,1"}
+{"result": "OK", "seconds": 1.883}
+{"command": "AT+BLEGATTCCHAR=0,4", "payload_bytes": 0}
+{"reply": "+BLEGATTCCHAR:\"char\",0,4,1,0xFA1C7E117BEA4A8EA9F05F476D6A0001,0x1a"}
+{"reply": "+BLEGATTCCHAR:\"desc\",0,4,1,1,0x2902"}
+{"reply": "+BLEGATTCCHAR:\"char\",0,4,2,0xFA1C7E127BEA4A8EA9F05F476D6A0001,0x2a"}
+{"reply": "+BLEGATTCCHAR:\"desc\",0,4,2,1,0x2902"}
+{"reply": "+BLEGATTCCHAR:\"char\",0,4,3,0xFA1C7E137BEA4A8EA9F05F476D6A0001,0x0a"}
+{"result": "OK", "seconds": 0.03}
+{"command": "AT+BLEGATTCRD=0,4,1", "payload_bytes": 0}
+{"event": "binary", "type": "+BLEGATTCRD", "frame_bytes": 32, "contents": "private"}
+{"result": "OK", "seconds": 0.108}
+{"initial_read_match": true}
+{"command": "AT+BLEGATTCWR=0,4,1,,16", "payload_bytes": 16}
+{"result": "OK", "seconds": 0.194}
+{"command": "AT+BLEGATTCRD=0,4,1", "payload_bytes": 0}
+{"event": "binary", "type": "+BLEGATTCRD", "frame_bytes": 33, "contents": "private"}
+{"result": "OK", "seconds": 0.103}
+{"write_readback_match": true}
+{"command": "AT+BLEGATTCWR=0,4,1,1,2", "payload_bytes": 2}
+{"result": "OK", "seconds": 0.096}
+{"event": "binary", "type": "+NOTIFY", "frame_bytes": 33, "contents": "private"}
+{"event": "binary", "type": "+NOTIFY", "frame_bytes": 33, "contents": "private"}
+{"event": "binary", "type": "+NOTIFY", "frame_bytes": 33, "contents": "private"}
+{"delivery_kind": "NOTIFY", "frames": 3}
+{"command": "AT+BLEGATTCWR=0,4,1,1,2", "payload_bytes": 2}
+{"result": "OK", "seconds": 0.099}
+{"command": "AT+BLEGATTCWR=0,4,2,1,2", "payload_bytes": 2}
+{"result": "OK", "seconds": 0.1}
+{"event": "binary", "type": "+INDICATE", "frame_bytes": 35, "contents": "private"}
+{"event": "binary", "type": "+INDICATE", "frame_bytes": 35, "contents": "private"}
+{"event": "binary", "type": "+INDICATE", "frame_bytes": 35, "contents": "private"}
+{"delivery_kind": "INDICATE", "frames": 3}
+{"command": "AT+BLEGATTCWR=0,4,2,1,2", "payload_bytes": 2}
+{"result": "OK", "seconds": 0.099}
+{"command": "AT+BLESECPARAM=8,3,16,3,3,1", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.008}
+{"command": "AT+BLEENC=0,1", "payload_bytes": 0}
+{"reply": "+BLESECKEYTYPE:<private>"}
+{"reply": "+BLESECKEYTYPE:<private>"}
+{"reply": "+BLEAUTHCMPL:<private>"}
+{"result": "OK", "seconds": 1.097}
+{"pairing_completion_received": true}
+{"command": "AT+BLEGATTCRD=0,4,3", "payload_bytes": 0}
+{"event": "binary", "type": "+BLEGATTCRD", "frame_bytes": 32, "contents": "private"}
+{"result": "OK", "seconds": 0.098}
+{"encrypted_characteristic_read_match": true}
+{"command": "AT+BLEENCDEV?", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.005}
+{"bonded_devices_after": 0}
+{"command": "AT+BLEDISCONN=0", "payload_bytes": 0}
+{"event": "line", "line": "+BLEDISCONN:0,\"<address>\""}
+{"result": "OK", "seconds": 0.013}
+{"command": "AT+BLECONN=0,\"<address>\"", "payload_bytes": 0}
+{"event": "line", "line": "+BLESCANDONE"}
+{"event": "line", "line": "+BLECONN:0,\"<address>\""}
+{"result": "OK", "seconds": 4.263}
+{"command": "AT+BLEGATTCPRIMSRV=0", "payload_bytes": 0}
+{"event": "line", "line": "+BLECFGMTU:0,64"}
+{"reply": "+BLECONNPARAM:0,24,40,40,0,400"}
+{"reply": "+BLEGATTCPRIMSRV:0,1,0x1800,1"}
+{"reply": "+BLEGATTCPRIMSRV:0,2,0x1801,1"}
+{"reply": "+BLEGATTCPRIMSRV:0,3,0x180A,1"}
+{"reply": "+BLEGATTCPRIMSRV:0,4,0xFA1C7E107BEA4A8EA9F05F476D6A0001,1"}
+{"result": "OK", "seconds": 1.88}
+{"command": "AT+BLEGATTCRD=0,4,1", "payload_bytes": 0}
+{"event": "binary", "type": "+BLEGATTCRD", "frame_bytes": 33, "contents": "private"}
+{"result": "OK", "seconds": 0.088}
+{"reconnect": 1, "readback_match": true}
+{"command": "AT+BLEDISCONN=0", "payload_bytes": 0}
+{"event": "line", "line": "+BLEDISCONN:0,\"<address>\""}
+{"result": "OK", "seconds": 0.013}
+{"command": "AT+BLECONN=0,\"<address>\"", "payload_bytes": 0}
+{"event": "line", "line": "+BLESCANDONE"}
+{"event": "line", "line": "+BLECONN:0,\"<address>\""}
+{"result": "OK", "seconds": 6.838}
+{"command": "AT+BLEGATTCPRIMSRV=0", "payload_bytes": 0}
+{"event": "line", "line": "+BLECFGMTU:0,64"}
+{"reply": "+BLECONNPARAM:0,24,40,40,0,400"}
+{"reply": "+BLEGATTCPRIMSRV:0,1,0x1800,1"}
+{"reply": "+BLEGATTCPRIMSRV:0,2,0x1801,1"}
+{"reply": "+BLEGATTCPRIMSRV:0,3,0x180A,1"}
+{"reply": "+BLEGATTCPRIMSRV:0,4,0xFA1C7E107BEA4A8EA9F05F476D6A0001,1"}
+{"result": "OK", "seconds": 1.711}
+{"command": "AT+BLEGATTCRD=0,4,1", "payload_bytes": 0}
+{"event": "binary", "type": "+BLEGATTCRD", "frame_bytes": 33, "contents": "private"}
+{"result": "OK", "seconds": 0.086}
+{"reconnect": 2, "readback_match": true}
+{"command": "AT+BLEDISCONN=0", "payload_bytes": 0}
+{"event": "line", "line": "+BLEDISCONN:0,\"<address>\""}
+{"result": "OK", "seconds": 0.013}
+{"owned_full_cycle_complete": true}
+{"command": "AT+BLEINIT=0", "payload_bytes": 0}
+{"result": "OK", "seconds": 1.056}
+{"command": "AT+BLEINIT?", "payload_bytes": 0}
+{"reply": "+BLEINIT:0"}
+{"result": "OK", "seconds": 0.006}
+{"cleanup": "VERIFIED", "ble_role": 0, "stop_commands_rejected": 0}
+{"command": "AT+SYSSTORE=1", "payload_bytes": 0}
+{"result": "OK", "seconds": 0.005}
