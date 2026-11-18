@@ -24,8 +24,8 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_terminal6_capable_config.py' -v
           python3 -m unittest discover -s tests -p 'test_terminal6_lean_config.py' -v
-          python3 -m unittest discover -s tests -p 'test_cunit_charter12_pair.py' -v
-          sh -n scripts/firstboot-initramfs.sh scripts/install-p44-initramfs.sh
+          python3 -m unittest discover -s tests -p 'test_cunit_charter14_pair.py' -v
+          sh -n scripts/p44-firstboot.sh initramfs/init scripts/initramfs-rescue.sh
       - name: Install public native ARM64 dependencies
         run: |
           set -euo pipefail
@@ -49,12 +49,9 @@ jobs:
           (cd "$RUNNER_TEMP/cunit-initramfs-inspected" && gzip -dc "$RUNNER_TEMP/p44-capable-initramfs.cpio.gz" | cpio -idmu --quiet)
           test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/dropbear"
           test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/terminal6-rescue"
-          test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/terminal6-firstboot"
-          test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/terminal6-install-p44"
-          test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/dropbearkey"
-          { "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/dropbear" -h 2>&1 || :; } | grep -F -- '-B' || \
-            { echo 'Dropbear lacks -B blank password option'; exit 1; }
-          echo 'CUNIT_CHARTER12_FIRSTBOOT_P25_PAYLOAD_STAGED_PASS'
+          test ! -e "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/terminal6-firstboot"
+          test ! -e "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/terminal6-install-p44"
+          echo 'CHARTER14_P25_HAS_NO_INSTALLER_OR_UNAUTH_SETUP_PASS'
           test ! -s "$RUNNER_TEMP/cunit-initramfs-inspected/root/.ssh/authorized_keys"
           test ! -s "$RUNNER_TEMP/cunit-initramfs-inspected/etc/dropbear/dropbear_ed25519_host_key"
           grep -Fq 'TERMINAL6_RESCUE_SSH_DISABLED_NO_PRIVATE_IDENTITY' scripts/initramfs-rescue.sh
@@ -142,7 +139,8 @@ jobs:
               m=json.loads(z.read('manifest.json'))
               assert m['kernel_release']=='6.18.63-t6-public-capable'
               assert m['p25_unsigned']['bytes']==33554432
-              assert m['charter_version']=='1.2'
+              assert m['charter_version']=='1.4'
+              assert m['installation_method']=='B_MANUAL_EXTERNAL_PREBOOT_NO_INSTALLER'
               assert 'p25-unsigned.img' not in z.namelist()
           print('CUNIT_P25_P44_ARCHIVE_COMPATIBILITY_HOST_CHECK_PASS')
           PY
@@ -151,7 +149,7 @@ jobs:
       - name: Retain owner-neutral P44 install ZIP as limited development artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: cunit-charter12-P44-install-UNSIGNED-DEVELOPMENT-NOT-HARDWARE-ACCEPTED
+          name: cunit-charter14-P44-install-UNSIGNED-DEVELOPMENT-NOT-HARDWARE-ACCEPTED
           path: ${{ runner.temp }}/P44-install-unsigned-development.zip
           if-no-files-found: error
           retention-days: 7
