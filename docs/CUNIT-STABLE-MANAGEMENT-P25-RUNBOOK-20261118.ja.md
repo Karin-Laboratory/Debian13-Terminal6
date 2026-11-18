@@ -21,7 +21,7 @@
 2. P44で継続開発する拡張モジュールは、P25と同一ソース・同一ビルドから取り出し `Module.symvers`、`System.map`、`.config`、`kernel.release` とともに保存する。`scripts/verify-module-abi.py` で全 `.ko` のvermagicを照合する。
 3. 緊急SSH: initramfsにARM64 Dropbearと実行に必要なライブラリを同梱する。鍵無しなら **fail-closed** とし、公開成果物に鍵を入れない。P44がマウント不能ならUART上のfail関数が救援起動を試行し、その後コンソールを残す。P44へのhandoffに成功した場合、C号機専用鍵と明示した隔離フラグのある時だけ、鍵・バイナリを一時RAM上の `/run/terminal6-rescue-root` へ引き継ぎ、systemd一時unitで通常SSHと別の **TCP/2222** を提供する設計。実通信・切替・再起動試験は未実施。
 4. `/root/.ssh/authorized_keys` はraspi4の `~/.ssh/cunit-ed25519.pub` に対応する公開鍵を**非公開工程だけで**配置。秘密鍵はraspi4から移動しない。Dropbearホスト秘密鍵はC号機専用の継続固定鍵を非公開保持。通常Debian SSHはport 22の既存ホスト鍵を保持し、救援port 2222は別のknown_hostsエントリと指紋を事前検証する。 `StrictHostKeyChecking=yes` を変更しない。
-5. 救援サービスの静的IPは当面 `192.168.3.1/24`、実測した `lan2@eth1` に限定。再アドレスは非公開 `management-ip` により構成可能とするが、**今回実機を変更しない**。家庭LAN `192.168.0.0/22` と重なるため、家庭LANへ移す前に重複しない管理セグメントを明示的に選定し、`ISOLATED_MANAGEMENT_ONLY` は取り除く。SSH救援を家庭LANへ自動公開しない。ブリッジ/NAT/DHCPサーバーを自動設定しない。
+5. **新しいC号機専用・隔離初期IPはOpenWrt標準の `192.168.1.1/24`**（`lan2@eth1`）。[初期CIDR設定](../configs/cunit-initial-management.cidr) を正本として、initramfs救援と、個体認証鍵・`ISOLATED_MANAGEMENT_ONLY` を備えた場合のP44 `systemd-networkd` 一時設定に引き継ぐ。家庭LAN `192.168.0.0/22` と重なるため、家庭LANに移す前に別の管理セグメントへ明示的に変更し隔離フラグを解除する。実機IPは今回変更しない。ブリッジ/NAT/DHCPサーバーの自動有効化は禁止。
 
 ## 非公開パーソナライズ
 
@@ -77,3 +77,12 @@
 - **非公開保存P25: 33,554,432 bytes / SHA256 `353533d88ff76b22cb324ec95230ed6bf2da683026a1a227a7c5fbcecc1e9a2b`**。Release P25 asset IDは `761233573`。非圧縮Imageは15,153,160 bytes。module tarは3,061,760 bytes。
 - **このSHAは鍵なし非公開製造候補の識別値**。公開CI SHA `54efbe6721393dbaaf36143ba188d569df767f961d65931c43fb3a0add8ba40c` と区別。ユーザー指定のraspi4 Ed25519公開鍵やC号機専用Dropbearホスト秘密鍵は入っていない。したがって緊急SSHの実認証が受入未達で、署名・起動承認には進めない。鍵を入れる個体専用パーソナライズ後は、新しいイメージの全量独立SHAを改めて取得する。
 - **SIGNED=NO / FLASH=NO / SLOT_CHANGE=NO / REBOOT=NO / REAL_ARP_SSH=NOT_TESTED / RF=NO**。純正slot Bと旧KVM P25を一切変更していない。
+
+## 2026-11-18 追加指示：初回IPをOpenWrt標準へ統一
+
+- 目標: **個体専用鍵を組み込んだC号機の初回電源投入後**、隔離した管理ポートから `ssh root@192.168.1.1` （TCP/22）で公開鍵認証、パスワード入力なしにログインできること。標準IPは[OpenWrt公式SSHガイド](https://openwrt.org/docs/guide-quick-start/sshadministration)を確認。
+- 設定値の正本: [`configs/cunit-initial-management.cidr`](../configs/cunit-initial-management.cidr) の `192.168.1.1/24`。初期P25側の救援LANは同じIP、P44へ正常に移行した場合も `/run/systemd/network/10-cunit-isolated-management.network` を一時生成して `lan2` に同じIPを割り当てる。これはP44ディスクのネットワーク設定を書き換えない。
+- **安全ゲート:** C号機専用公開鍵、継続固定SSHホスト鍵、`ISOLATED_MANAGEMENT_ONLY` を非公開工程で準備した場合だけP44への静的IP注入を有効化。鍵のない公開版は非公開鍵なしでログイン可能にしない。既存家庭LANとの重複を避け、隔離ケーブルまたは独立したネットワークを用いる。
+- **raspi4接続条件の変更:** 2026-11-18時点のraspi4 `eth0=192.168.3.71/24` は旧実測。新IPへ接続する試験時は、専用NICに一時的に例 `192.168.1.2/24` を設定する等、経路を事前確認する必要がある。今回はraspi4のアドレスや実機設定を操作していない。
+- **未達ゲート:** 現行実装の救援SSHはTCP/2222で、通常Debian SSHはTCP/22。希望する「初期段階からTCP/22でroot公開鍵ログインし、P44移行後も一貫して利用する」動作はまだ実装・検証途中。鍵・host key継続性・ポート引継ぎ・実ARP/SSH・電源再投入後の復旧は `BLOCKED/NOT_TESTED`。IPだけ変えたことでSSH受入PASSにはしない。
+- **不変の既存成果:** この変更は前回の保存済みunsigned P25の32MiBデータやSHAを変更しない。新設定を組み込んで再製造するP25は**別ファイル／別SHA**となり、検証後に別途署名承認が必要。今回、署名・実機書込み・slot切替・再起動は禁止。
