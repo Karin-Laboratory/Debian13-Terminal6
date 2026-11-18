@@ -18,7 +18,7 @@
 ## 設計憲章への準拠と保留差分
 
 - [最新設計憲章 v1.0](architecture/P25-FOUNDATION-POLICY.ja.md)と[AGENTS.md](../AGENTS.md)を、`main` commit `ab0bd832d03d3ad47a2531a256ae9d26f34ffc0a`から**原文一致**でこの開発ブランチにも取り込んだ。憲章の条件自体は変更していない。
-- 詳細は[憲章整合・初回SSH/IP差分記録](architecture/decisions/CUNIT-INITIAL-MANAGEMENT-CHARTER-ALIGNMENT-20261118.ja.md)を参照。所有者が希望する`ssh root@192.168.1.1`（初回から公開鍵認証、TCP/22）は**受入目標であり未達**。現状のinitramfs rescueはTCP/2222、P44通常SSHのauthorized_keys継承と両SSHのホスト鍵継続性も未実証。
+- 詳細は[憲章整合・初回SSH/IP差分記録](architecture/decisions/CUNIT-INITIAL-MANAGEMENT-CHARTER-ALIGNMENT-20261118.ja.md)を参照。所有者は**P44 Debianが正常起動した最初の時点で**`ssh root@192.168.1.1`（TCP/22、公開鍵認証・パスワード入力不要）できることを希望する。**P25/initramfs救援SSHまで22番に統一する要件は撤回**し、憲章§6どおり救援Dropbear（現候補TCP/2222）を別経路として扱う。P44通常SSHのauthorized_keys初回配備と両サービスのhost key/known_hosts管理、実通信は未実証。
 - [純正slot B 調査 PR #27](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/27)では純正が`eth0.1`/`eth0.2`→`br-lan`、`eth1` DOWN、`lan2`なしと観測された。安定P25候補の`eth1`+`lan2`とは異なる。これは候補不動作の**原因確定ではない**が、UART/DT/MAC/PCS/DSAと双方向ARP/SSHで別途合格させる必要がある。
 - 旧`192.168.3.0/24`は過去の隔離試験実測であり、憲章による初期値固定ではない。新`192.168.1.1/24`は家庭LAN`192.168.0.0/22`と重複するため**隔離専用**、移設時は再設計する。
 
@@ -42,7 +42,7 @@
 
 | 群 | 現時点の基礎/証拠 | P25候補 | P44後付け / 未確定事項 | P25再製造 |
 |---|---|---|---|---|
-| 管理LAN, eMMC, UART | 公開OSS Kconfig/実験DTB、100MHz/no-CQE過去実測 | 必須built-in。実パケットは未達 | PCS初期化順・DMA RX/TX・DSA管理ポートは実機ARP/SSHで検証 | 実測障害があれば必要 |
+| 管理LAN, eMMC, UART | 公開OSS Kconfig/実験DTB、100MHz/no-CQE過去実測 | **P44非依存が必須**。今回LANはbuilt-in、将来は同一initramfs内の互換モジュールも可。実パケット未達 | PCS初期化順・DMA RX/TX・DSA管理ポートは実機ARP/SSHで検証 | 実測障害があれば必要 |
 | Wi-Fi 2.4/5/6GHz | MT7996系カーネルとPHY部分証拠 | cfg80211/mac80211/mt7996eをmodule、PCIe基礎を保持 | 校正/PCIe電源/ファームウェア、合法な規制設定、実RF未確認 | DT/非module基礎修正時 |
 | Bluetooth/ESP32 | ESP-AT経由BLEは実証、Linux HCI不明 | UART/TTY基礎を保持 | HCI transport/firmware解明、P44 userspace | DT基礎変更時のみ |
 | GNSS | stock側報告あり、C Debian port未完 | module基礎を維持 | conninfra/export/SMC契約未確定 | 組込必須依存が出たとき |
@@ -87,9 +87,9 @@
 
 ## 2026-11-18 追加指示：初回IPをOpenWrt標準へ統一
 
-- 目標: **個体専用鍵を組み込んだC号機の初回電源投入後**、隔離した管理ポートから `ssh root@192.168.1.1` （TCP/22）で公開鍵認証、パスワード入力なしにログインできること。標準IPは[OpenWrt公式SSHガイド](https://openwrt.org/docs/guide-quick-start/sshadministration)を確認。
+- 目標: **個体専用鍵を事前配備し、C号機のP44 Debianが最初に正常起動した時点から**、隔離した管理ポートで `ssh root@192.168.1.1` （通常SSH TCP/22）に公開鍵認証でパスワード入力なしにログインできること。P44未起動時はこのコマンドの成功を要求せず、救援SSHの検証を別ゲートに分ける。標準IPは[OpenWrt公式SSHガイド](https://openwrt.org/docs/guide-quick-start/sshadministration)を確認。
 - 設定値の正本: [`configs/cunit-initial-management.cidr`](../configs/cunit-initial-management.cidr) の `192.168.1.1/24`。初期P25側の救援LANは同じIP、P44へ正常に移行した場合も `/run/systemd/network/10-cunit-isolated-management.network` を一時生成して `lan2` に同じIPを割り当てる。これはP44ディスクのネットワーク設定を書き換えない。
 - **安全ゲート:** C号機専用公開鍵、継続固定SSHホスト鍵、`ISOLATED_MANAGEMENT_ONLY` を非公開工程で準備した場合だけP44への静的IP注入を有効化。鍵のない公開版は非公開鍵なしでログイン可能にしない。既存家庭LANとの重複を避け、隔離ケーブルまたは独立したネットワークを用いる。
 - **raspi4接続条件の変更:** 2026-11-18時点のraspi4 `eth0=192.168.3.71/24` は旧実測。新IPへ接続する試験時は、専用NICに一時的に例 `192.168.1.2/24` を設定する等、経路を事前確認する必要がある。今回はraspi4のアドレスや実機設定を操作していない。
-- **未達ゲート:** 現行実装の救援SSHはTCP/2222で、通常Debian SSHはTCP/22。希望する「初期段階からTCP/22でroot公開鍵ログインし、P44移行後も一貫して利用する」動作はまだ実装・検証途中。鍵・host key継続性・ポート引継ぎ・実ARP/SSH・電源再投入後の復旧は `BLOCKED/NOT_TESTED`。IPだけ変えたことでSSH受入PASSにはしない。
+- **憲章準拠の最終決定（2026-11-18）:** ②は通常Debian SSHをTCP/22、救援Dropbearを別のTCP/2222とする。P25からP44へ**同一TCP/22を連続待受する要件はなし**。各モードの認証鍵、ホスト鍵、known_hosts、起動/停止・復旧条件を分けて検証する。③はbuilt-inかP25/initramfs内の互換モジュールかを実測に応じて選べる。現候補はbuilt-in選択を維持するが、恒久必須ではない。P44初回正常起動時のroot公開鍵ログイン、鍵・host key継続性、実ARP/SSH・再起動は `BLOCKED/NOT_TESTED`。IP設定のみでは受入PASSとしない。
 - **不変の既存成果:** この変更は前回の保存済みunsigned P25の32MiBデータやSHAを変更しない。新設定を組み込んで再製造するP25は**別ファイル／別SHA**となり、検証後に別途署名承認が必要。今回、署名・実機書込み・slot切替・再起動は禁止。
