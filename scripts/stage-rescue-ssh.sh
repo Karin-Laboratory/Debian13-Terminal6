@@ -45,6 +45,12 @@ if [[ -n "${TERMINAL6_RESCUE_PRIVATE_DIR:-}" ]]; then
   }
   install -m 0600 "$private/authorized_keys" "$out/root/.ssh/authorized_keys"
   install -m 0600 "$private/dropbear_ed25519_host_key" "$out/etc/dropbear/dropbear_ed25519_host_key"
+  if [[ -f "$private/ISOLATED_MANAGEMENT_ONLY" ]]; then
+    install -m 0600 "$private/ISOLATED_MANAGEMENT_ONLY" "$out/etc/dropbear/ISOLATED_MANAGEMENT_ONLY"
+  fi
+  if [[ -s "$private/management-ip" ]]; then
+    install -m 0600 "$private/management-ip" "$out/etc/dropbear/management-ip"
+  fi
   echo 'PRIVATE_RESCUE_IDENTITY_STAGED_WITHOUT_LOGGING_KEY_MATERIAL'
 else
   echo 'PUBLIC_RESCUE_SSH_FAIL_CLOSED_NO_KEYS'
