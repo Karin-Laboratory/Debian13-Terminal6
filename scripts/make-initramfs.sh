@@ -10,7 +10,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf -- "$tmp"' EXIT
 mkdir -p "$tmp"/{bin,dev,proc,sys,newroot}
 cp "$busybox" "$tmp/bin/busybox"
-for app in sh mount mountpoint umount sleep switch_root mkdir cp ln ip cat grep; do ln -s busybox "$tmp/bin/$app"; done
+for app in sh mount mountpoint umount sleep switch_root mkdir cp ln ip cat grep basename awk chmod sync kill mv unzip tar sha256sum wc uname chroot; do ln -s busybox "$tmp/bin/$app"; done
 if [[ $# -ge 3 ]]; then
   test -d "$3" && test ! -L "$3"
   cp -a "$3" "$tmp/terminal6"
@@ -25,6 +25,7 @@ if [[ $# -eq 4 ]]; then
   test -x "$tmp/sbin/dropbear"
   test -x "$tmp/sbin/dropbearkey"
   test -x "$tmp/sbin/terminal6-firstboot"
+  test -x "$tmp/sbin/terminal6-install-p44"
 fi
 cp "$root/initramfs/init" "$tmp/init"
 chmod 755 "$tmp/init" "$tmp/bin/busybox"
