@@ -40,7 +40,7 @@ jobs:
           TERMINAL6_REPRODUCIBLE_INITRAMFS=1 SOURCE_DATE_EPOCH=0 \
             bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-capable-initramfs.cpio.gz" "$GITHUB_WORKSPACE/public-management" "$RUNNER_TEMP/cunit-rescue"
           TERMINAL6_REPRODUCIBLE_INITRAMFS=1 SOURCE_DATE_EPOCH=0 \
-            bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-capable-initramfs-repeat.cpio.gz" "$GITHUB_WORKSPACE/public-management"
+            bash scripts/make-initramfs.sh /bin/busybox "$RUNNER_TEMP/p44-capable-initramfs-repeat.cpio.gz" "$GITHUB_WORKSPACE/public-management" "$RUNNER_TEMP/cunit-rescue"
           cmp "$RUNNER_TEMP/p44-capable-initramfs.cpio.gz" "$RUNNER_TEMP/p44-capable-initramfs-repeat.cpio.gz"
 
           mkdir -p "$RUNNER_TEMP/cunit-initramfs-inspected"
