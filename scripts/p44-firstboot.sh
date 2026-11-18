@@ -52,6 +52,15 @@ case "$1" in
         [ ! -e "$done_marker" ] || { echo CUNIT_ALREADY_PROVISIONED; exit 1; }
         root_has_credentials || { echo CUNIT_FIRSTBOOT_NO_PERSISTENT_CREDENTIALS; exit 1; }
         [ -f "$verified" ] || { echo CUNIT_FIRSTBOOT_NO_VERIFIED_SECOND_SESSION; exit 1; }
+        # Key-only initial configuration must also lock the original empty
+        # system root password. OpenSSH public-key access remains available.
+        root_pw="$(awk -F: '$1=="root" { print $2 }' /etc/shadow)"
+        if [ -z "$root_pw" ]; then
+            [ -s /root/.ssh/authorized_keys ] || exit 1
+            passwd -l root >/dev/null
+            [ "$(awk -F: '$1=="root" { print $2 }' /etc/shadow)" != "" ] || exit 1
+            sync
+        fi
         # Only main Dropbear listener stops; authenticated setup child stays
         # alive while normal OpenSSH port 22 comes up without a reboot.
         umask 077
