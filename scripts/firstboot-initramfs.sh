@@ -59,6 +59,9 @@ case "$1" in
         empty_p44
         ;;
     serve)
+        # Any abnormal exit must close the unauthenticated listener.
+        # No unauthenticated fallback in fail() or after P44 auth is complete.
+        trap '[ ! -s "$pid" ] || kill "$(cat "$pid")" 2>/dev/null || true' EXIT HUP INT TERM
         empty_p44 || { echo CUNIT_FIRSTBOOT_FAIL_CLOSED_P44_NOT_EMPTY; exit 1; }
         mkdir -p -m 0700 "$state/ssh" "$state/inbox" /run
         chmod 0700 "$state" "$state/ssh" "$state/inbox"
