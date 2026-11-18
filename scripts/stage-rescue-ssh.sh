@@ -14,7 +14,7 @@ mkdir -p "$out"/{bin,sbin,etc/dropbear,root/.ssh,run,dev,proc,sys}
 # Use the same known static BusyBox as the initramfs for the P44 chroot.
 [[ -x /bin/busybox ]] || { echo 'busybox-static required' >&2; exit 2; }
 install -m 0755 /bin/busybox "$out/bin/busybox"
-for name in sh ip cat grep sleep mkdir basename awk chmod sync kill mv; do ln -s busybox "$out/bin/$name"; done
+for name in sh ip cat grep sleep mkdir basename awk chmod sync kill mv unzip tar sha256sum wc uname chroot mountpoint umount; do ln -s busybox "$out/bin/$name"; done
 install -m 0644 "$(dirname "$0")/terminal6-rescue.service" "$out/terminal6-rescue.service"
 # Single-source isolated first-boot IP; per-device private override is optional.
 install -m 0644 "$(dirname "$0")/../configs/cunit-initial-management.cidr" "$out/etc/dropbear/management-ip"
@@ -42,6 +42,7 @@ printf 'passwd: files\ngroup: files\nshadow: files\n' > "$out/etc/nsswitch.conf"
 install -m 0755 "$(dirname "$0")/initramfs-rescue.sh" "$out/sbin/terminal6-rescue"
 install -m 0755 "$(command -v dropbearkey)" "$out/sbin/dropbearkey"
 install -m 0755 "$(dirname "$0")/firstboot-initramfs.sh" "$out/sbin/terminal6-firstboot"
+install -m 0755 "$(dirname "$0")/install-p44-initramfs.sh" "$out/sbin/terminal6-install-p44"
 # No default authorized_keys, SSH host private key or root password.
 # A separate owner-private process must provision both at image build time.
 if [[ -n "${TERMINAL6_RESCUE_PRIVATE_DIR:-}" ]]; then
