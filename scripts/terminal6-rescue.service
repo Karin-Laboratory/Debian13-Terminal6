@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=C-unit isolated rescue SSH retained across P44 handoff
+DefaultDependencies=no
+After=systemd-udevd.service
+Before=network.target
+ConditionPathExists=/run/terminal6-rescue-root/root/.ssh/authorized_keys
+ConditionPathExists=/run/terminal6-rescue-root/etc/dropbear/dropbear_ed25519_host_key
+ConditionPathExists=/run/terminal6-rescue-root/etc/dropbear/ISOLATED_MANAGEMENT_ONLY
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+RootDirectory=/run/terminal6-rescue-root
+BindReadOnlyPaths=/proc:/proc /sys:/sys
+BindPaths=/dev:/dev
+ExecStart=/sbin/terminal6-rescue
+TimeoutStartSec=40
+# Host firewall and isolation are operator responsibility; no auto NAT/bridge/DHCP.
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
