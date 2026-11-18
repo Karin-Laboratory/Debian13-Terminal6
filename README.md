@@ -30,7 +30,7 @@ Only publish independently redistributable code and documentation. Do not commit
 
 ## Stock UART / P43-P44 onboarding evidence
 
-Before working on partitions or stock SSH, start with [the shared OpenWrt/Debian initial preparation guide](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/START-HERE.ja.md) and [its publication boundaries](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/COMMON-INITIAL-PREPARATION-PUBLICATION.ja.md). The [Debian-facing index of shared UART / LK / Emergency Shell evidence](docs/COMMON-STOCK-UART-P43P44-ENTRY.ja.md) provides the related field guide. It distinguishes demonstrated observations from unverified generic installation steps; it is **not** a completed installer.
+Before working on partitions or stock SSH, start with [the shared OpenWrt/Debian initial preparation guide](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/START-HERE.ja.md) and [its publication boundaries](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/COMMON-INITIAL-PREPARATION-PUBLICATION.ja.md). The [Debian-facing index of shared UART / LK / Emergency Shell evidence](docs/COMMON-STOCK-UART-P43P44-ENTRY.ja.md) provides the related field guide. New: [2026-11-17 one-unit stock SSH + host-side offline P43 shrink/P44 creation report](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/P43-P44-STOCK-SSH-OFFLINE-SHRINK-20261118.ja.md); third-party partition writes remain BLOCKED pending safe unmount validation. It distinguishes demonstrated observations from unverified generic installation steps; it is **not** a completed installer.
 
 ## Wi-Fi 7 / 320 MHz test-mode policy
 
