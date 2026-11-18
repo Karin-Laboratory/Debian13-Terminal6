@@ -16,6 +16,8 @@ mkdir -p "$out"/{bin,sbin,etc/dropbear,root/.ssh,run,dev,proc,sys}
 install -m 0755 /bin/busybox "$out/bin/busybox"
 for name in sh ip cat grep sleep mkdir; do ln -s busybox "$out/bin/$name"; done
 install -m 0644 "$(dirname "$0")/terminal6-rescue.service" "$out/terminal6-rescue.service"
+# Single-source isolated first-boot IP; per-device private override is optional.
+install -m 0644 "$(dirname "$0")/../configs/cunit-initial-management.cidr" "$out/etc/dropbear/management-ip"
 binary="$(command -v dropbear)"
 install -m 0755 "$binary" "$out/sbin/dropbear"
 # Preserve ELF interpreter and linked shared libraries at their absolute paths.
@@ -60,5 +62,17 @@ if [[ -n "${TERMINAL6_RESCUE_PRIVATE_DIR:-}" ]]; then
 else
   echo 'PUBLIC_RESCUE_SSH_FAIL_CLOSED_NO_KEYS'
 fi
+# Reject malformed or overlapping external inputs before generating a P25.
+# IP addresses can be deliberately changed for later home-LAN integration.
+python3 - "$out/etc/dropbear/management-ip" <<'PY'
+from ipaddress import ip_interface
+from pathlib import Path
+import sys
+raw = Path(sys.argv[1]).read_text().strip()
+iface = ip_interface(raw)
+if iface.version != 4 or not (24 <= iface.network.prefixlen <= 30):
+    raise SystemExit("CUNIT_INITIAL_MANAGEMENT_IP_INVALID")
+print("CUNIT_INITIAL_MANAGEMENT_IP_CONFIGURED", iface)
+PY
 find "$out" -type f -exec chmod go-w {} +
 echo 'TERMINAL6_RESCUE_DROPBEAR_ARM64_STAGED'
