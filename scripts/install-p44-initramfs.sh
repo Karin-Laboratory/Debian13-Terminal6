@@ -39,10 +39,10 @@ expected_release="$(cat "$inbox/kernel.release")"
 echo 'CUNIT_INSTALL_VALIDATED_ZIP_AND_MATCHING_KERNEL'
 # No mkfs, no partition table/bootcontrol operation; extraction is confined
 # to the previously confirmed empty ext4 rootfs_data.
-tar xzpf "$inbox/rootfs.tar.gz" -C "$root" || {
+/sbin/gnu-tar --extract --gzip --file "$inbox/rootfs.tar.gz" --directory "$root" --numeric-owner --same-permissions --acls --xattrs || {
     echo CUNIT_INSTALL_INTERRUPTED_UART_RECOVERY_REQUIRED; exit 1;
 }
-tar xpf "$inbox/modules.tar" -C "$root" || {
+/sbin/gnu-tar --extract --file "$inbox/modules.tar" --directory "$root" --numeric-owner --same-permissions --acls --xattrs || {
     echo CUNIT_INSTALL_MODULE_EXTRACTION_FAILED_UART_RECOVERY_REQUIRED; exit 1;
 }
 [ -x "$root/sbin/init" ] && [ -x "$root/usr/bin/dropbearconvert" ] || {
