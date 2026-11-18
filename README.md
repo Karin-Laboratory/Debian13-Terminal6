@@ -10,6 +10,12 @@ Experimental, community-maintained project to run **Debian 13 (arm64)** on SoftB
 - Enable UART, Ethernet, SSH, NFS, and hardware diagnostics to accelerate OpenWrt development.
 - Document reproducible builds, tests, known limitations, and recovery prerequisites.
 
+## P25 foundation architecture / Codex guidance
+
+**Architecture source of truth:** [P25 stable-foundation design charter (Japanese)](docs/architecture/P25-FOUNDATION-POLICY.ja.md). It defines the separation of P25 boot/kernel/initramfs and P44 Debian/modules, management and recovery requirements, ABI/Device Tree limits, reproducible upgrades and decision controls. **It is a policy, not evidence that any candidate has passed a physical boot test.**
+
+**For Codex and other repository agents:** start with [AGENTS.md](AGENTS.md), then read the current design charter and the relevant PR/runbook before changing implementation. Architecture changes require an explicit owner-approved proposal; experiment outcomes are recorded separately.
+
 ## Status
 
 **Live hardware research on one development unit.** Debian 13 with kernel `6.18.63-debian-t6-proto2` runs from P44 on the C-unit; Ethernet/SSH and ESP32-C3 UART queries have been measured. **eMMC CQE/write I/O errors and rootfs integrity remain unresolved.** This is not a validated general installer or complete hardware-support claim. See the [2026-11-14 hardware report, limitations and mitigation candidates](docs/hardware/README.md). Writing P44 can destroy existing data; preserve recovery before any separate firmware or filesystem work.
