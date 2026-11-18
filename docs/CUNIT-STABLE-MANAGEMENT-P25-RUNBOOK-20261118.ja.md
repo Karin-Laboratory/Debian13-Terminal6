@@ -1,5 +1,17 @@
 # C号機 安定管理基礎P25 製造・復旧Runbook
 
+> **現在の正本：2026-11-18 改定 設計憲章 v1.4、方式B（Codex/人間による外部手動導入）**。以下に残るv1.0・v1.2のinitramfs無認証SSHや内蔵P44 ZIPインストーラの記録は**履歴であり最新版の配布・ビルド仕様ではない**。現行実装はP25を起動/診断/鍵認証救援に限定し、[P44手動導入Runbook](CUNIT-METHOD-B-MANUAL-INSTALL.ja.md)に従い**起動前**にDebian rootfsと対応modulesをP44へ配置。初回無認証SSH`192.168.1.1:22`は**Debian P44上**のみが担当する。公開成果物に署名済みP25や実機動作PASSを含意しない。
+
+## v1.4：製造・受入の現行契約
+
+1. **P25:** 前回までのbuilt-in LANと同一ABI modulesの公開製造技術を再利用する。`initramfs/init`はP44が空/破損ならUARTでエラーを報告し、**無認証SSHやP44 ZIP導入処理を開始しない**。救援Dropbearは事前個体認証鍵と隔離フラグがある場合のみTCP/2222、鍵なし公開P25ではfail-closed。サイズは正確に32MiB、Imageの35MiB上限は別検証。
+2. **P44-install.zip:** `scripts/build-public-p44-rootfs.sh`でDebian 13 arm64を生成し、`scripts/package-p44-install.py`で`rootfs.tar.gz`（GNU tar所有者/ACL/xattrs保全）、同一ビルドの`modules.tar`、source commit、kernel.release、SHA256マニフェスト、手動導入手順をZIPへ保存。ZIP自身をrootfsに直接展開しない。**専用外部インストーラは作らない**。
+3. **Debian側の初回認証:** P44初回のみ`terminal6-firstboot.service`がDropbear`-B`と空のrootパスワードを物理隔離有線`192.168.1.1:22`で提供（同じL2にいる第三者もrootになれる）。端末ごとのOpenSSH/Dropbear Ed25519ホスト鍵を初回生成・保存。ユーザーが`passwd root`か`authorized_keys`を設定、通常sshdの一時TCP/2223へ別セッションで認証できた後`terminal6-p44-firstboot finalize`で**無認証22番を停止**し、通常の認証付きOpenSSHを22番で起動。public P44に共通SSHホスト秘密鍵は含めない。
+4. **署名・操作境界:** P25 unsigned SHA、P44 ZIP SHAは完成物から独立に計算して報告し、非公開のドラフト保管実物を別途全量読戻し。過去のSHA承認は転用しない。**NO_SIGN / NO_DEVICE_WRITE / NO_SLOT_CHANGE / NO_REBOOT / NO_RF**。
+5. **現場ゲート:** DT/MAC/SGMII/DSA実NIC登録、ARP双方向、Debian初回無認証SSH、資格情報永続化、認証切替、ホスト鍵継続、cold boot、stock B復旧はすべて個別に実測。**CI PASSは物理動作PASSではない**。家庭LAN`192.168.0.0/22`は初期`192.168.1.0/24`と重複、接続禁止。
+
+
+
 > **2026-11-18 最新・憲章 v1.2優先：** 本文中のv1.0『初回は個別SSH公開鍵必須』は旧仕様。最新版は[設計憲章 v1.2](architecture/P25-FOUNDATION-POLICY.ja.md)と[初回セットアップ＋P44ペアの新決定](architecture/decisions/CUNIT-CHARTER12-INITIAL-SETUP-AND-PAIR-BUILD-20261118.ja.md)。物理隔離・空P44に限定して**初回だけ無認証root SSH（192.168.1.1:22）**、P44へDebianと認証を永続化して別セッションで検証後に閉鎖。通常SSH/救援SSHは認証必須。現在のビルドと実機受入の状態はそれぞれ別判定。
 
 作成: 2026-11-18 JST / 対象: SoftBank Air Terminal 6 C号機、Debian 13、Linux 6.18.63
