@@ -26,6 +26,7 @@ if [[ $# -eq 4 ]]; then
   test -x "$tmp/sbin/dropbearkey"
   test -x "$tmp/sbin/terminal6-firstboot"
   test -x "$tmp/sbin/terminal6-install-p44"
+  test -x "$tmp/sbin/gnu-tar"
 fi
 cp "$root/initramfs/init" "$tmp/init"
 chmod 755 "$tmp/init" "$tmp/bin/busybox"
