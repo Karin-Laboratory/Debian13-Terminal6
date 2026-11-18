@@ -2,7 +2,7 @@
 
 作成: 2026-11-18 JST / 対象: SoftBank Air Terminal 6 C号機、Debian 13、Linux 6.18.63
 担当: `codex/cunit-stable-management-p25-20261118`
-**状態: PUBLIC_HOST_BUILD=PASS / PRIVATE_RETENTION=確認中 / C_UNIT_BOOT=NOT_TESTED。未署名、実機未操作。**
+**状態: PUBLIC_HOST_BUILD=PASS / PRIVATE_MANUFACTURE=PASS / PRIVATE_RETENTION_AND_READBACK=PASS / C_UNIT_BOOT=NOT_TESTED / KEYED_RESCUE_SSH=BLOCKED。未署名、実機未操作。**
 
 ## 基準と引継ぎ
 
@@ -68,3 +68,12 @@
 - Dropbearバイナリ/依存libsのinitramfs格納、同一入力からのinitramfs一致、**鍵なしfail-closed** 検査PASS。ただし公開・非公開ともC号機鍵の認証ログイン、管理LAN実パケットは未試験。
 - 限界: P44のマウント不能およびP44ネットワーク障害に備える構造。 `switch_root` 後にsystemdそのものが停止する故障モードは**復旧未保証**。別の実機受入を要する。
 - 公開CIのSHAは **個体鍵を含まない公開製造品** のもので、非公開保存版・署名対象値とは混同しない。
+
+## 2026-11-18 非公開保存の最終検証
+
+- 非公開担当[PR #172](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/pull/172) と [Draft Release ID 449370879](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/releases/tag/untagged-d5f27f3715b64e0f2ca1) に、公開ソース `9128d92d445b3753ca605aea85ffcd9f6190a50e` からネイティブARM64で製造したunsigned P25を保存。
+- 非公開製造[run #44207666720](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44207666720) でImage/モジュール/P25独立製造とReleaseへの14アセット保存までPASS。ただしDraftタグでの最終ghダウンロード失敗により、run全体はFAILURE。保存失敗ではない。
+- 再取得専用[独立CI #44209377382](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44209377382) は **SUCCESS**。Draft Releaseの14アセットすべてをGitHub APIのasset IDで再取得し、各サイズ・全バイトのSHA256をGitHub保存記録と照合。P25は製造時の独立レシートとも一致。40件の同一ABIモジュールを確認。
+- **非公開保存P25: 33,554,432 bytes / SHA256 `353533d88ff76b22cb324ec95230ed6bf2da683026a1a227a7c5fbcecc1e9a2b`**。Release P25 asset IDは `761233573`。非圧縮Imageは15,153,160 bytes。module tarは3,061,760 bytes。
+- **このSHAは鍵なし非公開製造候補の識別値**。公開CI SHA `54efbe6721393dbaaf36143ba188d569df767f961d65931c43fb3a0add8ba40c` と区別。ユーザー指定のraspi4 Ed25519公開鍵やC号機専用Dropbearホスト秘密鍵は入っていない。したがって緊急SSHの実認証が受入未達で、署名・起動承認には進めない。鍵を入れる個体専用パーソナライズ後は、新しいイメージの全量独立SHAを改めて取得する。
+- **SIGNED=NO / FLASH=NO / SLOT_CHANGE=NO / REBOOT=NO / REAL_ARP_SSH=NOT_TESTED / RF=NO**。純正slot Bと旧KVM P25を一切変更していない。
