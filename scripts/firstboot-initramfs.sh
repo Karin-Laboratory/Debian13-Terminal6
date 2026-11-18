@@ -90,10 +90,39 @@ case "$1" in
         printf '%s\n' 'root:!:0:0:99999:7:::' > /etc/shadow
         echo CUNIT_FIRSTBOOT_UNAUTH_LISTENER_CLOSED
         ;;
+    passwd)
+        [ -x "$root/usr/bin/passwd" ] || { echo CUNIT_P44_NOT_INSTALLED; exit 1; }
+        mkdir -p "$root/dev" "$root/proc"
+        mount --bind /dev "$root/dev" || exit 1
+        mount -t proc proc "$root/proc" || exit 1
+        chroot "$root" /usr/bin/passwd root
+        status=$?
+        umount "$root/proc" || true
+        umount "$root/dev" || true
+        exit "$status"
+        ;;
+    verify)
+        # Start Debian's REAL authenticated sshd on a temporary test-only port.
+        # An operator must reconnect using those credentials and execute:
+        #   ssh -p 2223 root@192.168.1.1 'touch /.terminal6/auth-verified'
+        valid_credentials || { echo CUNIT_P44_CREDENTIALS_ABSENT; exit 1; }
+        mkdir -p "$root/dev" "$root/proc" "$root/run/sshd"
+        mountpoint "$root/dev" >/dev/null 2>&1 || mount --bind /dev "$root/dev"
+        mountpoint "$root/proc" >/dev/null 2>&1 || mount -t proc proc "$root/proc"
+        chroot "$root" /usr/sbin/sshd -t || { echo CUNIT_P44_SSHD_CONFIG_INVALID; exit 1; }
+        chroot "$root" /usr/sbin/sshd -p 2223 -o ListenAddress=192.168.1.1 \
+            -o PidFile=/run/terminal6-auth-verify.pid
+        echo CUNIT_P44_AUTH_TEST_LISTENING_192.168.1.1_2223
+        echo 'Now verify in a NEW session: ssh -p 2223 root@192.168.1.1'
+        echo 'After login, execute: touch /.terminal6/auth-verified'
+        ;;
     finalize)
         # Manual operator gate after P44 installation and persistent auth setup.
         [ ! -e "$marker" ] || { echo CUNIT_FIRSTBOOT_ALREADY_FINISHED; exit 1; }
         valid_credentials || { echo CUNIT_FIRSTBOOT_BLOCKED_NO_P44_AUTH; exit 1; }
+        [ -f "$state/auth-verified" ] || {
+            echo CUNIT_FIRSTBOOT_REFUSE_UNVERIFIED_SECOND_SESSION; exit 1;
+        }
         printf '%s\n' 'P44_ROOT_AUTH_PRESENT_NO_UNAUTH_REENABLE' > "$state/firstboot-complete.tmp"
         chmod 0600 "$state/firstboot-complete.tmp"
         mv "$state/firstboot-complete.tmp" "$marker"
@@ -101,5 +130,5 @@ case "$1" in
         [ -s "$marker" ] || exit 1
         echo CUNIT_FIRSTBOOT_P44_CREDENTIALS_SAVED
         ;;
-    *) echo 'usage: terminal6-firstboot {probe|serve|finalize}' >&2; exit 2 ;;
+    *) echo 'usage: terminal6-firstboot {probe|serve|passwd|verify|finalize}' >&2; exit 2 ;;
 esac
