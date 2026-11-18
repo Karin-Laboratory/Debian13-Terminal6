@@ -24,11 +24,13 @@ jobs:
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_terminal6_capable_config.py' -v
           python3 -m unittest discover -s tests -p 'test_terminal6_lean_config.py' -v
+          python3 -m unittest discover -s tests -p 'test_cunit_charter12_pair.py' -v
+          sh -n scripts/firstboot-initramfs.sh scripts/install-p44-initramfs.sh
       - name: Install public native ARM64 dependencies
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq flex bison libssl-dev libelf-dev bc device-tree-compiler busybox-static cpio dropbear-bin binutils kmod
+          sudo apt-get install -y -qq flex bison libssl-dev libelf-dev bc device-tree-compiler busybox-static cpio dropbear-bin binutils kmod debootstrap
           test "$(uname -m)" = aarch64
       - name: Stage owner-independent public DTB and P44 initramfs with management
         run: |
@@ -47,6 +49,12 @@ jobs:
           (cd "$RUNNER_TEMP/cunit-initramfs-inspected" && gzip -dc "$RUNNER_TEMP/p44-capable-initramfs.cpio.gz" | cpio -idmu --quiet)
           test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/dropbear"
           test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/terminal6-rescue"
+          test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/terminal6-firstboot"
+          test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/terminal6-install-p44"
+          test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/dropbearkey"
+          "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/dropbear" -h 2>&1 | grep -F -- '-B' || \
+            { echo 'Dropbear lacks -B blank password option'; exit 1; }
+          echo 'CUNIT_CHARTER12_FIRSTBOOT_P25_PAYLOAD_STAGED_PASS'
           test ! -s "$RUNNER_TEMP/cunit-initramfs-inspected/root/.ssh/authorized_keys"
           test ! -s "$RUNNER_TEMP/cunit-initramfs-inspected/etc/dropbear/dropbear_ed25519_host_key"
           grep -Fq 'TERMINAL6_RESCUE_SSH_DISABLED_NO_PRIVATE_IDENTITY' scripts/initramfs-rescue.sh
@@ -113,5 +121,39 @@ jobs:
           echo 'PUBLIC_CAPABLE_35M_SOURCE_P25_FULL_READBACK_PASS'
           echo 'NO_PRIVATE_RESCUE_IDENTITY_IN_PUBLIC_P25; KEYED_RESCUE_SSH_NOT_ACCEPTED'
           echo 'NOT_SIGNED_NO_DEVICE_ACTION_LK_WIFI_USB_KVM_PHYSICAL_NOT_TESTED'
+
+      - name: Build compatible Debian 13 P44 rootfs and hash-pinned install ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo bash scripts/build-public-p44-rootfs.sh "$RUNNER_TEMP/cunit-p44-rootfs"
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/cunit-p44-rootfs"
+          python3 scripts/package-p44-install.py \
+            --rootfs "$RUNNER_TEMP/cunit-p44-rootfs/debian13-p44-rootfs.tar.gz" \
+            --modules "$RUNNER_TEMP/capable-linux/output/terminal6-capable-modules.tar" \
+            --p25 "$RUNNER_TEMP/capable-p25/p25-unsigned.img" \
+            --kernel-release "$RUNNER_TEMP/capable-linux/output/kernel.release" \
+            --source "$GITHUB_SHA" \
+            --output "$RUNNER_TEMP/P44-install-unsigned-development.zip"
+          python3 - "$RUNNER_TEMP/P44-install-unsigned-development.zip" <<'PY'
+          from pathlib import Path
+          import json,sys,zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              m=json.loads(z.read('manifest.json'))
+              assert m['kernel_release']=='6.18.63-t6-public-capable'
+              assert m['p25_unsigned']['bytes']==33554432
+              assert m['charter_version']=='1.2'
+              assert 'p25-unsigned.img' not in z.namelist()
+          print('CUNIT_P25_P44_ARCHIVE_COMPATIBILITY_HOST_CHECK_PASS')
+          PY
+          sha256sum "$RUNNER_TEMP/P44-install-unsigned-development.zip"
+          echo 'P44_ZIP_DEVELOPMENT_ONLY_NO_SIGNING_NO_DEVICE_TEST'
+      - name: Retain owner-neutral P44 install ZIP as limited development artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cunit-charter12-P44-install-UNSIGNED-DEVELOPMENT-NOT-HARDWARE-ACCEPTED
+          path: ${{ runner.temp }}/P44-install-unsigned-development.zip
+          if-no-files-found: error
+          retention-days: 7
       # No public upload of physical-device boot images, firmware or calibration.
       # Private source-pinned rebuild is required to retain an unsigned binary.
