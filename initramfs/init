@@ -54,6 +54,22 @@ if [ -d /terminal6 ]; then
     ln -s ../terminal6-management.service /newroot/run/systemd/system/multi-user.target.wants/terminal6-management.service
     echo DEBIAN13_T6_MANAGEMENT_SERVICE_STAGED
 fi
+# A personalized rescue identity is retained in RAM after switch_root, not
+# written to the P44 filesystem. This remains independent of P44 networkd.
+if [ -d /terminal6-rescue-root ] &&
+   [ -s /terminal6-rescue-root/root/.ssh/authorized_keys ] &&
+   [ -s /terminal6-rescue-root/etc/dropbear/dropbear_ed25519_host_key ] &&
+   [ -f /terminal6-rescue-root/etc/dropbear/ISOLATED_MANAGEMENT_ONLY ]; then
+    mkdir -p /newroot/run
+    if ! mountpoint /newroot/run >/dev/null 2>&1; then
+        mount -t tmpfs -o mode=0700 tmpfs /newroot/run || fail MOUNT_RESCUE_RUNTIME
+    fi
+    cp -a /terminal6-rescue-root /newroot/run/terminal6-rescue-root || fail STAGE_RESCUE
+    mkdir -p /newroot/run/systemd/system/multi-user.target.wants
+    cp /terminal6-rescue-root/terminal6-rescue.service /newroot/run/systemd/system/
+    ln -s ../terminal6-rescue.service /newroot/run/systemd/system/multi-user.target.wants/terminal6-rescue.service
+    echo DEBIAN13_T6_P44_RESCUE_STAGED_ONLY_IN_RUNTIME_RAM
+fi
 echo DEBIAN13_T6_SWITCH_ROOT_P44
 mount --move /proc /newroot/proc || fail MOVE_PROC
 mount --move /sys /newroot/sys || fail MOVE_SYS
