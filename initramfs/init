@@ -45,12 +45,8 @@ done
 [ -n "$rootdev" ] || fail ROOTFS_DATA_MISSING
 echo "DEBIAN13_T6_ROOT_DEVICE=$rootdev"
 mount -t ext4 -o rw,noatime "$rootdev" /newroot || fail ROOTFS_DATA_MOUNT
-# Only a verifiably EMPTY P44 enables physically isolated initial setup SSH.
-# Never activate unauthenticated access on mount failure or existing Debian.
-if [ -x /sbin/terminal6-firstboot ] && /sbin/terminal6-firstboot probe; then
-    echo DEBIAN13_T6_EMPTY_P44_FIRSTBOOT_SETUP
-    /sbin/terminal6-firstboot serve || fail FIRSTBOOT_SETUP
-fi
+# Charter v1.4: no unauthenticated SSH or ZIP installer in P25.
+# Empty or broken P44 is a UART + authenticated-rescue failure, never setup.
 [ -x /newroot/sbin/init ] || fail DEBIAN_INIT_MISSING
 mkdir -p /newroot/dev /newroot/proc /newroot/sys
 if [ -d /terminal6 ]; then
