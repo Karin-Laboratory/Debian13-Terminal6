@@ -29,6 +29,18 @@ done < <(
   { ldd "$binary" | awk '{for (i=1; i<=NF; ++i) if ($i ~ /^\//) print $i}';
     readelf -l "$binary" | sed -n 's/.*Requesting program interpreter: \([^]]*\)].*/\1/p'; } | sort -u
 )
+# Stage dropbearkey with its own ELF dependencies (may differ from server).
+binary="$(command -v dropbearkey)"
+install -m 0755 "$binary" "$out/sbin/dropbearkey"
+# Preserve ELF interpreter and linked shared libraries at their absolute paths.
+while IFS= read -r dep; do
+  [[ -f "$dep" ]] || { echo "Missing ELF library: $dep" >&2; exit 3; }
+  mkdir -p "$out/${dep%/*}"
+  cp -L "$dep" "$out/$dep"
+done < <(
+  { ldd "$binary" | awk '{for (i=1; i<=NF; ++i) if ($i ~ /^\//) print $i}';
+    readelf -l "$binary" | sed -n 's/.*Requesting program interpreter: \([^]]*\)].*/\1/p'; } | sort -u
+)
 # Some libc builds dynamically resolve files NSS; stage it when present.
 for nss in /lib/aarch64-linux-gnu/libnss_files.so.2 /usr/lib/aarch64-linux-gnu/libnss_files.so.2; do
   if [[ -f "$nss" ]]; then
