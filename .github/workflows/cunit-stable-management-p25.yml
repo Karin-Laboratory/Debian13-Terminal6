@@ -52,7 +52,7 @@ jobs:
           test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/terminal6-firstboot"
           test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/terminal6-install-p44"
           test -x "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/dropbearkey"
-          "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/dropbear" -h 2>&1 | grep -F -- '-B' || \
+          { "$RUNNER_TEMP/cunit-initramfs-inspected/sbin/dropbear" -h 2>&1 || :; } | grep -F -- '-B' || \
             { echo 'Dropbear lacks -B blank password option'; exit 1; }
           echo 'CUNIT_CHARTER12_FIRSTBOOT_P25_PAYLOAD_STAGED_PASS'
           test ! -s "$RUNNER_TEMP/cunit-initramfs-inspected/root/.ssh/authorized_keys"
