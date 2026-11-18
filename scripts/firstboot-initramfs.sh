@@ -84,7 +84,14 @@ case "$1" in
             }
         done
         valid_credentials || { echo CUNIT_FIRSTBOOT_REFUSE_BAD_CREDENTIALS; exit 1; }
-        # Do not disconnect existing management session; stop the listener.
+        # Stop the verification sshd and release P44 mounts before switch_root.
+        # Existing setup shell is not directly terminated by listener shutdown.
+        if [ -s "$root/run/terminal6-auth-verify.pid" ]; then
+            kill "$(cat "$root/run/terminal6-auth-verify.pid")" || true
+        fi
+        mountpoint "$root/proc" >/dev/null 2>&1 && umount "$root/proc" || true
+        mountpoint "$root/dev" >/dev/null 2>&1 && umount "$root/dev" || true
+        # Stop unauthenticated listener only after the successful auth probe.
         if [ -s "$pid" ]; then kill "$(cat "$pid")" || true; fi
         printf '%s\n' 'root:x:0:0:root:/root:/bin/sh' > /etc/passwd
         printf '%s\n' 'root:!:0:0:99999:7:::' > /etc/shadow
@@ -95,8 +102,8 @@ case "$1" in
         mkdir -p "$root/dev" "$root/proc"
         mount --bind /dev "$root/dev" || exit 1
         mount -t proc proc "$root/proc" || exit 1
-        chroot "$root" /usr/bin/passwd root
-        status=$?
+        status=0
+        chroot "$root" /usr/bin/passwd root || status=$?
         umount "$root/proc" || true
         umount "$root/dev" || true
         exit "$status"
