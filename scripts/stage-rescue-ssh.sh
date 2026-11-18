@@ -7,7 +7,7 @@ set -euo pipefail
   echo 'usage: stage-rescue-ssh.sh /absolute/new-staging-directory' >&2; exit 2;
 }
 [[ "$(uname -m)" = aarch64 ]] || { echo 'Native ARM64 host required' >&2; exit 2; }
-for cmd in dropbear dropbearkey ldd readelf cp mkdir; do command -v "$cmd" >/dev/null; done
+for cmd in dropbear dropbearkey tar ldd readelf cp mkdir; do command -v "$cmd" >/dev/null; done
 out="$1"
 umask 077
 mkdir -p "$out"/{bin,sbin,etc/dropbear,root/.ssh,run,dev,proc,sys}
@@ -20,6 +20,18 @@ install -m 0644 "$(dirname "$0")/terminal6-rescue.service" "$out/terminal6-rescu
 install -m 0644 "$(dirname "$0")/../configs/cunit-initial-management.cidr" "$out/etc/dropbear/management-ip"
 binary="$(command -v dropbear)"
 install -m 0755 "$binary" "$out/sbin/dropbear"
+# Preserve ELF interpreter and linked shared libraries at their absolute paths.
+while IFS= read -r dep; do
+  [[ -f "$dep" ]] || { echo "Missing ELF library: $dep" >&2; exit 3; }
+  mkdir -p "$out/${dep%/*}"
+  cp -L "$dep" "$out/$dep"
+done < <(
+  { ldd "$binary" | awk '{for (i=1; i<=NF; ++i) if ($i ~ /^\//) print $i}';
+    readelf -l "$binary" | sed -n 's/.*Requesting program interpreter: \([^]]*\)].*/\1/p'; } | sort -u
+)
+# GNU tar restores numeric ownership, ACLs and xattrs of Debian rootfs.
+binary="$(command -v tar)"
+install -m 0755 "$binary" "$out/sbin/gnu-tar"
 # Preserve ELF interpreter and linked shared libraries at their absolute paths.
 while IFS= read -r dep; do
   [[ -f "$dep" ]] || { echo "Missing ELF library: $dep" >&2; exit 3; }
