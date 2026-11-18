@@ -1,5 +1,7 @@
 # C号機 安定管理基礎P25 製造・復旧Runbook
 
+> **2026-11-18 最新・憲章 v1.2優先：** 本文中のv1.0『初回は個別SSH公開鍵必須』は旧仕様。最新版は[設計憲章 v1.2](architecture/P25-FOUNDATION-POLICY.ja.md)と[初回セットアップ＋P44ペアの新決定](architecture/decisions/CUNIT-CHARTER12-INITIAL-SETUP-AND-PAIR-BUILD-20261118.ja.md)。物理隔離・空P44に限定して**初回だけ無認証root SSH（192.168.1.1:22）**、P44へDebianと認証を永続化して別セッションで検証後に閉鎖。通常SSH/救援SSHは認証必須。現在のビルドと実機受入の状態はそれぞれ別判定。
+
 作成: 2026-11-18 JST / 対象: SoftBank Air Terminal 6 C号機、Debian 13、Linux 6.18.63
 担当: `codex/cunit-stable-management-p25-20261118`
 **状態: PUBLIC_HOST_BUILD=PASS / PRIVATE_MANUFACTURE=PASS / PRIVATE_RETENTION_AND_READBACK=PASS / C_UNIT_BOOT=NOT_TESTED / KEYED_RESCUE_SSH=BLOCKED。未署名、実機未操作。**
@@ -17,7 +19,7 @@
 
 ## 設計憲章への準拠と保留差分
 
-- [最新設計憲章 v1.0](architecture/P25-FOUNDATION-POLICY.ja.md)と[AGENTS.md](../AGENTS.md)を、`main` commit `ab0bd832d03d3ad47a2531a256ae9d26f34ffc0a`から**原文一致**でこの開発ブランチにも取り込んだ。憲章の条件自体は変更していない。
+- [【旧版履歴】設計憲章 v1.0](architecture/P25-FOUNDATION-POLICY.ja.md)と[AGENTS.md](../AGENTS.md)を、`main` commit `ab0bd832d03d3ad47a2531a256ae9d26f34ffc0a`から**原文一致**でこの開発ブランチにも取り込んだ。憲章の条件自体は変更していない。
 - 詳細は[憲章整合・初回SSH/IP差分記録](architecture/decisions/CUNIT-INITIAL-MANAGEMENT-CHARTER-ALIGNMENT-20261118.ja.md)を参照。所有者は**P44 Debianが正常起動した最初の時点で**`ssh root@192.168.1.1`（TCP/22、公開鍵認証・パスワード入力不要）できることを希望する。**P25/initramfs救援SSHまで22番に統一する要件は撤回**し、憲章§6どおり救援Dropbear（現候補TCP/2222）を別経路として扱う。P44通常SSHのauthorized_keys初回配備と両サービスのhost key/known_hosts管理、実通信は未実証。
 - [純正slot B 調査 PR #27](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/27)では純正が`eth0.1`/`eth0.2`→`br-lan`、`eth1` DOWN、`lan2`なしと観測された。安定P25候補の`eth1`+`lan2`とは異なる。これは候補不動作の**原因確定ではない**が、UART/DT/MAC/PCS/DSAと双方向ARP/SSHで別途合格させる必要がある。
 - 旧`192.168.3.0/24`は過去の隔離試験実測であり、憲章による初期値固定ではない。新`192.168.1.1/24`は家庭LAN`192.168.0.0/22`と重複するため**隔離専用**、移設時は再設計する。
@@ -85,7 +87,7 @@
 - **このSHAは鍵なし非公開製造候補の識別値**。公開CI SHA `54efbe6721393dbaaf36143ba188d569df767f961d65931c43fb3a0add8ba40c` と区別。ユーザー指定のraspi4 Ed25519公開鍵やC号機専用Dropbearホスト秘密鍵は入っていない。したがって緊急SSHの実認証が受入未達で、署名・起動承認には進めない。鍵を入れる個体専用パーソナライズ後は、新しいイメージの全量独立SHAを改めて取得する。
 - **SIGNED=NO / FLASH=NO / SLOT_CHANGE=NO / REBOOT=NO / REAL_ARP_SSH=NOT_TESTED / RF=NO**。純正slot Bと旧KVM P25を一切変更していない。
 
-## 2026-11-18 追加指示：初回IPをOpenWrt標準へ統一
+## 2026-11-18 履歴：v1.0時点の初回IP/SSH指示（v1.2で一部失効）
 
 - 目標: **個体専用鍵を事前配備し、C号機のP44 Debianが最初に正常起動した時点から**、隔離した管理ポートで `ssh root@192.168.1.1` （通常SSH TCP/22）に公開鍵認証でパスワード入力なしにログインできること。P44未起動時はこのコマンドの成功を要求せず、救援SSHの検証を別ゲートに分ける。標準IPは[OpenWrt公式SSHガイド](https://openwrt.org/docs/guide-quick-start/sshadministration)を確認。
 - 設定値の正本: [`configs/cunit-initial-management.cidr`](../configs/cunit-initial-management.cidr) の `192.168.1.1/24`。初期P25側の救援LANは同じIP、P44へ正常に移行した場合も `/run/systemd/network/10-cunit-isolated-management.network` を一時生成して `lan2` に同じIPを割り当てる。これはP44ディスクのネットワーク設定を書き換えない。
@@ -93,3 +95,15 @@
 - **raspi4接続条件の変更:** 2026-11-18時点のraspi4 `eth0=192.168.3.71/24` は旧実測。新IPへ接続する試験時は、専用NICに一時的に例 `192.168.1.2/24` を設定する等、経路を事前確認する必要がある。今回はraspi4のアドレスや実機設定を操作していない。
 - **憲章準拠の最終決定（2026-11-18）:** ②は通常Debian SSHをTCP/22、救援Dropbearを別のTCP/2222とする。P25からP44へ**同一TCP/22を連続待受する要件はなし**。各モードの認証鍵、ホスト鍵、known_hosts、起動/停止・復旧条件を分けて検証する。③はbuilt-inかP25/initramfs内の互換モジュールかを実測に応じて選べる。現候補はbuilt-in選択を維持するが、恒久必須ではない。P44初回正常起動時のroot公開鍵ログイン、鍵・host key継続性、実ARP/SSH・再起動は `BLOCKED/NOT_TESTED`。IP設定のみでは受入PASSとしない。
 - **不変の既存成果:** この変更は前回の保存済みunsigned P25の32MiBデータやSHAを変更しない。新設定を組み込んで再製造するP25は**別ファイル／別SHA**となり、検証後に別途署名承認が必要。今回、署名・実機書込み・slot切替・再起動は禁止。
+
+## 2026-11-18 最新：v1.2 初回導入と署名なしP25/P44ペア製造
+
+詳細な実装・未達・操作手順は[独立した決定・実装記録](architecture/decisions/CUNIT-CHARTER12-INITIAL-SETUP-AND-PAIR-BUILD-20261118.ja.md)を正本として参照する。この節は従来のv1.0履歴より優先し、**CI成功でも実機受入にはならない**。
+
+1. **P25:** `initramfs/init`が既存P44を読み取り、`lost+found`と専用`.terminal6`しかない空ext4のみ、起動前の独立管理SSHを有効にする。`terminal6-firstboot serve`は`192.168.1.1:22`のDropbear `-B`とinitramfs RAMだけの空rootパスワードを使用する。P44未マウント、既存データ、Debianインストール済み、完了マーカーありの場合、無認証SSHは**起動しない**。
+2. **ホスト鍵:** 公開P25に共有秘密鍵を入れず、機器ごとにEd25519を生成してP44`/.terminal6/ssh`に保存。後続のOpenSSHへ`dropbearconvert`で引き継ぐ。UART指紋照合は実機受入条件。
+3. **P44導入:** [rootfs製造](../scripts/build-public-p44-rootfs.sh)はGNU tarの所有者・権限・ACL・xattrsを保存し、デフォルトrootパスワードをロック。`P44-install.zip`は同じビルドのmodules、rootfs.tar.gz、P25のunsigned SHA、kernel.releaseと内部SHAを固定。対象P44を上書きせず、[導入スクリプト](../scripts/install-p44-initramfs.sh)は外部で照合したZIP SHA、空P44、内部SHAとkernel.release一致を確認してから展開する。失敗時の自動初期化は禁止。
+4. **初回認証から通常SSHへ:** P44のrootパスワードまたは公開鍵を永続設定。通常OpenSSHは`PermitEmptyPasswords no`。検証専用のP44 TCP/2223へ**別セッションから認証付き再接続**でき、P44に検証マーカーが残った場合だけ`terminal6-firstboot finalize`で無認証22番の受信を閉じ、P44通常22番へ引き継ぐ。救援2222番は従来どおり**鍵認証限定・fail-closed**。
+5. **設計上の限界:** ZIP正式配布の真正性署名、実LANパケット、Dropbear空パスワードの実接続、P44展開・鍵継続・認証切替、電源断・再起動・復旧は未検証。P44を完全再フォーマットしたときの初期モード再有効化防止は独立の来歴管理が必要になり得るため**BLOCKED**。家庭LAN`192.168.0.0/22`は初期`192.168.1.0/24`と重なり、物理直結・隔離以外では使用しない。
+6. **署名承認は含まれない:** 署名なしP25とP44 ZIPのホスト製造だけを依頼範囲とする。正式リリース仕様の『署名済みP25＋P44 ZIP』を満たしたとは宣言しない。個別の署名、C号機書込み、slot切替、再起動、RF送信は行わない。
+
