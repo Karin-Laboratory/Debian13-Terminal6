@@ -35,7 +35,8 @@ def package(rootfs: Path, modules: Path, p25: Path, kernel_release: Path, output
              for name, file in inputs.items()}
     manifest = {
         "schema": "cunit-p44-install-v1",
-        "charter_version": "1.2",
+        "installation_method": "B_MANUAL_EXTERNAL_PREBOOT_NO_INSTALLER",
+        "charter_version": "1.4",
         "status": "EXPERIMENTAL_UNSIGNED_P25_NO_HARDWARE_ACCEPTANCE",
         "source_commit": source,
         "kernel_release": release,
@@ -51,7 +52,11 @@ def package(rootfs: Path, modules: Path, p25: Path, kernel_release: Path, output
     }
     manifest_bytes = (json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode()
     sums = "".join(f"{items[name]['sha256']}  {name}\n" for name in sorted(inputs)).encode()
+    # Manual Method B requires no special installer; include a human-readable
+    # inspection and extraction guide within the delivery container.
+    manual = (Path(__file__).resolve().parents[1] / "docs/CUNIT-METHOD-B-MANUAL-INSTALL.ja.md").read_bytes()
     contents = {
+        "MANUAL-INSTALL.ja.md": manual,
         "manifest.json": manifest_bytes,
         "SHA256SUMS": sums,
         "kernel.release": (release + "\n").encode(),
