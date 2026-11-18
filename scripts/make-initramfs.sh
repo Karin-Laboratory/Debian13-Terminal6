@@ -10,7 +10,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf -- "$tmp"' EXIT
 mkdir -p "$tmp"/{bin,dev,proc,sys,newroot}
 cp "$busybox" "$tmp/bin/busybox"
-for app in sh mount umount sleep switch_root mkdir cp ln ip cat grep; do ln -s busybox "$tmp/bin/$app"; done
+for app in sh mount mountpoint umount sleep switch_root mkdir cp ln ip cat grep; do ln -s busybox "$tmp/bin/$app"; done
 if [[ $# -ge 3 ]]; then
   test -d "$3" && test ! -L "$3"
   cp -a "$3" "$tmp/terminal6"
