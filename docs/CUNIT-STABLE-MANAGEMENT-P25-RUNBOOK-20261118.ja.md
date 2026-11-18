@@ -2,14 +2,14 @@
 
 作成: 2026-11-18 JST / 対象: SoftBank Air Terminal 6 C号機、Debian 13、Linux 6.18.63
 担当: `codex/cunit-stable-management-p25-20261118`
-**状態: WORK IN PROGRESS / 製造・実機受入は個別に判定。未署名、実機未操作。**
+**状態: PUBLIC_HOST_BUILD=PASS / PRIVATE_RETENTION=確認中 / C_UNIT_BOOT=NOT_TESTED。未署名、実機未操作。**
 
 ## 基準と引継ぎ
 
 - [PR #21](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/21): 公開OSSからのARM64 Image・モジュール・32MiB unsigned P25製造は過去CIでPASS。既存candidateの実機起動保証ではない。
 - [PR #23](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/23): PCIe/USBを有効化する試験DTB。新しい安定管理版には無条件に取り込まない。
 - [PR #3](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/3): 100MHz/no-CQE、P44 ext4をC号機で実測。安定性の根拠は当時の対象ビルドと負荷条件に限定。
-- [PR #1](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/1): privateドライバに依存した初期LANの沿革。今回の公開版は [public-management](../../public-management/start-management.sh) のnetlink方式を採用し、private test23/test24に依存しない。
+- [PR #1](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/1): privateドライバに依存した初期LANの沿革。今回の公開版は [public-management](../public-management/start-management.sh) のnetlink方式を採用し、private test23/test24に依存しない。
 - [PR #19](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/19): 過去のKVM実機実証。新候補のKVM/LAN/SSH動作保証にはならない。
 - [ハードウェア台帳PR #7](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/7): 実機検証済み・部分・未確認を区別する。2026-11-14の古い台帳は2026-11-18実測より優先しない。
 
@@ -48,7 +48,7 @@
 
 ## 製造と検証
 
-専用[CI workflow](../../.github/workflows/cunit-stable-management-p25.yml)は公開PR #21の製造工程を再利用し、ARM64 native build、再現可能initramfs、Dropbear同梱（鍵無し起動不可）、必要Kconfig、Image 35MiB上限、正確に32MiBのunsigned boot-v2、構造・DTB・payload・全量SHA、同一ビルドmodules/vermagicを検査する。公的CIには個体鍵やraw firmwareイメージをアップロードしない。
+専用[CI workflow](../.github/workflows/cunit-stable-management-p25.yml)は公開PR #21の製造工程を再利用し、ARM64 native build、再現可能initramfs、Dropbear同梱（鍵無し起動不可）、必要Kconfig、Image 35MiB上限、正確に32MiBのunsigned boot-v2、構造・DTB・payload・全量SHA、同一ビルドmodules/vermagicを検査する。公的CIには個体鍵やraw firmwareイメージをアップロードしない。
 
 **結果記録の原則:** CIが成功しても `HOST_BUILD=PASS`、`P25_READBACK=PASS` など製造ゲートだけを記録。 `C_UNIT_UART_BOOT`、`C_UNIT_LAN_ARP`、`C_UNIT_SSH_NORMAL`、`C_UNIT_SSH_RESCUE`、`C_UNIT_COLD_BOOT` は別途署名済み候補の実機試験まで `NOT_TESTED`。鍵無し公開P25では緊急SSH受入は `BLOCKED`。
 
@@ -57,3 +57,14 @@
 次工程に必要なもの: 実物unsigned P25 33,554,432 bytes、kernel Image/Image.gz、DTB、initramfs、same-build modules、.config、Module.symvers、System.map、kernel.release、source input receipts、ビルドログ、抽出/検証結果、**全量SHA256**。非公開保管先で読み戻して完全一致を確認し、公開CIのSHAを非公開再製造品のSHAと混同しない。個体固有の鍵・calibration・ベンダー由来イメージは必ず非公開にする。
 
 **禁止:** 署名、実機へのwrite、P25/P26/P44/GPT/bootcontrol変更、slot切替、再起動、純正slot B上書き、旧KVM P25上書き、6GHz RF送信。過去署名承認は新SHAへ継承されない。保存が未達なら `PRIVATE_RETENTION=BLOCKED` とし、保管URLを捏造しない。
+
+## 2026-11-18 公開製造実績（実行後追記）
+
+- [実CI #44207428296](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/44207428296): **SUCCESS**。
+- 入力公開ソースコミット: `9128d92d445b3753ca605aea85ffcd9f6190a50e`。
+- 非圧縮ARM64 Image: **15,153,160 bytes**、Image.gz: **9,402,256 bytes**。35MiB上限PASS。
+- same-build ABI: `6.18.63-t6-public-capable`、40モジュールすべてvermagic照合PASS。Module.symvers/System.map出力PASS。
+- 公開unsigned boot-v2 P25: **33,554,432 bytes**、SHA256 `54efbe6721393dbaaf36143ba188d569df767f961d65931c43fb3a0add8ba40c`、独立32MiB全量readback PASS。
+- Dropbearバイナリ/依存libsのinitramfs格納、同一入力からのinitramfs一致、**鍵なしfail-closed** 検査PASS。ただし公開・非公開ともC号機鍵の認証ログイン、管理LAN実パケットは未試験。
+- 限界: P44のマウント不能およびP44ネットワーク障害に備える構造。 `switch_root` 後にsystemdそのものが停止する故障モードは**復旧未保証**。別の実機受入を要する。
+- 公開CIのSHAは **個体鍵を含まない公開製造品** のもので、非公開保存版・署名対象値とは混同しない。
