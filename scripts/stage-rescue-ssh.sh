@@ -7,43 +7,19 @@ set -euo pipefail
   echo 'usage: stage-rescue-ssh.sh /absolute/new-staging-directory' >&2; exit 2;
 }
 [[ "$(uname -m)" = aarch64 ]] || { echo 'Native ARM64 host required' >&2; exit 2; }
-for cmd in dropbear dropbearkey tar ldd readelf cp mkdir; do command -v "$cmd" >/dev/null; done
+for cmd in dropbear ldd readelf cp mkdir; do command -v "$cmd" >/dev/null; done
 out="$1"
 umask 077
 mkdir -p "$out"/{bin,sbin,etc/dropbear,root/.ssh,run,dev,proc,sys}
 # Use the same known static BusyBox as the initramfs for the P44 chroot.
 [[ -x /bin/busybox ]] || { echo 'busybox-static required' >&2; exit 2; }
 install -m 0755 /bin/busybox "$out/bin/busybox"
-for name in sh ip cat grep sleep mkdir basename awk chmod sync kill mv unzip tar sha256sum wc uname chroot mountpoint umount; do ln -s busybox "$out/bin/$name"; done
+for name in sh ip cat grep sleep mkdir mountpoint; do ln -s busybox "$out/bin/$name"; done
 install -m 0644 "$(dirname "$0")/terminal6-rescue.service" "$out/terminal6-rescue.service"
 # Single-source isolated first-boot IP; per-device private override is optional.
 install -m 0644 "$(dirname "$0")/../configs/cunit-initial-management.cidr" "$out/etc/dropbear/management-ip"
 binary="$(command -v dropbear)"
 install -m 0755 "$binary" "$out/sbin/dropbear"
-# Preserve ELF interpreter and linked shared libraries at their absolute paths.
-while IFS= read -r dep; do
-  [[ -f "$dep" ]] || { echo "Missing ELF library: $dep" >&2; exit 3; }
-  mkdir -p "$out/${dep%/*}"
-  cp -L "$dep" "$out/$dep"
-done < <(
-  { ldd "$binary" | awk '{for (i=1; i<=NF; ++i) if ($i ~ /^\//) print $i}';
-    readelf -l "$binary" | sed -n 's/.*Requesting program interpreter: \([^]]*\)].*/\1/p'; } | sort -u
-)
-# GNU tar restores numeric ownership, ACLs and xattrs of Debian rootfs.
-binary="$(command -v tar)"
-install -m 0755 "$binary" "$out/sbin/gnu-tar"
-# Preserve ELF interpreter and linked shared libraries at their absolute paths.
-while IFS= read -r dep; do
-  [[ -f "$dep" ]] || { echo "Missing ELF library: $dep" >&2; exit 3; }
-  mkdir -p "$out/${dep%/*}"
-  cp -L "$dep" "$out/$dep"
-done < <(
-  { ldd "$binary" | awk '{for (i=1; i<=NF; ++i) if ($i ~ /^\//) print $i}';
-    readelf -l "$binary" | sed -n 's/.*Requesting program interpreter: \([^]]*\)].*/\1/p'; } | sort -u
-)
-# Stage dropbearkey with its own ELF dependencies (may differ from server).
-binary="$(command -v dropbearkey)"
-install -m 0755 "$binary" "$out/sbin/dropbearkey"
 # Preserve ELF interpreter and linked shared libraries at their absolute paths.
 while IFS= read -r dep; do
   [[ -f "$dep" ]] || { echo "Missing ELF library: $dep" >&2; exit 3; }
@@ -64,9 +40,7 @@ printf 'root:x:0:0:root:/root:/bin/sh\n' > "$out/etc/passwd"
 printf 'root:x:0:\n' > "$out/etc/group"
 printf 'passwd: files\ngroup: files\nshadow: files\n' > "$out/etc/nsswitch.conf"
 install -m 0755 "$(dirname "$0")/initramfs-rescue.sh" "$out/sbin/terminal6-rescue"
-install -m 0755 "$(command -v dropbearkey)" "$out/sbin/dropbearkey"
-install -m 0755 "$(dirname "$0")/firstboot-initramfs.sh" "$out/sbin/terminal6-firstboot"
-install -m 0755 "$(dirname "$0")/install-p44-initramfs.sh" "$out/sbin/terminal6-install-p44"
+# No unauthenticated login endpoint or P44 ZIP installer belongs in P25.
 # No default authorized_keys, SSH host private key or root password.
 # A separate owner-private process must provision both at image build time.
 if [[ -n "${TERMINAL6_RESCUE_PRIVATE_DIR:-}" ]]; then
