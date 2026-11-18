@@ -25,7 +25,7 @@ out="$dest/rootfs"
 # No private firmware, templates, host keys, passwords, device serials or
 # calibration. This archive is a portable ROOTFS, not a signed/bootable P25.
 debootstrap --arch=arm64 --variant=minbase \
-  --include=systemd-sysv,systemd-resolved,openssh-server,iproute2,udev,kmod,ca-certificates,iputils-ping,dbus \
+  --include=systemd-sysv,systemd-resolved,openssh-server,openssh-client,dropbear-bin,iproute2,udev,kmod,ca-certificates,iputils-ping,dbus \
   trixie "$out" https://deb.debian.org/debian
 printf '%s\n' terminal6-debian > "$out/etc/hostname"
 cat > "$out/etc/fstab" <<'FSTAB'
@@ -37,14 +37,17 @@ cat > "$out/etc/systemd/network/20-terminal6-lan2.network" <<'NET'
 Name=lan2
 
 [Network]
-DHCP=ipv4
+Address=192.168.1.1/24
+DHCP=no
 IPv6AcceptRA=no
+LinkLocalAddressing=no
 NET
 ln -sfn ../run/systemd/resolve/stub-resolv.conf "$out/etc/resolv.conf"
 cat > "$out/etc/ssh/sshd_config.d/60-terminal6-secure.conf" <<'SSH'
-PasswordAuthentication no
+PasswordAuthentication yes
 KbdInteractiveAuthentication no
-PermitRootLogin prohibit-password
+PermitRootLogin yes
+PermitEmptyPasswords no
 PubkeyAuthentication yes
 SSH
 if [[ -n "$auth" ]]; then
@@ -108,6 +111,8 @@ PUBLIC_DEBIAN13_ARM64_ROOTFS_ARCHIVE_ONLY
 NO_RAW_PARTITION_WRITE
 NO_SIGNING_OR_BOOT_PROOF
 NO_PRESET_SSH_HOST_KEY_OR_PASSWORD
-NETWORK_DHCP_ON_LAN2_REQUIRES_PUBLIC_NETSYS_DSA_HARDWARE_PROOF
+PASSWORD_AUTH_ONLY_AFTER_EXPLICIT_PASSWORD_SET_IN_P44
+NO_EMPTY_PASSWORD_ON_NORMAL_SSH
+NETWORK_STATIC_192_168_1_1_ON_LAN2_REQUIRES_HARDWARE_PROOF
 STATUS
 echo PUBLIC_P44_ROOTFS_ARCHIVE_BUILT_NOT_DEVICE_BOOT_VALIDATED
