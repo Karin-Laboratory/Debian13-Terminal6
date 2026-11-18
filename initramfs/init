@@ -65,6 +65,28 @@ if [ -d /terminal6-rescue-root ] &&
         mount -t tmpfs -o mode=0700 tmpfs /newroot/run || fail MOUNT_RESCUE_RUNTIME
     fi
     cp -a /terminal6-rescue-root /newroot/run/terminal6-rescue-root || fail STAGE_RESCUE
+    # Force the first-boot isolated IPv4 on P44 as well as in rescue mode.
+    # The /run profile is transient; it never rewrites the P44 rootfs.
+    # Lower networkd filename sorts before P44's 20-terminal6-lan2.network.
+    initial_cidr=192.168.1.1/24
+    if [ -s /terminal6-rescue-root/etc/dropbear/management-ip ]; then
+        initial_cidr=$(cat /terminal6-rescue-root/etc/dropbear/management-ip)
+    fi
+    case "$initial_cidr" in
+        ''|*[!0-9./]*) fail MANAGEMENT_IP_INVALID ;;
+    esac
+    mkdir -p /newroot/run/systemd/network
+    cat > /newroot/run/systemd/network/10-cunit-isolated-management.network <<NET
+[Match]
+Name=lan2
+
+[Network]
+Address=$initial_cidr
+DHCP=no
+IPv6AcceptRA=no
+LinkLocalAddressing=no
+NET
+    echo DEBIAN13_T6_ISOLATED_MANAGEMENT_IP_STAGED
     mkdir -p /newroot/run/systemd/system/multi-user.target.wants
     cp /terminal6-rescue-root/terminal6-rescue.service /newroot/run/systemd/system/
     ln -s ../terminal6-rescue.service /newroot/run/systemd/system/multi-user.target.wants/terminal6-rescue.service
