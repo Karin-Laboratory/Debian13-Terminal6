@@ -14,9 +14,9 @@ if [ ! -f /etc/dropbear/ISOLATED_MANAGEMENT_ONLY ]; then
     echo 'TERMINAL6_RESCUE_SSH_DISABLED_NOT_ISOLATED'
     exit 0
 fi
-# Support later non-overlapping IP selection by a private configuration file;
+# OpenWrt-standard isolated first-boot IPv4; private override for future migration.
 # never change hardware or bootloader IP in this script.
-rescue_ip=192.168.3.1
+rescue_ip=192.168.1.1
 rescue_prefix=24
 if [ -r /etc/dropbear/management-ip ]; then
     IFS=/ read -r rescue_ip rescue_prefix < /etc/dropbear/management-ip
