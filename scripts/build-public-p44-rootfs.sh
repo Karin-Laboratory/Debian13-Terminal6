@@ -54,6 +54,53 @@ if [[ -n "$auth" ]]; then
   install -d -m 0700 "$out/root/.ssh"
   install -m 0600 "$auth" "$out/root/.ssh/authorized_keys"
 fi
+# Firstboot setup is DEBIAN P44 ONLY.  SSH server auth transitions after
+# the owner creates a root password or public key and tests a second login.
+# Dropbear -B allows empty-password root only on the physical isolated LAN,
+# and systemd starts normal OpenSSH only after firstboot-finalize.
+install -m 0755 "$root/scripts/p44-firstboot.sh" "$out/usr/local/sbin/terminal6-p44-firstboot"
+mkdir -p "$out/etc/systemd/system" "$out/etc/dropbear" "$out/var/lib/terminal6"
+cat > "$out/etc/systemd/system/terminal6-firstboot.service" <<'UNIT'
+[Unit]
+Description=Isolated C-unit initial Debian P44 root SSH provisioning ONLY
+After=systemd-networkd.service terminal6-public-management.service terminal6-ssh-hostkeys.service
+Requires=systemd-networkd.service terminal6-public-management.service
+ConditionPathExists=!/var/lib/terminal6/firstboot-complete
+Before=ssh.service
+
+[Service]
+Type=simple
+ExecStartPre=/usr/local/sbin/terminal6-p44-firstboot prepare
+ExecStart=/usr/sbin/dropbear -F -E -B -j -k -r /etc/dropbear/dropbear_ed25519_host_key -p 192.168.1.1:22
+# Preserve the active management child session when the listener closes.
+KillMode=process
+TimeoutStopSec=10
+Restart=on-failure
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+cat > "$out/etc/systemd/system/terminal6-authcheck.service" <<'UNIT'
+[Unit]
+Description=Temporary authenticated Debian SSH session verification (port 2223)
+After=systemd-networkd.service terminal6-ssh-hostkeys.service
+ConditionPathExists=!/var/lib/terminal6/firstboot-complete
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/mkdir -p /run/sshd
+ExecStart=/usr/sbin/sshd -D -e -p 2223 -o ListenAddress=192.168.1.1 -o PermitRootLogin=yes -o PermitEmptyPasswords=no -o PasswordAuthentication=yes -o KbdInteractiveAuthentication=no
+KillMode=process
+
+[Install]
+# Not enabled at boot: explicitly started by terminal6-p44-firstboot verify-start
+WantedBy=multi-user.target
+UNIT
+# If this rootfs gets deployed into an existing partition, the manual Method B
+# instructions must reject overwrite. A fresh archive has NO finished marker.
+test ! -e "$out/var/lib/terminal6/firstboot-complete"
 # Debian's openssh-server can generate host keys during bootstrap; scrub
 # these so every actual device creates its *own* keys after boot.
 find "$out/etc/ssh" -maxdepth 1 -type f -name 'ssh_host_*' -delete
@@ -92,8 +139,13 @@ StandardOutput=journal+console
 [Install]
 WantedBy=multi-user.target
 UNIT
-chroot "$out" /usr/bin/passwd -l root >/dev/null
-for service in systemd-networkd.service systemd-resolved.service ssh.service terminal6-ssh-hostkeys.service terminal6-public-management.service; do
+# OWNER-APPROVED EXCEPTION: only Debian firstboot Dropbear on 192.168.1.1:22
+# may accept an empty root password; normal OpenSSH uses PermitEmptyPasswords no.
+chroot "$out" /usr/bin/passwd -d root >/dev/null
+# Never leave OpenSSH's socket activation enabled in this initial image.
+systemctl --root="$out" disable ssh.service ssh.socket >/dev/null 2>&1 || true
+systemctl --root="$out" mask ssh.socket >/dev/null 2>&1 || true
+for service in systemd-networkd.service systemd-resolved.service terminal6-firstboot.service terminal6-ssh-hostkeys.service terminal6-public-management.service; do
   systemctl --root="$out" enable "$service" >/dev/null
 done
 if mountpoint -q "$out/proc" || mountpoint -q "$out/sys" || mountpoint -q "$out/dev"; then
@@ -110,9 +162,9 @@ cat > "$dest/STATUS.txt" <<'STATUS'
 PUBLIC_DEBIAN13_ARM64_ROOTFS_ARCHIVE_ONLY
 NO_RAW_PARTITION_WRITE
 NO_SIGNING_OR_BOOT_PROOF
-NO_PRESET_SSH_HOST_KEY_OR_PASSWORD
-PASSWORD_AUTH_ONLY_AFTER_EXPLICIT_PASSWORD_SET_IN_P44
-NO_EMPTY_PASSWORD_ON_NORMAL_SSH
+NO_PRESET_SSH_HOST_KEY; FIRSTBOOT_ROOT_BLANK_PASSWORD_ISOLATED_EXCEPTION
+FIRSTBOOT_DROPBEAR_TCP22_DISABLED_AFTER_P44_AUTHENTICATED_SECOND_SESSION
+NO_EMPTY_PASSWORD_ON_NORMAL_OPENSSH
 NETWORK_STATIC_192_168_1_1_ON_LAN2_REQUIRES_HARDWARE_PROOF
 STATUS
 echo PUBLIC_P44_ROOTFS_ARCHIVE_BUILT_NOT_DEVICE_BOOT_VALIDATED
