@@ -23,6 +23,8 @@ if [[ $# -eq 4 ]]; then
   test -s "$tmp/terminal6-rescue-root/terminal6-rescue.service"
   test -x "$tmp/sbin/terminal6-rescue"
   test -x "$tmp/sbin/dropbear"
+  test -x "$tmp/sbin/dropbearkey"
+  test -x "$tmp/sbin/terminal6-firstboot"
 fi
 cp "$root/initramfs/init" "$tmp/init"
 chmod 755 "$tmp/init" "$tmp/bin/busybox"
