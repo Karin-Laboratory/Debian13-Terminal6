@@ -17,7 +17,8 @@
 - カーネル・Device Tree・initramfsと、P44のモジュール一式は互換性のある組として版管理する。`vermagic`一致のみで動作保証としない。
 - Device Treeのunknownなboard電源・clock・reset・pin設定を推測して有効化しない。
 - P44側の追加機能を可能な限りモジュール化する。ただしカーネル/DTB更新が必要な場合を拒否しない。
-- SSHの「rootパスワード不要」は**公開鍵認証**の意味。空パスワード・パスワード認証の解放を意味しない。救援SSHは鍵・隔離条件が欠ければfail-closed。
+- **公開配布版の初回セットアップだけ**は所有者がOpenWrt型の無認証root SSHを明示選択。物理隔離した有線LANで`ssh root@192.168.1.1`（TCP22）、P44空ならinitramfsセットアップシェル。P44へDebianを展開しパスワード設定または公開鍵登録を永続化・確認後、無認証ログインを閉じる。通常運用・救援SSH（TCP2222）は個別認証必須。詳細は[憲章§6](docs/architecture/P25-FOUNDATION-POLICY.ja.md)と[所有者決定記録](docs/architecture/decisions/CUNIT-FIRSTBOOT-SSH-OPENWRT-STYLE-20261118.ja.md)。
+- **公開Debianの配布単位は対応する署名済みP25＋P44導入パッケージのペア**。P44のrootfsはLinux属性を保持するtar等をZIP容器へ格納し、対応モジュール・manifest・ハッシュと互換性を検証する。初回インストールと既存P44更新を混同せず、既存データ/鍵を自動上書きしない。詳細は[憲章§8A](docs/architecture/P25-FOUNDATION-POLICY.ja.md)。
 - 純正slot B、P26、P43、P44、GPT、boot control、秘密・個体校正を無断で変更しない。
 - 6GHz等のRF送信は法令・機器認証・regdb・施設条件の確認を別途必要とする。
 
