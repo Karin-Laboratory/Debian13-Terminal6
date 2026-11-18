@@ -18,6 +18,9 @@ fi
 if [[ $# -eq 4 ]]; then
   test -d "$4" && test ! -L "$4"
   cp -a "$4/." "$tmp/"
+  mkdir -p "$tmp/terminal6-rescue-root"
+  cp -a "$4/." "$tmp/terminal6-rescue-root/"
+  test -s "$tmp/terminal6-rescue-root/terminal6-rescue.service"
   test -x "$tmp/sbin/terminal6-rescue"
   test -x "$tmp/sbin/dropbear"
 fi
