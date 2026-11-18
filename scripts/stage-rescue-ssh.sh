@@ -10,7 +10,12 @@ set -euo pipefail
 for cmd in dropbear ldd readelf cp mkdir; do command -v "$cmd" >/dev/null; done
 out="$1"
 umask 077
-mkdir -p "$out"/{bin,sbin,etc/dropbear,root/.ssh,run}
+mkdir -p "$out"/{bin,sbin,etc/dropbear,root/.ssh,run,dev,proc,sys}
+# Use the same known static BusyBox as the initramfs for the P44 chroot.
+[[ -x /bin/busybox ]] || { echo 'busybox-static required' >&2; exit 2; }
+install -m 0755 /bin/busybox "$out/bin/busybox"
+for name in sh ip cat grep sleep mkdir; do ln -s busybox "$out/bin/$name"; done
+install -m 0644 "$(dirname "$0")/terminal6-rescue.service" "$out/terminal6-rescue.service"
 binary="$(command -v dropbear)"
 install -m 0755 "$binary" "$out/sbin/dropbear"
 # Preserve ELF interpreter and linked shared libraries at their absolute paths.
