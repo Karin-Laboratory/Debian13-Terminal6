@@ -11,7 +11,11 @@ exec </dev/console >/dev/console 2>&1
 echo DEBIAN13_T6_INITRAMFS_STARTED
 fail() {
     echo "DEBIAN13_T6_HANDOFF_FAILED:$1"
-    # Keep the bootloader watchdog policy; this shell is not SSH recovery.
+    # Rescue remains fail-closed without owner-private keys and isolation flag.
+    # It never changes a boot slot or writes any eMMC partition.
+    if [ -x /sbin/terminal6-rescue ]; then
+        /sbin/terminal6-rescue || echo DEBIAN13_T6_RESCUE_SSH_FAILED
+    fi
     exec sh
 }
 rootdev=
