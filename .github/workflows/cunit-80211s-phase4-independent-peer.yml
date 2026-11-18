@@ -1,0 +1,102 @@
+name: C-unit 802.11s phase-4 independent peer laboratory
+
+on:
+  push:
+    branches:
+      - codex/cunit-80211s-independent-peer-phase4-20261116
+      - integration/cunit-wifi-mesh-mlo-20261116
+    paths:
+      - .github/workflows/cunit-80211s-phase4-independent-peer.yml
+      - scripts/mesh_peer_autorejoin.py
+      - scripts/mesh_peer_capture_audit.py
+      - scripts/run_80211s_hwsim_3node.sh
+      - tests/test_mesh_peer_phase4.py
+      - scripts/run_80211s_hwsim_smoke.sh
+      - scripts/mesh_peer_readonly_preflight.sh
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-and-two-node:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate parser, watcher and scripts without radio
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_mesh_peer_phase4.py' -v
+          python3 -m compileall -q scripts/mesh_peer_autorejoin.py scripts/mesh_peer_capture_audit.py
+          bash -n scripts/run_80211s_hwsim_3node.sh
+          bash -n scripts/run_80211s_hwsim_smoke.sh
+          bash -n scripts/mesh_peer_readonly_preflight.sh
+          git diff --check
+      - name: Install 2-node hwsim tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends iw iproute2 iputils-ping kmod wpasupplicant openssl
+      - name: Independently test A-B 2-node SAE and IP
+        run: |
+          set -euo pipefail
+          sudo timeout --signal=TERM --kill-after=5s 150 bash scripts/run_80211s_hwsim_smoke.sh | tee "$RUNNER_TEMP/cunit-80211s-two-node.txt"
+          grep -qx 'HWSIM_80211S_SAE_CONFIGURED_PEERING=PASS' "$RUNNER_TEMP/cunit-80211s-two-node.txt"
+          grep -qx 'HWSIM_BIDIRECTIONAL_IP=PASS' "$RUNNER_TEMP/cunit-80211s-two-node.txt"
+      - name: Upload sanitized two-node summary only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cunit-80211s-phase4-two-node
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/cunit-80211s-two-node.txt
+
+  three-node-supervised-recovery-and-ampe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        trial: [1, 2]
+    name: 'A-B-C SAE/AMPE and supervised auto trial-${{ matrix.trial }}'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated hwsim, wmediumd and monitor tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends build-essential git pkg-config libnl-3-dev libnl-genl-3-dev libconfig-dev iw iproute2 iputils-ping kmod wpasupplicant openssl tcpdump
+      - name: Build pinned upstream wireless medium simulator
+        run: |
+          git clone https://github.com/bcopeland/wmediumd.git "$RUNNER_TEMP/wmediumd"
+          git -C "$RUNNER_TEMP/wmediumd" checkout 717e5d7fcc23eecbc8e32bd897a8fd4b1e3ba640
+          make -C "$RUNNER_TEMP/wmediumd"
+          echo "$RUNNER_TEMP/wmediumd/wmediumd" >> "$GITHUB_PATH"
+      - name: Check isolated virtual wireless prerequisites
+        run: |
+          test -d "/lib/modules/$(uname -r)"
+          sudo modprobe -n -v mac80211_hwsim
+          test -x "$RUNNER_TEMP/wmediumd/wmediumd/wmediumd"
+      - name: Verify three-hop forwarding, event-driven recovery and on-wire evidence
+        run: |
+          set -euo pipefail
+          sudo env PATH="$RUNNER_TEMP/wmediumd/wmediumd:$PATH" CUNIT_MESH_SUPERVISOR=1 CUNIT_MESH_CAPTURE_AUDIT=1 \
+            timeout --signal=TERM --kill-after=5s 420 bash scripts/run_80211s_hwsim_3node.sh \
+            | tee "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_B_SUPERVISED_AUTO_RECOVERY=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_B_RECOVERY_MODE=SUPERVISED_AUTO' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_B_RECOVERY_HWMP=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_HWMP_AC_VIA_B=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_3NODE_BIDIRECTIONAL_IP=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_SAE_AUTH_FRAMES=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_AMPE_MIC_OPEN=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_AMPE_MIC_CONFIRM=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_PROTECTED_DATA_FRAMES=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_PCAP_AUDIT=PASS' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+          grep -qx 'HWSIM_AMPE_FRAME_PROTECTION=ONWIRE_MIC_FORMAT_PASS_CRYPTO_MIC_UNVERIFIED' "$RUNNER_TEMP/cunit-80211s-phase4-trial.txt"
+      - name: Upload sanitized summary only; never upload PCAP/passwords
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cunit-80211s-phase4-trial-${{ matrix.trial }}
+          if-no-files-found: ignore
+          path: ${{ runner.temp }}/cunit-80211s-phase4-trial.txt

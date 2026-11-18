@@ -1,0 +1,3 @@
+# The RC16/6.18.63 base config already has CFG80211=y and MAC80211=y.
+# This option enables mac80211 mesh support and the mt7996 mesh iftype paths.
+CONFIG_MAC80211_MESH=y
