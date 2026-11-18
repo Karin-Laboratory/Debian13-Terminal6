@@ -14,6 +14,7 @@
 - [ストレージ障害・変更・復旧記録](CUNIT-STORAGE-INCIDENT-20261114.ja.md)
 - [追加: CQE無効化案・EXT_CSD・純正比較](CUNIT-EMMC-MITIGATION-20261114.ja.md)
 - [追加: ESP32-C3 UART/AT制御の実測](CUNIT-ESP32-C3-20261114.ja.md)
+- [追加: 純正slot B基礎観測とP25/P44設計判断（2026-11-18）](CUNIT-P25-FOUNDATION-DESIGN-20261118.ja.md)
 - [証拠抜粋](evidence/CUNIT-API-EXCERPTS-20261114.txt)、[DT棚卸しJSON](evidence/CUNIT-DT-INVENTORY-20261114.json)、[Kconfig抜粋](evidence/CUNIT-KCONFIG-20261114.txt)、[ツール版](evidence/CUNIT-TOOLS-20261114.txt)
 - [読み取り専用収集スクリプト](../../scripts/collect-terminal6-hardware.py)、[既知API確認](../../scripts/probe-terminal6-readonly.sh)、[公開用DTメタデータ抽出](../../scripts/export-terminal6-dt.py)
 
