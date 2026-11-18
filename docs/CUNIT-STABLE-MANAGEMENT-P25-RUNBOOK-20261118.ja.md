@@ -15,9 +15,16 @@
 
 2026-11-18実測はユーザー提供: C号機slot AでUARTログイン画面に到達したがARP/SSH不能。raspi4側eth0=192.168.3.71/24、1Gbps Full。stock B起動後は同経路でARP 3/3 PASS、`bootslot=b`、root shell。P44は未マウントのext4 `rootfs_data` 約2.5GiB。**stock BのARP成功をDebian LAN成功と読み替えない。** 故障原因は未確定。
 
+## 設計憲章への準拠と保留差分
+
+- [最新設計憲章 v1.0](architecture/P25-FOUNDATION-POLICY.ja.md)と[AGENTS.md](../AGENTS.md)を、`main` commit `ab0bd832d03d3ad47a2531a256ae9d26f34ffc0a`から**原文一致**でこの開発ブランチにも取り込んだ。憲章の条件自体は変更していない。
+- 詳細は[憲章整合・初回SSH/IP差分記録](architecture/decisions/CUNIT-INITIAL-MANAGEMENT-CHARTER-ALIGNMENT-20261118.ja.md)を参照。所有者が希望する`ssh root@192.168.1.1`（初回から公開鍵認証、TCP/22）は**受入目標であり未達**。現状のinitramfs rescueはTCP/2222、P44通常SSHのauthorized_keys継承と両SSHのホスト鍵継続性も未実証。
+- [純正slot B 調査 PR #27](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/27)では純正が`eth0.1`/`eth0.2`→`br-lan`、`eth1` DOWN、`lan2`なしと観測された。安定P25候補の`eth1`+`lan2`とは異なる。これは候補不動作の**原因確定ではない**が、UART/DT/MAC/PCS/DSAと双方向ARP/SSHで別途合格させる必要がある。
+- 旧`192.168.3.0/24`は過去の隔離試験実測であり、憲章による初期値固定ではない。新`192.168.1.1/24`は家庭LAN`192.168.0.0/22`と重複するため**隔離専用**、移設時は再設計する。
+
 ## 安定版の基本方針
 
-1. CPU/GIC/clock/reset/pinctrl、MMC 100MHz/no-CQE、P44 ext4/initramfs、UART、公開NETSYS/PCS/SGMII1/MT7531 DSAの起動必須ドライバは、解決済みKconfigでbuilt-in `=y` を検査する。実ハードの RX/TX/ARP まで成功したことにはならない。
+1. CPU/GIC/clock/reset/pinctrl、MMC 100MHz/no-CQE、P44 ext4/initramfs、UART、管理NETSYS/PCS/SGMII1/MT7531 DSAの起動依存をP44なしで利用可能とする。**今回のP25製造候補はbuilt-in `=y` を選択しCIで検査するが、設計憲章§4は同一P25のinitramfsに同梱するABI互換モジュールも認める。built-in強制は全将来版の原則ではない。** どちらも実ハードRX/TX/ARP成功の証明ではない。
 2. P44で継続開発する拡張モジュールは、P25と同一ソース・同一ビルドから取り出し `Module.symvers`、`System.map`、`.config`、`kernel.release` とともに保存する。`scripts/verify-module-abi.py` で全 `.ko` のvermagicを照合する。
 3. 緊急SSH: initramfsにARM64 Dropbearと実行に必要なライブラリを同梱する。鍵無しなら **fail-closed** とし、公開成果物に鍵を入れない。P44がマウント不能ならUART上のfail関数が救援起動を試行し、その後コンソールを残す。P44へのhandoffに成功した場合、C号機専用鍵と明示した隔離フラグのある時だけ、鍵・バイナリを一時RAM上の `/run/terminal6-rescue-root` へ引き継ぎ、systemd一時unitで通常SSHと別の **TCP/2222** を提供する設計。実通信・切替・再起動試験は未実施。
 4. `/root/.ssh/authorized_keys` はraspi4の `~/.ssh/cunit-ed25519.pub` に対応する公開鍵を**非公開工程だけで**配置。秘密鍵はraspi4から移動しない。Dropbearホスト秘密鍵はC号機専用の継続固定鍵を非公開保持。通常Debian SSHはport 22の既存ホスト鍵を保持し、救援port 2222は別のknown_hostsエントリと指紋を事前検証する。 `StrictHostKeyChecking=yes` を変更しない。
