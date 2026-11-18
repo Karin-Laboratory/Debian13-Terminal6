@@ -1,5 +1,8 @@
 # C号機 Debian 13：設計憲章 v1.2 に基づく初回導入とペア製造の実装判定
 
+> **歴史的記録・現行方式ではない:** 所有者はその後、v1.4で**方式B（外部手作業）**を採用。P25の無認証SSHやP25内ZIPインストーラは不採用。現行正本は[憲章v1.4](../P25-FOUNDATION-POLICY.ja.md)、[方式B決定](CUNIT-EXTERNAL-P44-INSTALL-METHOD-B-20261118.ja.md)、[手動導入Runbook](../../CUNIT-METHOD-B-MANUAL-INSTALL.ja.md)。以下は過去の検討過程。
+
+
 記録：2026-11-18 JST／採用された憲章： [P25安定基礎設計憲章 v1.2](../P25-FOUNDATION-POLICY.ja.md)（`main` 原本）、[AGENTS.md](../../../AGENTS.md)。これらの文書自体は変更しない。
 
 ## 変更理由
