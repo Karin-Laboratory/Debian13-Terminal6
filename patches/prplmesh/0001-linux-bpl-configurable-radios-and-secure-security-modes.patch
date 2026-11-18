@@ -1,0 +1,60 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d831875..5cf187a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -164 +164 @@ endif ("${isSystemDir}" STREQUAL "-1")
+-set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
++set (CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+diff --git a/framework/platform/bpl/cfg/linux/bpl_cfg_ifaces.cpp.in b/framework/platform/bpl/cfg/linux/bpl_cfg_ifaces.cpp.in
+index 2653570..1eac659 100644
+--- a/framework/platform/bpl/cfg/linux/bpl_cfg_ifaces.cpp.in
++++ b/framework/platform/bpl/cfg/linux/bpl_cfg_ifaces.cpp.in
+@@ -9,0 +10,2 @@
++#include <cctype>
++#include <net/if.h>
+@@ -11,0 +14,2 @@
++#include "bpl_cfg_linux.h"
++
+@@ -30,0 +35,15 @@ bool radio_num_to_wlan_iface_name(const int32_t radio_num, std::string &iface_st
++    if (radio_num < 0 || radio_num > 1) {
++        return false;
++    }
++    const std::string key = "wireless_interface_" + std::to_string(radio_num);
++    if (cfg_get_param(key, iface_str)) {
++        if (iface_str.empty() || iface_str.size() >= IFNAMSIZ) {
++            return false;
++        }
++        for (const unsigned char ch : iface_str) {
++            if (!std::isalnum(ch) && ch != '_' && ch != '-' && ch != '.') {
++                return false;
++            }
++        }
++        return true;
++    }
+diff --git a/framework/platform/bpl/cfg/linux/bpl_cfg_wifi.cpp b/framework/platform/bpl/cfg/linux/bpl_cfg_wifi.cpp
+index 8fd1b42..3167af4 100644
+--- a/framework/platform/bpl/cfg/linux/bpl_cfg_wifi.cpp
++++ b/framework/platform/bpl/cfg/linux/bpl_cfg_wifi.cpp
+@@ -123 +123,8 @@ bool bpl_cfg_get_wifi_credentials(const std::string &iface,
+-        return WSC::eWscAuth::WSC_AUTH_OPEN;
++        if (security_mode == "wpa3-sae") {
++            return WSC::eWscAuth::WSC_AUTH_SAE;
++        }
++        if (security_mode == "wpa2-wpa3-psk-sae") {
++            return static_cast<WSC::eWscAuth>(WSC::eWscAuth::WSC_AUTH_WPA2PSK |
++                                              WSC::eWscAuth::WSC_AUTH_SAE);
++        }
++        return WSC::eWscAuth::WSC_AUTH_INVALID;
+@@ -132 +139,4 @@ bool bpl_cfg_get_wifi_credentials(const std::string &iface,
+-        return WSC::eWscEncr::WSC_ENCR_NONE;
++        if ((security_mode == "wpa3-sae") || (security_mode == "wpa2-wpa3-psk-sae")) {
++            return WSC::eWscEncr::WSC_ENCR_AES;
++        }
++        return WSC::eWscEncr::WSC_ENCR_INVALID;
+@@ -135,0 +146,6 @@ bool bpl_cfg_get_wifi_credentials(const std::string &iface,
++    if (configuration.authentication_type == WSC::eWscAuth::WSC_AUTH_INVALID ||
++        configuration.encryption_type == WSC::eWscEncr::WSC_ENCR_INVALID) {
++        MAPF_ERR("Unsupported WiFi security mode for interface " << iface);
++        return false;
++    }
++

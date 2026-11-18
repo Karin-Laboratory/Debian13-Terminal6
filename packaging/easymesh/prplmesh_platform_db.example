@@ -1,0 +1,19 @@
+# Private runtime configuration. Never install this example as-is.
+# Provision values in a root-owned mode-0600 file after mapping C-unit radios.
+management_mode=Multi-AP-Controller-and-Agent
+certification_mode=0
+backhaul_wire_iface=
+band_steering=0
+client_roaming=0
+wireless_interface_0=@RADIO0@
+wireless_interface_1=@RADIO1@
+hostapd_ctrl_path_@RADIO0@=/run/hostapd/@RADIO0@
+wpa_supplicant_ctrl_path_@RADIO0@=/run/wpa_supplicant/@STA0@
+hostapd_ctrl_path_@RADIO1@=/run/hostapd/@RADIO1@
+wpa_supplicant_ctrl_path_@RADIO1@=/run/wpa_supplicant/@STA1@
+wireless.@RADIO0@.ssid=REPLACE_WITH_PRIVATE_24_GHZ_SSID
+wireless.@RADIO0@.security_mode=wpa2-psk
+wireless.@RADIO0@.psk=REPLACE_WITH_PRIVATE_24_GHZ_PSK
+wireless.@RADIO1@.ssid=REPLACE_WITH_PRIVATE_5_GHZ_SSID
+wireless.@RADIO1@.security_mode=wpa2-psk
+wireless.@RADIO1@.psk=REPLACE_WITH_PRIVATE_5_GHZ_PSK
