@@ -155,7 +155,12 @@ if [[ -n "${DTB_PATH:-}" ]]; then
   cp "$DTB_PATH" "$WORKDIR/output/terminal6-debian-experimental.dtb"
 fi
 cp .config "$WORKDIR/output/kernel.config"
-sha256sum "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/kernel.config" > "$WORKDIR/output/SHA256SUMS"
+# Keep the exact module build identity and link/export evidence with P25.
+test -s Module.symvers && test -s System.map
+cp Module.symvers "$WORKDIR/output/Module.symvers"
+cp System.map "$WORKDIR/output/System.map"
+make -s ARCH=arm64 kernelrelease > "$WORKDIR/output/kernel.release"
+sha256sum "$WORKDIR/output/Image" "$WORKDIR/output/Image.gz" "$WORKDIR/output/kernel.config" "$WORKDIR/output/Module.symvers" "$WORKDIR/output/System.map" "$WORKDIR/output/kernel.release" > "$WORKDIR/output/SHA256SUMS"
 if [[ "${KERNEL_PROFILE:-generic}" = terminal6-lean || "${KERNEL_PROFILE:-generic}" = terminal6-capable ]]; then
   # The Air Terminal 6 boot_a P25 is exactly 32 MiB as a *partition*;
   # 35 MiB is the separate cap on the decompressed Image.
