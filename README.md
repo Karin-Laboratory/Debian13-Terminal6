@@ -16,6 +16,8 @@ Experimental, community-maintained project to run **Debian 13 (arm64)** on SoftB
 
 **For Codex and other repository agents:** start with [AGENTS.md](AGENTS.md), then read the current design charter and the relevant PR/runbook before changing implementation. Architecture changes require an explicit owner-approved proposal; experiment outcomes are recorded separately.
 
+**First-boot setup decision (2026-11-18):** the owner selected OpenWrt-style, **unauthenticated root SSH only on a physically isolated wired LAN** at `192.168.1.1` during initial provisioning; P44 may initially be empty, so first SSH reaches a P25/initramfs setup shell. Once Debian is deployed and device-specific root password or public key authentication is established, unauthenticated access must be disabled. This is a **design decision, not an implemented or hardware-validated release**. See [first-boot SSH decision (Japanese)](docs/architecture/decisions/CUNIT-FIRSTBOOT-SSH-OPENWRT-STYLE-20261118.ja.md).
+
 ## Status
 
 **Live hardware research on one development unit.** Debian 13 with kernel `6.18.63-debian-t6-proto2` runs from P44 on the C-unit; Ethernet/SSH and ESP32-C3 UART queries have been measured. **eMMC CQE/write I/O errors and rootfs integrity remain unresolved.** This is not a validated general installer or complete hardware-support claim. See the [2026-11-14 hardware report, limitations and mitigation candidates](docs/hardware/README.md). Writing P44 can destroy existing data; preserve recovery before any separate firmware or filesystem work.
