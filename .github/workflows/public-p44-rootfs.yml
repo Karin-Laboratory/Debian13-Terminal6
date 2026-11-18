@@ -46,6 +46,17 @@ jobs:
           grep -Fx './usr/local/sbin/terminal6-public-management' "$RUNNER_TEMP/p44-filelist.txt"
           grep -Fx './etc/systemd/network/20-terminal6-lan2.network' "$RUNNER_TEMP/p44-filelist.txt"
           grep -Fx './etc/ssh/sshd_config.d/60-terminal6-secure.conf' "$RUNNER_TEMP/p44-filelist.txt"
+          grep -Fx './etc/systemd/system/terminal6-firstboot.service' "$RUNNER_TEMP/p44-filelist.txt"
+          grep -Fx './etc/systemd/system/terminal6-authcheck.service' "$RUNNER_TEMP/p44-filelist.txt"
+          grep -Fx './usr/local/sbin/terminal6-p44-firstboot' "$RUNNER_TEMP/p44-filelist.txt"
+          grep -Fq 'PermitEmptyPasswords no' "$out/rootfs/etc/ssh/sshd_config.d/60-terminal6-secure.conf"
+          grep -Fq -- '-F -E -B -j -k' "$out/rootfs/etc/systemd/system/terminal6-firstboot.service"
+          test ! -e "$out/rootfs/var/lib/terminal6/firstboot-complete"
+          test ! -e "$out/rootfs/etc/ssh/ssh_host_ed25519_key"
+          test -x "$out/rootfs/usr/sbin/dropbear"
+          chroot "$out/rootfs" /bin/sh -c 'command -v dropbearconvert'
+          test -z "$(awk -F: '$1=="root"{print $2}' "$out/rootfs/etc/shadow")"
+          echo 'CHARTER14_DEBIAN_FIRSTBOOT_NOAUTH_ONLY_ON_P44_STATIC_PASS'
           grep -Fx './root/.ssh/authorized_keys' "$RUNNER_TEMP/p44-filelist.txt"
           if grep -E '/root/.ssh/id_|/etc/ssh/ssh_host_.*_key$' "$RUNNER_TEMP/p44-filelist.txt"; then
             echo 'FAIL: rootfs archive contains a private SSH key' >&2
