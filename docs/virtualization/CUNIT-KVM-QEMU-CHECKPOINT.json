@@ -1,0 +1,167 @@
+{
+  "schema": 1,
+  "date": "2026-11-16",
+  "repository": "Karin-Laboratory/Debian13-Terminal6",
+  "branch": "codex/cunit-kvm-qemu-20261116",
+  "base_commit": "a05b39e162bbd044fa0d083ded81129e2e3bbc24",
+  "device_action": "SIGNED_KVM_P25_WRITTEN_TO_BOOT_A_AND_BOOTED; QEMU_OPENWRT_KVM_GUEST_PASS; SLOT_A_TRIAL_PENDING",
+  "last_update": "2026-11-16 signed KVM candidate booted on C-unit; VHE, /dev/kvm, OpenWrt KVM guest and isolated user network PASS",
+  "observed_kernel_release": "6.18.63-debian-t6-proto2",
+  "matched_build_config_sha256": "a96a7d4f563f828df8b81a1f305c24e37443c1c63be149cf6c894772aacdb9b9",
+  "current_config_virtualization": "y",
+  "current_config_kvm": "y",
+  "baseline_direct_reason": "KVM_NOT_BUILT",
+  "direct_reason": "KVM_AVAILABLE_ON_SIGNED_CANDIDATE; VHE_INITIALIZED",
+  "cpu": "4x Cortex-A55 r2p0; EL2 capability supported by CPU core specification",
+  "bootchain_el2_handoff": "PASS_KVM_VHE_INITIALIZED_ON_CUNIT",
+  "required_config_fragment": "configs/cunit-kvm.fragment",
+  "config_validator_tests": {
+    "status": "PASS",
+    "count": 5
+  },
+  "generic_linux_6_18_63_kconfig_resolution": {
+    "status": "PASS",
+    "config_sha256": "ba746ce8b4aca5d6cdbaa4feb2622150681767ba9c6fa77c5005781434b83176",
+    "config_virtualization": "y",
+    "config_kvm": "y"
+  },
+  "generic_arm64_image_build": {
+    "status": "FAIL",
+    "reason": "unrelated clk-mt7987-apmixed.c passes struct device_node* to mtk_clk_register_plls(struct device*, ...)"
+  },
+  "cunit_target_style_host_build": {
+    "status": "PASS_HOST_BUILD_PRIVATE_SOURCE_LIMITATION",
+    "source_provenance": "isolated copy of owner-private cunit-80211s-build-20261115 source tree; original untouched; not reproducible from PR14 public inputs alone",
+    "kernel_release": "6.18.63-debian-t6-proto2",
+    "config_baseline_sha256": "a96a7d4f563f828df8b81a1f305c24e37443c1c63be149cf6c894772aacdb9b9",
+    "resolved_config_sha256": "d5c4ac7b7f7d9da9f3fbbd62cb1e8dcf16284faa17e07877c844f76a0f1a53b8",
+    "config_virtualization": "y",
+    "config_kvm": "y",
+    "image_sha256": "dd077159730686875a5dbffe3853bff5e23043cb22087546192cb42321d31ce1",
+    "image_bytes": 18790408,
+    "vmlinux_sha256": "05cdc5753a24cf04ca64b3aae0772be3b4b6c49d86c006f88d92499205c73e5a",
+    "system_map_sha256": "c56e7603496592503093779585d1639d0b5885d7d64678440d2eaffbea95328c",
+    "module_symvers_sha256": "383f51f6843225b55a3db5e32550f96952eeea1855b11f2da7a7d4da475efb62",
+    "built_modules": 105,
+    "elapsed_seconds": 1578.845,
+    "kvm_symbols": ["kvm_init", "__kvm_nvhe___kvm_hyp_init"]
+  },
+  "pr14_latest_public_replay": {
+    "head": "e05811f8d4d3ee2606f44f27218ef59132a39a5f",
+    "kernel_source_commit": "1cdda838e8475edf89b73ff0cc952005dd0b1fa7",
+    "kernel_archive_sha256": "c0127d88bdf6cb7a6ff9c81563f17dc059ace870c0e1a10e87dee5a1904158f8",
+    "workflow_runs": [43812124223, 43812124224, 43812124243, 43812124230, 43812124232, 43812124333],
+    "status": "ALL_PASS"
+  },
+  "kvm_candidate_dtb": {
+    "status": "PASS_PROPERTY_DIFF_ONLY",
+    "base_no_cqe_sha256": "fb20c141ef71833cac20cd1deb13161c338ceac41843ad94fb5c81f4e1f0f6e9",
+    "candidate_sha256": "a6bef90e18c0a16934e6c4196fea60408a1fed08b6ef9b62c7fbe5d7c5632d91",
+    "change": "/mmc@11230000/max-frequency: 200000000 -> 100000000",
+    "supports_cqe": false,
+    "comparison_to_signed_pr3_dtb": "NOT_BYTE_COMPARED"
+  },
+  "kvm_p25_candidate": {
+    "status": "SIGNED_BOOT_A_FULL_READBACK_PASS_LK_BOOT_PASS",
+    "stored_private": true,
+    "signed": true,
+    "lk_boot_tested": true,
+    "applied_partition": "boot_a only",
+    "full_readback": "PASS",
+    "signed_candidate_sha256_publicly_recorded": false,
+    "signing_receipt_and_raw_digest": "PRIVATE"
+  },
+  "allowed_hardware_access": {
+    "gateway": "agent-101-vm -> raspi4 -> C-unit SSH and UART",
+    "gateway_route_to_192_168_3_0_24": "PRESENT",
+    "target_private_key_available_on_raspi4": true,
+    "serial_device_available_on_raspi4": true,
+    "device_runtime_state": "KVM_CANDIDATE_BOOTED; SSH_AND_UART_AVAILABLE"
+  },
+  "openwrt_tcg_boot": {
+    "status": "PASS_TO_PROCD_CONSOLE_READY",
+    "release": "OpenWrt 25.12.6 armsr/armv8 generic-initramfs-kernel.bin",
+    "image_bytes": 35754496,
+    "image_sha256": "2b1f0796ec31201b609643beca48de20d75f2879104a20adba327cbaf64b5f2b",
+    "qemu": "QEMU 10.0.13",
+    "machine": "virt",
+    "acceleration": "tcg",
+    "guest_ram_mib": 256,
+    "guest_smp": 2,
+    "reached": [
+      "Run /init as init process",
+      "procd: - early -",
+      "procd: - ubus -",
+      "procd: - init -",
+      "Please press Enter to activate this console."
+    ],
+    "stop": "external 120s timeout after reaching interactive console prompt",
+    "private_log_sha256": "b7db982a0ae56cecfa9e7ce5772f29a952e053020b0284cde3b5e4f5cd02d5c8"
+  },
+  "c_unit_kvm_runtime": "PASS_VHE_KVM_INIT_DEV_KVM_AND_QEMU_FD_CONFIRMED",
+  "openwrt_guest_with_kvm": "PASS_PROCD_CONSOLE_AND_KVM_FD_CONFIRMED",
+  "openwrt_kvm_guest": {
+    "status": "PASS",
+    "release": "OpenWrt 25.12.6 armsr/armv8 generic-initramfs-kernel.bin",
+    "image_sha256": "2b1f0796ec31201b609643beca48de20d75f2879104a20adba327cbaf64b5f2b",
+    "qemu": "QEMU 10.0.13 Debian package qemu-system-arm",
+    "acceleration": "kvm; QEMU PID had /dev/kvm open",
+    "machine": "virt",
+    "cpu": "host",
+    "guest_ram_mib": 256,
+    "guest_smp": 1,
+    "guest_kernel": "Linux 6.12.112 aarch64",
+    "reached": ["/init", "procd early", "procd ubus", "procd init", "interactive console"],
+    "network": "virtio-net eth0; QEMU user-mode network only; ping 10.0.2.2 3/3; no LAN bridge",
+    "virtual_disk": "none"
+  },
+  "c_unit_kvm_boot_control": {
+    "active_slot": "A",
+    "A_priority": 15,
+    "A_retry": 4,
+    "A_success": 0,
+    "B_priority": 14,
+    "B_success": 1,
+    "trial_mark_successful": false,
+    "post_candidate_reboot_test": "NOT_TESTED"
+  },
+  "c_unit_emmc_after_qemu": {
+    "requested_clock_hz": 100000000,
+    "actual_clock_hz": 94999965,
+    "timing": "HS400",
+    "bus_width": 8,
+    "signal_voltage": "1.8V",
+    "cmdq_en": 0,
+    "rootfs": "/dev/mmcblk1p44 ext4 rw,noatime",
+    "new_mmc_ext4_errors": 0
+  },
+  "openwrt_virtual_disk_512m": "NOT_TESTED",
+  "tcg_performance_on_c_unit": "NOT_TESTED",
+  "p25_p26_p44_slot_or_firmware_modified": true,
+  "scope_of_target_changes": "boot_a candidate only; P26, P44, stock slot B, GPT and OEM partitions not overwritten; QEMU packages installed on P44 via apt",
+  "generic_arm64_kvm_translation_units": {
+    "status": "KBUILD_ARCHIVES_CREATED_NOT_IMAGE_LINKED",
+    "count": 86,
+    "archives": {
+      "arch/arm64/kvm/built-in.a": "f72660f69a10aadb764a84405e6186405938b8977c2592d7ec3f8e26b5492081",
+      "arch/arm64/kvm/hyp/built-in.a": "292ddec6b9454efe7307247065dd34aac027537147a106e4b60e2017dacef7e6",
+      "arch/arm64/kvm/hyp/nvhe/built-in.a": "9179edfa83b0d740c5a3d65871c8067bcc726c398ab59339648c9edd6f360a34",
+      "arch/arm64/kvm/hyp/vhe/built-in.a": "34f53b4551d80d5eb397870e3b5671e3e81c5ac625e5af3b0d6cf9fd6f84634b"
+    },
+    "symbol_check": "kvm_init present in KVM archive"
+  },
+  "related_ci_at_start": {
+    "pr13_wifi_integration": "SUCCESS",
+    "pr14_public_source_replay": {
+      "head": "6948df2747fe57f89e7d8b4701324d8eeeb0dee3",
+      "checks": "ALL_SUCCESS"
+    }
+  },
+  "pull_request": {
+    "number": 19,
+    "url": "https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/19",
+    "draft": true,
+    "evidence_commit": "670813f09c85fff80900df84bdebfc4dad181c71",
+    "checks": "local config tests PASS 5/5; workflow_dispatch run 43885066560 queued at last poll; docs-only push did not match path-filtered CI"
+  }
+}
