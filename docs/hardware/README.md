@@ -16,6 +16,7 @@
 - [追加: ESP32-C3 UART/AT制御の実測](CUNIT-ESP32-C3-20261114.ja.md)
 - [証拠抜粋](evidence/CUNIT-API-EXCERPTS-20261114.txt)、[DT棚卸しJSON](evidence/CUNIT-DT-INVENTORY-20261114.json)、[Kconfig抜粋](evidence/CUNIT-KCONFIG-20261114.txt)、[ツール版](evidence/CUNIT-TOOLS-20261114.txt)
 - [読み取り専用収集スクリプト](../../scripts/collect-terminal6-hardware.py)、[既知API確認](../../scripts/probe-terminal6-readonly.sh)、[公開用DTメタデータ抽出](../../scripts/export-terminal6-dt.py)
+- [追加: KVM OpenWrt guestの隔離ホスト・ゲスト通信実測](../virtualization/CUNIT-KVM-ISOLATED-HOST-GUEST-NET-20261120.ja.md)
 
 追加調査でESP32-C3-MINI-1のESP-AT応答を確認した。Linux HCIは無効のままだが、外付けBLE制御へのUART経路は存在する。また、eMMCのDT単独no-CQE候補を開発VMで検証したが、実機への投入はしていない。
 
