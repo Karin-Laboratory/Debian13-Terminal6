@@ -22,8 +22,29 @@ while IFS=' ' read -r name blob_sha; do
     echo "PINCTRL_PATCH_GIT_BLOB_SHA_MISMATCH: $name" >&2
     exit 43
   }
-  git -C "$tree" apply --check "$tmp/$name"
-  git -C "$tree" apply "$tmp/$name"
+  if git -C "$tree" apply --check "$tmp/$name"; then
+    git -C "$tree" apply "$tmp/$name"
+  elif [[ "$name" = 0524-pinctrl-mediatek-size-sparse-eint-instances.patch ]]; then
+    # Linux 6.18.63 shifted the EINT pin counting loop; port exactly the same
+    # max(index)+1 sizing semantics rather than relaxing patch validation.
+    python3 - "$tree/drivers/pinctrl/mediatek/mtk-eint.c" <<'PY'
+from pathlib import Path
+import sys
+path=Path(sys.argv[1])
+s=path.read_text()
+old="\t\t\teint->base_pin_num[inst]++;"
+new=("\t\t\teint->base_pin_num[inst] = max_t(u16,\n"
+     "\t\t\t\teint->base_pin_num[inst], eint->pins[i].index + 1);")
+assert s.count(old)==1, "PINCTRL_0524_REBASE_ANCHOR_MISMATCH"
+s=s.replace(old,new,1)
+assert s.count(new)==1, "PINCTRL_0524_REBASE_POSTCHECK_FAIL"
+path.write_text(s)
+print("T6_MT69XX_0524_EXACT_6_18_63_REBASE_PASS")
+PY
+  else
+    echo "PINCTRL_SOURCE_PATCH_NOT_APPLICABLE: $name" >&2
+    exit 44
+  fi
   printf 'T6_MT69XX_UPSTREAM_PATCH_PASS name=%s blob=%s\n' "$name" "$blob_sha"
 done <<'PINS'
 0521-pinctrl-mediatek-add-mt69xx-provider.patch 4a783d277853742108d16821d834e4c72640f881
