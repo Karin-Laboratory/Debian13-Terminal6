@@ -23,12 +23,37 @@ class CapableConfigTests(unittest.TestCase):
         values.update(dict.fromkeys(
             capable.lean.LEAN_MODULES +
             tuple("CONFIG_" + k for k in capable.MODULES), "m"))
+        values["CONFIG_NR_CPUS"] = "4"
+        values["CONFIG_MMC_BLOCK_MINORS"] = "64"
+        values["CONFIG_REGULATOR_FIXED_VOLTAGE"] = "y"
+        for key in capable.EARLY_BOOT_BUILTINS:
+            values["CONFIG_" + key] = "y"
         values["CONFIG_ARM64_VA_BITS"] = "39"
         values["CONFIG_LOCALVERSION"] = capable.EXPECTED_LOCALVERSION
         return "\n".join(f"{k}={v}" for k, v in sorted(values.items())) + "\n"
 
     def test_complete_profile(self):
         self.assertEqual(capable.problems(self.config()), [])
+
+    def test_missing_early_relocation_is_rejected(self):
+        for key in capable.EARLY_BOOT_BUILTINS:
+            with self.subTest(key=key):
+                c = self.config().replace("CONFIG_" + key + "=y",
+                                          "# CONFIG_" + key + " is not set")
+                self.assertIn("CONFIG_" + key + "=y", capable.problems(c))
+
+    def test_wrong_emmc_minors_is_rejected(self):
+        c = self.config().replace("CONFIG_MMC_BLOCK_MINORS=64", "CONFIG_MMC_BLOCK_MINORS=8")
+        self.assertIn("CONFIG_MMC_BLOCK_MINORS=64", capable.problems(c))
+
+    def test_missing_fixed_voltage_regulator_is_rejected(self):
+        c = self.config().replace("CONFIG_REGULATOR_FIXED_VOLTAGE=y",
+                                  "# CONFIG_REGULATOR_FIXED_VOLTAGE is not set")
+        self.assertIn("CONFIG_REGULATOR_FIXED_VOLTAGE=y", capable.problems(c))
+
+    def test_wrong_cpu_count_is_rejected(self):
+        c = self.config().replace("CONFIG_NR_CPUS=4", "CONFIG_NR_CPUS=512")
+        self.assertIn("CONFIG_NR_CPUS=4", capable.problems(c))
 
     def test_missing_kvm_is_rejected(self):
         c = self.config().replace("CONFIG_KVM=y", "# CONFIG_KVM is not set")

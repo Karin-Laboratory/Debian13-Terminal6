@@ -22,6 +22,19 @@ scripts/config --module USB_XHCI_HCD --module USB_XHCI_MTK \
   --module PHY_MTK_TPHY --module USB_SERIAL \
   --module USB_SERIAL_CH341 --module SCSI --module BLK_DEV_SD \
   --module USB_STORAGE
+# Restore boot-proven KVM-proto2 early ARM64 execution capabilities before
+# olddefconfig. The C-unit LK has handed the kernel to 0xfd900000 (1MiB
+# off a 2MiB alignment boundary); the previous public-capable kernel had
+# RELOCATABLE=n while the boot-proven KVM-proto2 kernel has RELOCATABLE=y.
+# This is a host-build hypothesis, NOT proof that the placement was causal.
+# Keep earlycon in the existing cmdline and enable OF-probed serial as well.
+scripts/config --enable RELOCATABLE --enable RANDOMIZE_BASE \
+  --enable SERIAL_OF_PLATFORM --set-val NR_CPUS 4
+# C-unit has GPT rootfs_data at P44. Match the boot-proven KVM eMMC
+# allocation and fixed-voltage regulator support, not tinyconfig's defaults.
+# This does NOT supply the missing MT69XX pinctrl OF driver: the private
+# C-unit boot image must fix that dependency separately and verify the FDT.
+scripts/config --set-val MMC_BLOCK_MINORS 64 --enable REGULATOR_FIXED_VOLTAGE
 # Distinguish this module ABI from prior private 6.18.63-debian-t6-proto2.
 # Never rename modules to trick vermagic/versioned symbol checks.
 scripts/config --set-str LOCALVERSION "-t6-public-capable"
