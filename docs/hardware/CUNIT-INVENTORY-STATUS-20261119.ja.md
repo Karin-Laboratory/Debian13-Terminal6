@@ -44,7 +44,7 @@ raspi4の短時間SSH応答試験は22:42 JSTに20/20 banner、中央値60.4ms�
 | LEDs / buttons | 11-19 live: LED/input class empty。11-14はDT候補、button event未確認 | NOT_REGISTERED/UNKNOWN | DT compatibleと物理部品の対応を確認。brightness書込み・button操作不要 |
 | RTC | 11-19 live: `CONFIG_RTC_CLASS=y`、RTC class empty | NOT_DETECTED | DT候補とdriver/provider bindingを照合。搭載を断定しない |
 | TRNG / crypto | 11-19 live: `CONFIG_HW_RANDOM=y`, `rng_current=none`, `rng_available=none`; `getrandom`はsoftware API | Hardware RNG NOT_REGISTERED | controller driver/providerを調べる。entropy/MMIO操作しない |
-| KVM / QEMU | 11-19 live: `CONFIG_KVM=y`, `/dev/kvm` present, QEMU 10.0.13. 11-19既存試験でOpenWrt ARM64 guest Linux 6.12.112/procd起動 | PASS（過去実機guest）; current KVM API present; guest network NOT_TESTED | 既存PASS維持。user-mode networkだけで独立guest試験できるか後続検討 |
+| KVM / QEMU | 11-19 live: `CONFIG_KVM=y`, `/dev/kvm` present, QEMU 10.0.13。OpenWrt ARM64 guest Linux 6.12.112/procd起動。今回さらに256MiB/1 vCPU、virtio-net、QEMU user network `restrict=on`でDHCP `10.0.2.15`、gateway `10.0.2.2` ping 2/2 PASS | PASS（KVM guest起動、限定user-network DHCP/gateway通信）; guest↔host/external network NOT_TESTED | 既存基準維持。制限付きuser networking以外の接続は試験しない |
 | GPU / audio / multimedia / sensors | 11-14 DT上に候補記述、実装・部品対応は不明 | UNKNOWN | DT compatibleとplatform bindを照合し、搭載を断定しない |
 
 ## 2026-11-19ライブ状態の補足
@@ -54,7 +54,7 @@ raspi4の短時間SSH応答試験は22:42 JSTに20/20 banner、中央値60.4ms�
 - **PCIe/Wi-Fi:** PCIe config spaceでMT7990系endpoint 2個を列挙するが、mt76ドライバはどちらにも結合していない。P44にはmt76系module fileがあるが、稼働kernelは`CONFIG_CFG80211` not set。`modprobe -n mt7996e`もmodule indexから見つけられず失敗。実機にロードせず、PHY/API/RFのPASSにはしていない。`CONFIG_BT`、`CONFIG_GNSS`も無効。
 - **USB:** `CONFIG_USB=m`/`CONFIG_USB_XHCI_HCD=m`だが、現P44のkernel module treeにUSB/xHCI moduleがなく、USB bus/classも未登録。PR #7の別時点volatile root hub試験を今回のPASSに流用しない。USB接続機器/VBUSの状態が分からないためhost controllerを起動していない。
 - **周辺API:** 13 thermal zones、mtk-wdt inactive、236 GPIO linesは列挙。CPU0–3 online。cpufreq policy、RTC、PWM、LED、input、GNSS、Bluetooth class、USB class、I2C/SPI adapter、hardware RNG sourceは現起動で公開されない。netdevの`ccmni0..20`は全DOWN、WAN data sessionなし。
-- **既存基準:** `/dev/kvm` present、`CONFIG_KVM=y`、QEMU 10.0.13。OpenWrt guest Linux/procdの実機PASSは11-19既存記録に基づく。このturnでは再起動やguest再試験をしていない。guest networkはNOT_TESTED。
+- **既存基準と追加試験:** `/dev/kvm` present、`CONFIG_KVM=y`、QEMU 10.0.13。今回、RAM上のOpenWrt 25.12.6 ARM64 initramfs kernel 6.12.112を256MiB/1 vCPUでKVM起動し、Linux/procdを確認。virtio-netを追加しQEMU user networkを`restrict=on`で起動、ゲスト内のeth0でDHCP lease `10.0.2.15/24`（server `10.0.2.2`）を取得、`10.0.2.2`へ2/2 ping成功。ゲストのeth0は一時的にbridgeから外しDHCPを行っただけで、ゲストinitramfsとホストP44には設定を保存していない。restrictモードのため外部・実LAN・ホスト間通信はNOT_TESTED。QEMU停止後にC号機Debianと管理SSHが継続していることを確認。試験ログはC号機tmpfsの`/run/kvm-acceptance/restricted-net-console.log`、17,660 bytes、SHA-256 `a86af1725f1edd4ebffd8f3a535b1487096f0bc593d59c333ee91529a663dae1`。これはC号機の再起動後に失われる揮発ログで、P44へコピーしていない。
 
 DTには881 nodes/433 compatible propertiesがあり、platform busには335 device entries中40 driver linksがあった。残りのDT/platform entryは共通SoC・syscon・power/clock blocksや無効/未使用定義を含むため、未bind件数だけで未実装部品や物理搭載を結論づけない。
 
@@ -110,4 +110,4 @@ C号機への実機経路を確立できなかったため、管理ゲートウ�
 5. radio/WWAN/GNSSは規制・対向機・専用初期化依存が揃った機能だけを試験。6GHz送信、未知ATコマンド、無線scan、SIM状態取得はこの補足では許可・実施していない。
 6. P25/DTB変更・再起動を要する機能は、現在のboot controlと復旧条件を個別に確かめるまで保留する。
 
-**この更新で新たにP44へ有効化した機能はない。** raspi4自身についてはWi-Fi省電力OFFの永続設定と有限サイズのpersistent journalを再起動後にも確認した。C号機は前節のcollector採取に加え、本節の再接続後読み取り確認を完了した。UARTの接続・取得は未確認のため、次回はUART実接続を確認し、現行ハードウェアとの差分を非破壊で補う。
+**この更新で新たにP44へ有効化した機能はない。** raspi4自身についてはWi-Fi省電力OFFの永続設定と有限サイズのpersistent journalを再起動後にも確認した。C号機は前節のcollector採取に加え、本節の再接続後読み取り確認および一時QEMU guest user-network試験を完了した。UARTの接続・取得は未確認のため、次回はUART実接続を確認し、現行ハードウェアとの差分を非破壊で補う。
