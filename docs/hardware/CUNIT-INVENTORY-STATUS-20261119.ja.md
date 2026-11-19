@@ -2,9 +2,9 @@
 
 ## 判定範囲
 
-これは2026-11-14の詳細な読み取り棚卸しを、11-19のC号機KVM成功版復元試験および既存Draft PRの追加証拠で更新する補足である。**今回の実行環境からraspi4のSSH/22へ到達できず、C号機へ再接続した新規全量スキャンは未実施。** したがって「11-19にC号機上で再確認」と書いた項目以外は、過去の実機測定を最新状態とみなさない。
+これは2026-11-14の詳細な読み取り棚卸しを、11-19のC号機KVM成功版復元試験、既存Draft PRの追加証拠、および本追補の再接続試行で更新する資料である。**今回もC号機へ新規全量スキャンは到達できず未実施。** raspi4 SSHは復旧したが、C号機直結Ethernetにcarrierがなく、UART USBデバイスもraspi4で検出されなかった。したがって過去の実機測定を今回の起動状態として扱わない。
 
-raspi4 `192.168.0.38` はこの実行環境の同一 `/22` 経路からTCP/22を3回試したが、タイムアウトまたは `No route to host`。SSHホスト鍵検証を無効化した接続や、許可されていないLAN機器への迂回はしていない。今回、C号機の再起動、slot/boot control変更、P25/P26/GPT書込み、RF送信は行っていない。
+2026-11-19 22:42 JSTのraspi4実測では、管理Wi-Fi `192.168.0.38/22` が接続中で、SSH/22へ新規TCP接続しSSH bannerを20/20回受信（中央値60.4ms、最大91.0ms）。C号機向け`cunit-direct`プロファイルは`eth0`, autoconnect=yes, manual `192.168.3.71/24`だが、`eth0`は`NO-CARRIER`/NetworkManager `unavailable`、`192.168.3.71`は未設定。UART `/dev/ttyUSB*`・`/dev/ttyACM*`も存在しなかった。C号機へのStrictHostKeyChecking付きSSH試行は、bind元IP不在により開始前に失敗した（認証結果ではない）。このためC号機状態は再採取していない。今回、C号機の再起動、slot/boot control変更、P25/P26/GPT書込み、RF送信は行っていない。
 
 基準となるP25/P44復元、slot AのDebian起動、LAN/SSH、eMMC、KVM/OpenWrtゲストの実測は、所有者の2026-11-19実機作業記録にある。再起動後に機能ごとの列挙を全て取り直したものではない。P25は書込み後に変更せず、Aの恒久成功フラグは立てず、純正Bの成功状態を保持したと記録されている。
 
@@ -49,6 +49,23 @@ raspi4 `192.168.0.38` はこの実行環境の同一 `/22` 経路からTCP/22を
 
 collector全体のDevice Tree/bus/proc出力は従来通り**privateのままレビューする**。この変更は対象機器を操作せず、GPIO、watchdog、bus scan、module load、radio activationも行わない。合成sysfs treeを用いた秘匿フィールド除外・各属性取得テストはPASS。これはhost-side testであり、C号機での新collector実行結果ではない。
 
+## raspi4ゲートウェイ診断（2026-11-19 22:42 JST）
+
+C号機への実機経路を確立できなかったため、管理ゲートウェイだけを読み取り診断した。
+
+| 項目 | 実測 | 評価 |
+|---|---|---|
+| raspi4 SSH | 再起動後、SSH service active。SSH banner TCP試験20/20、中央値60.4ms/最大91.0ms | 今回の短時間試験PASS。長期安定性は未確認 |
+| Wi-Fi | 接続済み、5GHz/5180MHz、信号-61dBm。Wi-Fi powersaveは再起動後もoff | 今回観測では接続安定。電波品質を長期評価したものではない |
+| 直結Ethernet | `eth0` `NO-CARRIER`; static direct profileは存在するがIP未設定 | C号機との物理リンク不成立。対象側電源・ケーブル・ポートは未特定 |
+| UART | CH340 `/dev/ttyUSB0` を含むserial deviceなし | 今回はUART採取不可 |
+| CPU/RAM/thermal | 十分なRAM。`vcgencmd get_throttled=0x0`。現行boot kernel logにMMC/ext4 I/O errorなし | 今回の読み取り時点で明白な熱/電源/eMMC異常なし |
+| root filesystem | 29GiB中約27GiB使用、96%、約1.2GiB空き。private保存領域約20GiB | 容量余裕は小さい。保持対象バックアップは削除せず |
+| 実行中の走査 | 追加SSH sessionがprivate全体の`find | sort | sha256sum`を実行中。3分弱で約7.7GBを読み、sha256sumが約40% CPU、MMC waitでD-state | 全バックアップ再ハッシュは今回不要で、反復負荷にもなるため、該当PIDのプロセスツリーだけSIGTERMで停止。データは変更していない |
+| WireGuard起動 | `wg-quick@wg0`はfailed。起動ログはendpoint routeを`via 192.168.0.1 dev eth0 src 192.168.0.89`へ追加しようとして`Nexthop has invalid gateway`。実際のdefault routeはWi-Fi | staleなEthernet前提設定の可能性。VPN用途・意図が未確認のため設定変更せず。SSH遅延との因果は未確定 |
+
+読み取り前に稼働していたprivate全体ハッシュ処理は、対象と必要性を確認できず、かつバックアップ大容量ファイルの不要な全量再読込だったため停止した。APT cacheは以前のraspi4診断で`apt-get clean`済み。journaldは16MiBに制限されたpersistent設定、Wi-Fi powersave off設定を既存変更として再起動後に確認した。privateバックアップや作業成果物の削除、ネットワーク経路の変更は行っていない。
+
 ## 既存成果との関係
 
 - 2026-11-14の詳細棚卸しと証拠境界：[総合インベントリ](CUNIT-INVENTORY-API-20261114.ja.md)、[詳細](CUNIT-DEVICE-DETAILS-20261114.ja.md)、[無線](CUNIT-RADIOS-20261114.ja.md)、[OpenWrt差分](CUNIT-OPENWRT-DELTA-20261114.ja.md)
@@ -59,11 +76,11 @@ collector全体のDevice Tree/bus/proc出力は従来通り**privateのままレ
 
 ## 次回の優先順位
 
-1. raspi4経由のstrict SSHとUARTを復旧し、C号機のhostname/kernel/cmdline/slot/root/mountを読み取り確認する。A trial・B successの状態を変えない。
+1. C号機を電源ONと確認し、raspi4 `eth0`直結リンクまたはUART USB接続を復旧後、strict SSH/UARTでhostname/kernel/cmdline/slot/root/mountを読み取り確認する。A trial・B successの状態を変えない。
 2. 新collectorをSSH stdinから実行してVM側へ保存し、公開前にMAC/CID/serial/firmware/calibration等を除去する。collector出力をP44へ書かない。
 3. active module、firmware、PCI/USB/I2C/SPI/GPIO/PWM、thermal/RNG/RTC、各netdevを最新kernel ABIと照合。ドライバをロードする前にP44バックアップとrollbackを確保する。
 4. 既存moduleだけで行える非送信・読み取りAPI確認を優先。PWMやLEDなど出力変化を伴う試験は物理対応と安全な初期値を確認するまで変更しない。
 5. radio/WWAN/GNSSは規制・対向機・専用初期化依存が揃った機能だけを試験。6GHz送信、未知ATコマンド、無線scan、SIM状態取得はこの補足では許可・実施していない。
 6. P25/DTB変更・再起動を要する機能は、現在のboot controlと復旧条件を個別に確かめるまで保留する。
 
-**この更新で新たにP44へ有効化した機能はない。** 実機到達性が回復した後、上記の非破壊再採取から再開する。
+**この更新で新たにP44へ有効化した機能はない。** raspi4自身についてはWi-Fi省電力OFFの永続設定と有限サイズのpersistent journalを再起動後にも確認したが、C号機の棚卸しは未着手のまま。C号機直結Ethernet/UARTの物理接続が回復した後、上記の非破壊再採取から再開する。
