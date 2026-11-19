@@ -22,6 +22,14 @@ scripts/config --module USB_XHCI_HCD --module USB_XHCI_MTK \
   --module PHY_MTK_TPHY --module USB_SERIAL \
   --module USB_SERIAL_CH341 --module SCSI --module BLK_DEV_SD \
   --module USB_STORAGE
+# Restore boot-proven KVM-proto2 early ARM64 execution capabilities before
+# olddefconfig. The C-unit LK has handed the kernel to 0xfd900000 (1MiB
+# off a 2MiB alignment boundary); the previous public-capable kernel had
+# RELOCATABLE=n while the boot-proven KVM-proto2 kernel has RELOCATABLE=y.
+# This is a host-build hypothesis, NOT proof that the placement was causal.
+# Keep earlycon in the existing cmdline and enable OF-probed serial as well.
+scripts/config --enable RELOCATABLE --enable RANDOMIZE_BASE \
+  --enable SERIAL_OF_PLATFORM --set-val NR_CPUS 4
 # Distinguish this module ABI from prior private 6.18.63-debian-t6-proto2.
 # Never rename modules to trick vermagic/versioned symbol checks.
 scripts/config --set-str LOCALVERSION "-t6-public-capable"
