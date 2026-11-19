@@ -27,6 +27,7 @@ MODULES = (
 )
 EARLY_BOOT_BUILTINS = ("RELOCATABLE", "RANDOMIZE_BASE", "SERIAL_OF_PLATFORM")
 EXPECTED_NR_CPUS = "4"
+EXPECTED_MMC_BLOCK_MINORS = "64"
 EXPECTED_LOCALVERSION = '"-t6-public-capable"'
 MAX_IMAGE_BYTES = 35 * 1024 * 1024
 P25_BYTES = 32 * 1024 * 1024
@@ -40,6 +41,10 @@ def problems(text: str) -> list[str]:
     errors += [f"CONFIG_{key}=m" for key in MODULES if options.get("CONFIG_" + key) != "m"]
     errors += [f"CONFIG_{key}=y" for key in EARLY_BOOT_BUILTINS
                if options.get("CONFIG_" + key) != "y"]
+    if options.get("CONFIG_MMC_BLOCK_MINORS") != EXPECTED_MMC_BLOCK_MINORS:
+        errors.append("CONFIG_MMC_BLOCK_MINORS=64")
+    if options.get("CONFIG_REGULATOR_FIXED_VOLTAGE") != "y":
+        errors.append("CONFIG_REGULATOR_FIXED_VOLTAGE=y")
     if options.get("CONFIG_NR_CPUS") != EXPECTED_NR_CPUS:
         errors.append("CONFIG_NR_CPUS=4")
     if options.get("CONFIG_LOCALVERSION") != EXPECTED_LOCALVERSION:
