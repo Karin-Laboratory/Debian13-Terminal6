@@ -1,5 +1,7 @@
 # C号機 Debian 13 ハードウェア解析（2026-11-14）
 
+最新のUSB・内蔵Wi-Fi実機状態は[2026-11-20 USB/Wi-Fi runtime記録](CUNIT-USB-WIFI-RUNTIME-20261120.ja.md)、ESP32-C3・GNSS・WWANの追加照会は[周辺機能runtime follow-up](CUNIT-RUNTIME-FOLLOWUP-20261120.ja.md)を参照。USB host root hub登録は実機PASS、外部USBデータI/Oは未試験。現行KVM成功P25ではcfg80211が無効で、Wi-Fi PHYは未登録。
+
 対象は所有者のAir Terminal 6、MT6990、Debian 13 arm64、Linux `6.18.63-debian-t6-proto2`。実機SSHで列挙・既知APIの読み取りを実施した。これは調査サイクルの報告であり、全機能対応・安定稼働・公開ソースだけでの再製造を保証しない。
 
 **最優先の未解決問題はeMMCの書き込みI/Oエラー。** パッケージ導入中にCQE recoveryとext4警告、管理接続断・再起動を観測した。復旧時の小さいファイル書き込みでも再発した。管理SSHとインターネット接続は復帰しているが、rootfsの永続整合性は未確認。
