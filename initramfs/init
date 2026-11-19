@@ -11,6 +11,28 @@ mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts || { echo DEBIAN13_T6_DEVPTS_UNAVAILABLE; exec sh; }
 exec </dev/console >/dev/console 2>&1
 echo DEBIAN13_T6_INITRAMFS_STARTED
+# A high-number GPT partition must be discoverable as a real block node.
+# Capture limited, nonsecret inventory on failure; never trust LK root=p26.
+describe_block_state() {
+    echo DEBIAN13_T6_BLOCK_INVENTORY_BEGIN
+    for entry in /sys/class/block/*/uevent; do
+        [ -f "$entry" ] || continue
+        block=${entry%/uevent}
+        name=${block##*/}
+        case "$name" in mmcblk*|sd*|nvme*) ;; *) continue ;; esac
+        partname= devtype= major= minor=
+        while IFS='=' read -r key value; do
+            case "$key" in
+                PARTNAME) partname=$value ;;
+                DEVTYPE) devtype=$value ;;
+                MAJOR) major=$value ;;
+                MINOR) minor=$value ;;
+            esac
+        done < "$entry"
+        echo "DEBIAN13_T6_BLOCK_DEVICE:$name:TYPE=$devtype:PARTNAME=$partname:MAJOR=$major:MINOR=$minor"
+    done
+    echo DEBIAN13_T6_BLOCK_INVENTORY_END
+}
 fail() {
     echo "DEBIAN13_T6_HANDOFF_FAILED:$1"
     # Rescue remains fail-closed without owner-private keys and isolation flag.
@@ -42,12 +64,25 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
     [ -z "$rootdev" ] || break
     sleep 1
 done
-[ -n "$rootdev" ] || fail ROOTFS_DATA_MISSING
+if [ -z "$rootdev" ]; then
+    # Distinguish absent MMC/GPT, absent PARTNAME, and absent /dev nodes.
+    describe_block_state
+    if [ ! -d /sys/class/block/mmcblk0 ] && [ ! -d /sys/class/block/mmcblk1 ]; then
+        echo DEBIAN13_T6_DIAG_MMC_CONTROLLER_OR_CARD_NOT_ENUMERATED
+    else
+        echo DEBIAN13_T6_DIAG_MMC_VISIBLE_BUT_ROOTFS_DATA_NOT_MATCHED
+    fi
+    fail ROOTFS_DATA_MISSING
+fi
 echo "DEBIAN13_T6_ROOT_DEVICE=$rootdev"
+# Distinguish partition discovery from P44 ext4 and Debian readiness.
+echo DEBIAN13_T6_P44_MOUNT_BEGIN
 mount -t ext4 -o rw,noatime "$rootdev" /newroot || fail ROOTFS_DATA_MOUNT
 # Charter v1.4: no unauthenticated SSH or ZIP installer in P25.
 # Empty or broken P44 is a UART + authenticated-rescue failure, never setup.
+echo DEBIAN13_T6_P44_MOUNT_PASS
 [ -x /newroot/sbin/init ] || fail DEBIAN_INIT_MISSING
+echo DEBIAN13_T6_DEBIAN_INIT_PRESENT
 mkdir -p /newroot/dev /newroot/proc /newroot/sys
 if [ -d /terminal6 ]; then
     mkdir -p /newroot/run
