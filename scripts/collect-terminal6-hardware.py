@@ -63,13 +63,119 @@ def buses():
     return result
 
 
+def _class_devices(sys_root, class_name, attributes):
+    """Read an allowlist of non-secret attributes from one sysfs class."""
+    relative = Path(class_name)
+    base = Path(sys_root) / relative if len(relative.parts) > 1 else Path(sys_root) / 'class' / relative
+    result = []
+    for entry in sorted(base.glob('*')):
+        if not entry.exists():
+            continue
+        item = {'name': entry.name}
+        driver = entry / 'device' / 'driver'
+        if driver.is_symlink():
+            item['driver'] = Path(os.path.realpath(driver)).name
+        for attribute in attributes:
+            path = entry / attribute
+            if path.is_file():
+                item[attribute.replace('/', '_')] = read(path, 4096)
+        result.append(item)
+    return result
+
+
+def sysfs_inventory(sys_root='/sys'):
+    """Bounded runtime inventory; deliberately excludes hardware identifiers.
+
+    In particular, do not collect netdev addresses, MMC CID/serial, USB serial,
+    EEPROM/calibration, or arbitrary uevent files into an exportable report.
+    The complete collector output remains private until reviewed.
+    """
+    root = Path(sys_root)
+    cpufreq = []
+    for entry in sorted((root / 'devices/system/cpu/cpufreq').glob('policy*')):
+        item = {'name': entry.name}
+        for attr in ('scaling_driver', 'scaling_governor', 'scaling_min_freq',
+                     'scaling_max_freq', 'cpuinfo_min_freq', 'cpuinfo_max_freq',
+                     'cpuinfo_cur_freq', 'scaling_cur_freq'):
+            path = entry / attr
+            if path.is_file(): item[attr] = read(path, 4096)
+        cpufreq.append(item)
+
+    storage = []
+    for entry in sorted((root / 'class/mmc_host').glob('host*/mmc*')):
+        item = {'name': entry.name}
+        for attr in ('type', 'name', 'manfid', 'oemid', 'date', 'life_time',
+                     'pre_eol_info', 'cmdq_en', 'block/size', 'block/ro',
+                     'block/partition'):
+            path = entry / attr
+            if path.is_file(): item[attr.replace('/', '_')] = read(path, 4096)
+        storage.append(item)
+
+    blocks = []
+    for entry in sorted((root / 'class/block').glob('mmcblk*')):
+        item = {'name': entry.name}
+        for attr in ('size', 'ro', 'partition'):
+            path = entry / attr
+            if path.is_file(): item[attr] = read(path, 4096)
+        blocks.append(item)
+
+    network = []
+    for entry in sorted((root / 'class/net').glob('*')):
+        item = {'name': entry.name}
+        for attr in ('operstate', 'carrier', 'speed', 'duplex', 'mtu'):
+            path = entry / attr
+            if path.is_file(): item[attr] = read(path, 4096)
+        stats = entry / 'statistics'
+        if stats.is_dir():
+            item['statistics'] = {}
+            for attr in ('rx_bytes', 'rx_packets', 'rx_errors', 'rx_dropped',
+                         'tx_bytes', 'tx_packets', 'tx_errors', 'tx_dropped'):
+                path = stats / attr
+                if path.is_file(): item['statistics'][attr] = read(path, 4096)
+        driver = entry / 'device' / 'driver'
+        if driver.is_symlink(): item['driver'] = Path(os.path.realpath(driver)).name
+        network.append(item)
+
+    thermal = _class_devices(sys_root, 'thermal', ('type', 'temp', 'mode'))
+    hwmon = _class_devices(sys_root, 'hwmon', ('name',))
+    for item, entry in zip(hwmon, sorted((root / 'class/hwmon').glob('hwmon*'))):
+        sensors = {}
+        for path in sorted(entry.glob('temp*_input')):
+            sensors[path.name] = read(path, 4096)
+            label = entry / path.name.replace('_input', '_label')
+            if label.is_file(): sensors[path.name.replace('_input', '_label')] = read(label, 4096)
+        if sensors: item['temperature_inputs'] = sensors
+
+    return {
+        'cpufreq_policies': cpufreq,
+        'mmc_cards': storage,
+        'mmc_block_devices': blocks,
+        'network_interfaces': network,
+        'thermal_zones': thermal,
+        'hwmon': hwmon,
+        'leds': _class_devices(sys_root, 'leds', ('brightness', 'max_brightness', 'trigger')),
+        'input_devices': _class_devices(sys_root, 'input', ('name',)),
+        'pwm_chips': _class_devices(sys_root, 'pwm', ('npwm',)),
+        'rtc': _class_devices(sys_root, 'rtc', ('name', 'date', 'time', 'hctosys')),
+        'watchdogs': _class_devices(sys_root, 'watchdog', ('identity', 'state', 'status', 'timeout')),
+        'rng': {
+            name: read(root / 'devices/virtual/misc/hw_random' / name, 4096)
+            for name in ('rng_current', 'rng_available')
+            if (root / 'devices/virtual/misc/hw_random' / name).is_file()
+        },
+        'usb_devices': _class_devices(sys_root, 'bus/usb/devices',
+            ('idVendor', 'idProduct', 'manufacturer', 'product', 'speed', 'bDeviceClass')),
+        'gpio_chips': _class_devices(sys_root, 'gpio', ('label', 'ngpio', 'base')),
+    }
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', default='-')
     parser.add_argument('--metadata-only', action='store_true', help='Compatibility flag; collection is metadata only')
     opts=parser.parse_args()
     report={'schema':1,'timestamp_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),
-      'device_tree':device_tree(),'buses':buses(),'sysfs':{},
+      'device_tree':device_tree(),'buses':buses(),'sysfs':sysfs_inventory(),
       'proc':{p:read('/proc/'+p,262144) for p in ['cpuinfo','meminfo','iomem','interrupts','modules','crypto','devices','consoles']},
       'debug':{},'commands':[]}
     payload=json.dumps(report,indent=2)+'\n'
