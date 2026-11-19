@@ -51,6 +51,8 @@
 4. 現行P25 configには`CONFIG_MTK_GPS_SUPPORT`とMediaTek conninfra/GPS構成がない。単純なP44 `.ko`追加だけでは成立しない可能性が高い。
 5. 対応するMT6990 firmware・純正daemonが公開OSSのみで代替できるかは未確定。固有firmwareや純正バイナリを公開・転用していない。
 
+v062 MCUDL sourceは`request_firmware()`で`soc7_1_ram_mcu_1a_1_hdr.bin`、`soc7_1_ram_gps_offload_1a_1_hdr.bin`、`MNL_hdr.bin`を要求し、ヘッダを除いた内容を予約EMI領域へコピーする実装を含む。C号機P44の限定ファイル名検索ではこれらの名前の資産は見つからなかった。ファイル名の記録は公開OSSのsource inspection結果であり、firmware自体は取得・公開していない。これらのblob、対応するATF/secure firmware、および許可されたロード順が揃わない限り、source buildだけでは初期化できない。
+
 ## ホスト側ビルド実験
 
 ビルド対象はKVM成功P25と同じ公開kernel source commit `1cdda838e8475edf89b73ff0cc952005dd0b1fa7`、kernel release `6.18.63-debian-t6-proto2`。既存レシートにあるconfig SHA-256は`d5c4ac7b7f7d9da9f3fbbd62cb1e8dcf16284faa17e07877c844f76a0f1a53b8`。private kernel treeのconfig、Image、DTB、P25は変更していない。
