@@ -1,0 +1,26 @@
+--- a/drivers/misc/mediatek/connectivity/gps/data_link/linux/gps_dl_linux_plat_drv.c
++++ b/drivers/misc/mediatek/connectivity/gps/data_link/linux/gps_dl_linux_plat_drv.c
+@@ -255,7 +255,8 @@
+ 			tia2_gps_rc_sel_new = __raw_readl(p_gps_rc_sel);
+ 		}
+ 	} else {
+-		tia2_gps_rc_sel_old = __raw_readl(p_gps_rc_sel);
++		if (p_gps_rc_sel != NULL)
++			tia2_gps_rc_sel_old = __raw_readl(p_gps_rc_sel);
+ 		/* 0x1001C000[5] = 0 (GPS off) */
+ 		/*gps_dl_linux_sync_writel(tia2_gps_on_old & ~(1UL << 5), p_gps_on);*/
+ 	}
+@@ -410,7 +411,12 @@
+ 		p_entry->length = resource_size(regs);
+ 		p_entry->host_phys_addr = regs->start;
+ 		p_entry->host_virt_addr = devm_ioremap(&pdev->dev, p_entry->host_phys_addr, p_entry->length);
+-		okay = true;
++		if (p_entry->host_virt_addr != NULL)
++			okay = true;
++		else {
++			p_entry->length = 0;
++			p_entry->host_phys_addr = 0;
++		}
+ 	} else {
+ 		p_entry->length = 0;
+ 		p_entry->host_phys_addr = 0;

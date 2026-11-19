@@ -39,3 +39,7 @@ The C-unit retains 160 MHz as the ordinary 6 GHz EHT capability ceiling. A separ
 ## Related work
 
 [OpenWrt port for Terminal 6](https://github.com/Karin-Laboratory/openwrt-terminal-6)
+
+## Hardware enablement checkpoints
+
+- [C-unit MT6990 GNSS port checkpoint](docs/hardware/CUNIT-GNSS-MT6990-PORT-20261120.ja.md): current live-device state, source compatibility review, host-only build limits, and next safety gates. Debian GNSS fix/navigation is not yet verified.
