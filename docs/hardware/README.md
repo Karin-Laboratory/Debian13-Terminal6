@@ -1,6 +1,6 @@
 # C号機 Debian 13 ハードウェア解析（2026-11-14）
 
-後続の状態更新： [2026-11-19 C号機ハードウェア棚卸し・機能状態更新](CUNIT-INVENTORY-STATUS-20261119.ja.md)。この補足は11-19のKVM成功版実測と既存Draft PRを反映し、今回の再接続不能とライブ全量スキャン未実施も明記する。collectorの新sysfs allowlistはhost-sideで実装・試験済みだが、C号機での実行待ち。
+後続の状態更新： [2026-11-19 C号機ハードウェア棚卸し・機能状態更新](CUNIT-INVENTORY-STATUS-20261119.ja.md)。この補足は11-19のKVM成功版実測、raspi4 gateway診断、C号機のライブcollector結果を区別して記録する。collectorはhost-side試験後、C号機で読み取り専用実行済み。生出力はraspi4の非公開領域に保全し、公開文書には個体識別子を含めない。
 
 対象は所有者のAir Terminal 6、MT6990、Debian 13 arm64、Linux `6.18.63-debian-t6-proto2`。実機SSHで列挙・既知APIの読み取りを実施した。これは調査サイクルの報告であり、全機能対応・安定稼働・公開ソースだけでの再製造を保証しない。
 

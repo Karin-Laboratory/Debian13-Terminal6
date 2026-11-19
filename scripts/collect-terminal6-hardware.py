@@ -102,7 +102,9 @@ def sysfs_inventory(sys_root='/sys'):
         cpufreq.append(item)
 
     storage = []
-    for entry in sorted((root / 'class/mmc_host').glob('host*/mmc*')):
+    # Linux names the host `mmc0` (not `host0`) under /sys/class/mmc_host;
+    # each card is nested below it, e.g. mmc0/mmc0:0001.
+    for entry in sorted((root / 'class/mmc_host').glob('mmc*/mmc*')):
         item = {'name': entry.name}
         for attr in ('type', 'name', 'manfid', 'oemid', 'date', 'life_time',
                      'pre_eol_info', 'cmdq_en', 'block/size', 'block/ro',
