@@ -1,0 +1,8 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+Subject: [PATCH] connadp: clear DFD handler with memset
+
+--- a/drivers/misc/mediatek/connectivity/connadp/common/connectivity_build_in_adapter.c
++++ b/drivers/misc/mediatek/connectivity/connadp/common/connectivity_build_in_adapter.c
+@@ -162 +162 @@
+-	memcpy(&g_conap_scp_dfd_handler, 0, sizeof(struct conap_dfd_handler));
++	memset(&g_conap_scp_dfd_handler, 0, sizeof(struct conap_dfd_handler));
