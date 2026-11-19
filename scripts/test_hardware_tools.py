@@ -22,9 +22,40 @@ def load(filename):
 fdt=load('fdt_mmc_policy.py')
 at=load('esp32-readonly-at.py')
 exporter=load('export-terminal6-dt.py')
+collector=load('collect-terminal6-hardware.py')
 
 
 class SafetyTests(unittest.TestCase):
+    def test_sysfs_inventory_is_bounded_and_omits_hardware_identifiers(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            def put(rel, value):
+                path=root/rel;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(value)
+            put('class/thermal/thermal_zone0/type','cpu-little0\n')
+            put('class/thermal/thermal_zone0/temp','61234\n')
+            put('devices/system/cpu/cpufreq/policy0/scaling_cur_freq','1200000\n')
+            put('devices/system/cpu/cpufreq/policy0/scaling_max_freq','1701000\n')
+            put('class/net/lan2/operstate','up\n')
+            put('class/net/lan2/carrier','1\n')
+            put('class/net/lan2/address','02:11:22:33:44:55\n')
+            put('class/mmc_host/mmc0/mmc0:0001/name','4FTE4R\n')
+            put('class/mmc_host/mmc0/mmc0:0001/life_time','0x01 0x01\n')
+            put('class/mmc_host/mmc0/mmc0:0001/cmdq_en','0\n')
+            put('class/mmc_host/mmc0/mmc0:0001/cid','PRIVATE-CID\n')
+            put('bus/usb/devices/1-1/idVendor','0e8d\n')
+            put('bus/usb/devices/1-1/idProduct','0003\n')
+            put('bus/usb/devices/1-1/serial','PRIVATE-USB-SERIAL\n')
+            report=collector.sysfs_inventory(root)
+            serialized=json.dumps(report)
+            self.assertEqual(report['thermal_zones'][0]['temp'],'61234')
+            self.assertEqual(report['cpufreq_policies'][0]['scaling_cur_freq'],'1200000')
+            self.assertEqual(report['network_interfaces'][0]['operstate'],'up')
+            self.assertEqual(report['mmc_cards'][0]['name'],'4FTE4R')
+            self.assertEqual(report['mmc_cards'][0]['cmdq_en'],'0')
+            self.assertEqual(report['usb_devices'][0]['idVendor'],'0e8d')
+            for secret in ('02:11:22:33:44:55','PRIVATE-CID','PRIVATE-USB-SERIAL'):
+                self.assertNotIn(secret,serialized)
+
     def test_export_excludes_private_fields_and_chosen(self):
         report={'device_tree':[{'path':'/chosen','reg':['SECRET']},
             {'path':'/rawdata-system','compatible':['SECRET']},
