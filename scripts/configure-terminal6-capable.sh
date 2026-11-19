@@ -35,6 +35,11 @@ scripts/config --enable RELOCATABLE --enable RANDOMIZE_BASE \
 # This does NOT supply the missing MT69XX pinctrl OF driver: the private
 # C-unit boot image must fix that dependency separately and verify the FDT.
 scripts/config --set-val MMC_BLOCK_MINORS 64 --enable REGULATOR_FIXED_VOLTAGE
+# Keep the MT69xx provider opt-in until upstream portability is established.
+# The private boot-proven C-unit FDT must not be published as source data.
+if [[ "${T6_ENABLE_MT69XX_PINCTRL:-0}" = 1 ]]; then
+  scripts/config --enable PINCTRL_MT69XX
+fi
 # Distinguish this module ABI from prior private 6.18.63-debian-t6-proto2.
 # Never rename modules to trick vermagic/versioned symbol checks.
 scripts/config --set-str LOCALVERSION "-t6-public-capable"
