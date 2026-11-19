@@ -32,7 +32,7 @@ raspi4の短時間SSH応答試験は22:42 JSTに20/20 banner、中央値60.4ms�
 | PCIe | 11-19 live: PCIe host port `11280000` probe PASS、`11290000`はlink down / `-110`。PCI enumerationに2 network endpoint (`14c3:7990`, `14c3:7991`)が見えるが両方unbound | PARTIAL/FAIL（2番目host port probe timeout、endpoint driver未結合） | P25 source/DT/PHY rail-reset差分と既存UARTログを照合。reprobe/resetやDT変更はしない |
 | Wi-Fi 2.4/5/6GHz | 11-19 live: PCIで802.11be相当の2 endpointを認識するがdriver unbound、`iw phy`なし。P44にmt76 module filesあり。一方running kernel configは`CONFIG_CFG80211` not set | PCI detection PASS; PHY/firmware/STA/AP NOT_AVAILABLE。この状態でmodule load不可 | cfg80211/mac80211を含む新P25とfirmware/EEPROMの対応が必要。RF試験は認証/regdbを満たす場合のみ。6GHz送信しない |
 | MLO / EasyMesh / 802.11s | 既存PR #13にhwsim/host側試験とハードウェア未達が区別されている | C号機実通信NOT_TESTED/BLOCKED | 能力広告でなく実peer、link counter、IEEE 1905データの条件が揃うまで送信・設定変更しない |
-| ESP32-C3 / UART1 / ESP-AT | 11-14にAT query、PR #5にBLE peer GATT試験記録 | HISTORICAL PASS（機能別）; 11-19起動では未再確認 | UART所有者/プロセス確認後、既存allowlistのread-only ATだけを個別実施。GPIO reset、scan、無線送信なし |
+| ESP32-C3 / UART1 / ESP-AT | 11-19再接続後live: `/dev/ttyS1`はconsole外、open fdなし。元termios 9600bpsを保存し、一時115200bpsで`AT+GMR`応答を確認後に設定を復元。ESP-AT 3.1.0.0-dev / ESP32-C3、Bin 2.5.0 (MINI-1)、`OK` | PASS（UART応答・firmware version query）; RF/BLE通信NOT_TESTED | 既知の読み取りATだけを実施。GPIO reset、scan、無線送信なし。Linux側Bluetooth HCIは別項目 |
 | Linux Bluetooth HCI | 11-19 live: `CONFIG_BT` not set、`/sys/class/bluetooth`なし。UART1 `/dev/ttyS1`は存在し当時fd ownerなし。既存ESP32 AT/BLE結果は別kernel/試験 | BLOCKED（標準HCI stack/transportなし）; historical ESP32 AT separate | 新P25 BT stackかESP32 HCI transportが必要。RF動作は規制・認証条件確認後 |
 | GNSS | 11-19 live: `CONFIG_GNSS` not set、GNSS classなし。PR #8のconninfra/secure firmware依存未解決 | BLOCKED | kernel featureとfirmware/conninfra依存の設計・ビルドが必要。MMIO/firmware送信なし |
 | WWAN / LTE / 5G | 11-19 live: CCCI/DPMAIF provider bound、`ccmni0..20` 21 interfacesは全DOWN、通信sessionなし | transport API exposed; data path NOT_TESTED | modem service/transportを読み取り確認。SIM/IMEI等は記録・公開しない。推測AT/QMI送信なし |
@@ -53,7 +53,7 @@ raspi4の短時間SSH応答試験は22:42 JSTに20/20 banner、中央値60.4ms�
 - **eMMC/P44:** `bootslot=a`、`/dev/mmcblk0p44` ext4を`/`へrw mount。HS400、8-bit、1.8V、requested 100MHz/actual 94,999,965Hz、CQE off。debugfs `err_stats`全項目0。EXT_CSD寿命バイトは意味を拡張解釈せずraw値で保全。
 - **PCIe/Wi-Fi:** PCIe config spaceでMT7990系endpoint 2個を列挙するが、mt76ドライバはどちらにも結合していない。P44にはmt76系module fileがあるが、稼働kernelは`CONFIG_CFG80211` not set。`modprobe -n mt7996e`もmodule indexから見つけられず失敗。実機にロードせず、PHY/API/RFのPASSにはしていない。`CONFIG_BT`、`CONFIG_GNSS`も無効。
 - **USB:** `CONFIG_USB=m`/`CONFIG_USB_XHCI_HCD=m`だが、現P44のkernel module treeにUSB/xHCI moduleがなく、USB bus/classも未登録。PR #7の別時点volatile root hub試験を今回のPASSに流用しない。USB接続機器/VBUSの状態が分からないためhost controllerを起動していない。
-- **周辺API:** 13 thermal zones、mtk-wdt inactive、236 GPIO linesは列挙。CPU0–3 online。cpufreq policy、RTC、PWM、LED、input、GNSS、Bluetooth class、USB class、I2C/SPI adapter、hardware RNG sourceは現起動で公開されない。netdevの`ccmni0..20`は全DOWN、WAN data sessionなし。
+- **周辺API:** 13 thermal zones、mtk-wdt inactive、236 GPIO linesは列挙。CPU0–3 online。cpufreq policy、RTC、PWM、LED、input、GNSS、Bluetooth class、USB class、I2C/SPI adapter、hardware RNG sourceは現起動で公開されない。netdevの`ccmni0..20`は全DOWN、WAN data sessionなし。ESP32-C3 UART1はプロセス非占有を確認し、一時115200bpsで読み取り`AT+GMR`に応答。元termios 9600bpsへ復元した。無線機能は起動・送信していない。
 - **既存基準と追加試験:** `/dev/kvm` present、`CONFIG_KVM=y`、QEMU 10.0.13。今回、RAM上のOpenWrt 25.12.6 ARM64 initramfs kernel 6.12.112を256MiB/1 vCPUでKVM起動し、Linux/procdを確認。virtio-netを追加しQEMU user networkを`restrict=on`で起動、ゲスト内のeth0でDHCP lease `10.0.2.15/24`（server `10.0.2.2`）を取得、`10.0.2.2`へ2/2 ping成功。ゲストのeth0は一時的にbridgeから外しDHCPを行っただけで、ゲストinitramfsとホストP44には設定を保存していない。restrictモードのため外部・実LAN・ホスト間通信はNOT_TESTED。QEMU停止後にC号機Debianと管理SSHが継続していることを確認。元ログはC号機tmpfsの`/run/kvm-acceptance/restricted-net-console.log`（17,660 bytes、SHA-256 `a86af1725f1edd4ebffd8f3a535b1487096f0bc593d59c333ee91529a663dae1`）にあり、同サイズ・同SHAのコピーをraspi4の非公開領域へ保全した。公開記録には保存先パスを記載しない。P44へはコピーしていない。
 
 DTには881 nodes/433 compatible propertiesがあり、platform busには335 device entries中40 driver linksがあった。残りのDT/platform entryは共通SoC・syscon・power/clock blocksや無効/未使用定義を含むため、未bind件数だけで未実装部品や物理搭載を結論づけない。
@@ -97,6 +97,7 @@ C号機への実機経路を確立できなかったため、管理ゲートウ�
 - 今回の`/proc/cmdline`とchosen bootargsには`root=/dev/mmcblk0p26`（`rootfs_a`、squashfs）が記載される一方、`findmnt /`は`/dev/mmcblk0p44`（`rootfs_data`、ext4、rw）を返し、`lsblk`もp44を`/`として表示した。initramfs/preinit後のroot引継ぎを含む構成と考えられるが、遷移機構は今回解析していない。したがって「カーネル起動引数のroot」と「現在の実root mount」を区別して記録し、旧表の短い表現は実root mountを指すものとする。
 - 今回の起動中、`/sys/kernel/debug/mmc0/err_stats`は全カウンタ0。dmesgの限定検索では起動時watchdog初期化以外にMMC/ext4 I/O error、timeout、NETDEV watchdogは見つからなかった。限定検索であるため、全ログに異常がないとの保証ではない。
 - 読み取り時点で`eth1`/`lan2`がUP、`lan2`に`192.168.3.1/24`。CPU/GPU/音声/メディア/電源/devfreq classは空。`lsmod`は既存の`test24_path_probe`、`test23_mdio_switch`、`test23_netsys_fixedlink`のみで、既存モジュールをアンロードしていない。
+- ESP32 UART1 (`/dev/ttyS1`)はconsole外でopen fdなし。termiosを一時115200bpsにして`AT+GMR`を1回だけ照会し、ESP-AT 3.1.0.0-dev、SDK v5.0-541-g885e501d99、Bin 2.5.0 (MINI-1)および`OK`を受信。保存していた元termios 9600bpsへ復元した。AT応答確認であり、Wi-Fi/BLE RF動作・HCIは未試験。
 - raspi4からCへのStrict SSH再接続に成功。既存の起動実績は維持。今回も新たに有効化した機能はない。
 
 本節はライブ差分の追記であり、前節の時刻・collector値は過去の採取結果として維持する。個体固有UUID、MAC、シリアルは公開記録へ含めていない。
@@ -110,4 +111,4 @@ C号機への実機経路を確立できなかったため、管理ゲートウ�
 5. radio/WWAN/GNSSは規制・対向機・専用初期化依存が揃った機能だけを試験。6GHz送信、未知ATコマンド、無線scan、SIM状態取得はこの補足では許可・実施していない。
 6. P25/DTB変更・再起動を要する機能は、現在のboot controlと復旧条件を個別に確かめるまで保留する。
 
-**この更新で新たにP44へ有効化した機能はない。** raspi4自身についてはWi-Fi省電力OFFの永続設定と有限サイズのpersistent journalを再起動後にも確認した。C号機は前節のcollector採取に加え、本節の再接続後読み取り確認および一時QEMU guest user-network試験を完了した。UARTの接続・取得は未確認のため、次回はUART実接続を確認し、現行ハードウェアとの差分を非破壊で補う。
+**この更新で新たにP44へ有効化した機能はない。** raspi4自身についてはWi-Fi省電力OFFの永続設定と有限サイズのpersistent journalを再起動後にも確認した。C号機は前節のcollector採取に加え、本節の再接続後読み取り確認、一時QEMU guest user-network試験、UART1での読み取りAT応答確認を完了した。raspi4のUSB UARTアダプターは未確認だが、C号機内蔵ESP32-C3 UART1へのAT queryは実施できた。Wi-Fi/BLE無線機能は未試験。
