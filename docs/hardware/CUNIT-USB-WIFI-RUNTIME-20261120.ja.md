@@ -73,6 +73,8 @@
 
 生ログと一時モジュールはraspi4の非公開作業領域に保存した。公開文書には個体固有識別子、MAC、EEPROM内容、秘密情報、firmware本体、内部の保存パスを含めない。記録更新後はこのファイルのPR上の読み戻しを行う。
 
+ESP32-C3のAT照会、GNSS/WWANのread-only follow-upは[2026-11-20 周辺機能runtime記録](CUNIT-RUNTIME-FOLLOWUP-20261120.ja.md)に分けて記録。
+
 関連する過去資料：
 
 - [ハードウェア調査一覧](README.md)
