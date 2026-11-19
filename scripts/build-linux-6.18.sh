@@ -27,6 +27,14 @@ if [[ -n "${PUBLIC_MT6990_STAGE:-}" ]]; then
   python3 "$ROOT/scripts/port-public-mt6990-clock.py" \
     "$WORKDIR/drivers/clk/mediatek/clk-mt6990.c"
 fi
+# Optional OSS-only MT69xx pinctrl provider; C-unit KVM-proven FDT requires it.
+# Disabled for existing profiles unless a caller opts in explicitly.
+if [[ "${T6_ENABLE_MT69XX_PINCTRL:-0}" = 1 ]]; then
+  test "${KERNEL_PROFILE:-generic}" = terminal6-capable || {
+    echo T6_PINCTRL_PROVIDER_REQUIRES_CAPABLE_PROFILE >&2; exit 2;
+  }
+  bash "$ROOT/scripts/port-public-mt69xx-pinctrl.sh" "$WORKDIR"
+fi
 if [[ "${KERNEL_PROFILE:-generic}" = "terminal6-capable" ]]; then
   # Source-only hardware-calibration fix from public Debian PR #9, derived
   # from openwrt/mt76. No firmware, per-device EEPROM/OTP bytes or RF I/O.
@@ -96,6 +104,13 @@ if [[ -n "${INITRAMFS_ARCHIVE:-}" ]]; then
   scripts/config --set-str INITRAMFS_SOURCE "$INITRAMFS_ARCHIVE"
 fi
 make ARCH=arm64 olddefconfig
+if [[ "${T6_ENABLE_MT69XX_PINCTRL:-0}" = 1 ]]; then
+  grep -qx 'CONFIG_PINCTRL_MT69XX=y' .config || {
+    echo T6_PINCTRL_MT69XX_NOT_BUILTIN >&2; exit 42;
+  }
+  grep -Fq 'mediatek,mt69xx-pinctrl' drivers/pinctrl/mediatek/pinctrl-mt69xx.c
+  echo T6_KVM_MMC0_PINCTRL_PROVIDER_BUILTIN_KCONFIG_PASS
+fi
 if [[ -n "${PUBLIC_MT6990_STAGE:-}" && "${PUBLIC_MT6990_SCOPE:-core}" = network ]]; then
   grep -E '^CONFIG_(NET_DSA|BRIDGE|HSR|NET_MEDIATEK_SOC|PCS_MTK_LYNXI|PHY_MTK_MT6990_SGMII|COMMON_CLK_MT6990_PERI)=' .config || :
   for key in NET_DSA NET_MEDIATEK_SOC PCS_MTK_LYNXI PHY_MTK_MT6990_SGMII; do
