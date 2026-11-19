@@ -89,13 +89,25 @@ C号機への実機経路を確立できなかったため、管理ゲートウ�
 - PR [#5 ESP32-C3 BLE](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/5)、[#6 Wi-Fi/regdb](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/6)、[#8 GNSS](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/8)、[#9 Wi-Fi実通信](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/9)、[#13 Wi-Fi integration](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/13) の状態をこの補足で上書きしない。
 - PR [#32–#35 earlyboot/MMC修正候補](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/35) はDraft/source build evidence。成功版P25を実機で再試験した事実ではない。
 
+## 再接続後の読み取り確認（2026-11-19 23:06 JST）
+
+所有者からraspi4再起動後にSSHが復旧したとの連絡を受け、既存の管理経路からC号機を読み取り確認した。raspi4のSSH対話シェルを再利用し、C号機へは既知host keyを`StrictHostKeyChecking=yes`で検証して接続した。
+
+- C号機は`terminal6-debian`、kernel `6.18.63-debian-t6-proto2`、`bootslot=a`、uptime約4時間50分。P25、boot control、P44、slot、ネットワーク設定の変更や再起動は行っていない。
+- 今回の`/proc/cmdline`とchosen bootargsには`root=/dev/mmcblk0p26`（`rootfs_a`、squashfs）が記載される一方、`findmnt /`は`/dev/mmcblk0p44`（`rootfs_data`、ext4、rw）を返し、`lsblk`もp44を`/`として表示した。initramfs/preinit後のroot引継ぎを含む構成と考えられるが、遷移機構は今回解析していない。したがって「カーネル起動引数のroot」と「現在の実root mount」を区別して記録し、旧表の短い表現は実root mountを指すものとする。
+- 今回の起動中、`/sys/kernel/debug/mmc0/err_stats`は全カウンタ0。dmesgの限定検索では起動時watchdog初期化以外にMMC/ext4 I/O error、timeout、NETDEV watchdogは見つからなかった。限定検索であるため、全ログに異常がないとの保証ではない。
+- 読み取り時点で`eth1`/`lan2`がUP、`lan2`に`192.168.3.1/24`。CPU/GPU/音声/メディア/電源/devfreq classは空。`lsmod`は既存の`test24_path_probe`、`test23_mdio_switch`、`test23_netsys_fixedlink`のみで、既存モジュールをアンロードしていない。
+- raspi4からCへのStrict SSH再接続に成功。既存の起動実績は維持。今回も新たに有効化した機能はない。
+
+本節はライブ差分の追記であり、前節の時刻・collector値は過去の採取結果として維持する。個体固有UUID、MAC、シリアルは公開記録へ含めていない。
+
 ## 次回の優先順位
 
-1. C号機を電源ONと確認し、raspi4 `eth0`直結リンクまたはUART USB接続を復旧後、strict SSH/UARTでhostname/kernel/cmdline/slot/root/mountを読み取り確認する。A trial・B successの状態を変えない。
+1. C号機を電源ONと確認し、raspi4 `eth0`直結リンクまたはUART USB接続を復旧後、strict SSH/UARTでhostname/kernel/cmdline/slot/root/mountを読み取り確認する。A trial・B successの状態を変えない。このturnはSSHとEthernetで読み取り再確認済みだが、UART接続・取得は未確認。
 2. 新collectorをSSH stdinから実行してVM側へ保存し、公開前にMAC/CID/serial/firmware/calibration等を除去する。collector出力をP44へ書かない。
 3. active module、firmware、PCI/USB/I2C/SPI/GPIO/PWM、thermal/RNG/RTC、各netdevを最新kernel ABIと照合。ドライバをロードする前にP44バックアップとrollbackを確保する。
 4. 既存moduleだけで行える非送信・読み取りAPI確認を優先。PWMやLEDなど出力変化を伴う試験は物理対応と安全な初期値を確認するまで変更しない。
 5. radio/WWAN/GNSSは規制・対向機・専用初期化依存が揃った機能だけを試験。6GHz送信、未知ATコマンド、無線scan、SIM状態取得はこの補足では許可・実施していない。
 6. P25/DTB変更・再起動を要する機能は、現在のboot controlと復旧条件を個別に確かめるまで保留する。
 
-**この更新で新たにP44へ有効化した機能はない。** raspi4自身についてはWi-Fi省電力OFFの永続設定と有限サイズのpersistent journalを再起動後にも確認したが、C号機の棚卸しは未着手のまま。C号機直結Ethernet/UARTの物理接続が回復した後、上記の非破壊再採取から再開する。
+**この更新で新たにP44へ有効化した機能はない。** raspi4自身についてはWi-Fi省電力OFFの永続設定と有限サイズのpersistent journalを再起動後にも確認した。C号機は前節のcollector採取に加え、本節の再接続後読み取り確認を完了した。UARTの接続・取得は未確認のため、次回はUART実接続を確認し、現行ハードウェアとの差分を非破壊で補う。
