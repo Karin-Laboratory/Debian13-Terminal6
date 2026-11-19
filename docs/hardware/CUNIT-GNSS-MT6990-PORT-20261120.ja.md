@@ -29,6 +29,7 @@
 - GPS reserved-memory nodeは`compatible=mediatek,gps-reserve-memory`、`size=0x60000`、`alignment=0x10000`、`no-map`。
 - `/consys@18000000`のcompatibleは`mediatek,mt6990-consys-atf`。
 - GPS/conninfra関連のロード済みmodule、driver bind、GNSS device node、dmesg初期化ログは今回の範囲で確認できなかった。
+- P44の`/lib/firmware`、`/usr/lib`、`/usr/{sbin,bin}`、`/etc/systemd`をファイル名で検索した範囲では、GPS/GNSS/mnld/conninfra名のfirmware・binary・unitは見つからなかった。関連dpkg packageと`/lib/modules/$(uname -r)`内の名前付きmoduleも見つからなかった。これは名前検索の範囲に限る不検出で、別名・埋込みデータまで否定しない。
 
 上記は実行中DTの記述とLinux列挙状態を示す。レジスタへアクセスしたこと、電源/クロックが有効であること、MCU firmwareが起動可能なことを証明しない。
 
