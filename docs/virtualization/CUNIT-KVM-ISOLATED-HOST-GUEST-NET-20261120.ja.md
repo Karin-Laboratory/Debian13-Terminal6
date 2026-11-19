@@ -39,6 +39,16 @@ QEMUの`restrict=on`はゲストからホストや外部への通常の通信を
 | 物理LAN、bridge、TAP転送 | NOT_TESTED | 物理経路への接続・forwardingを行っていない |
 | 長時間負荷・速度 | NOT_TESTED | 短時間の機能確認のみ |
 
+## ネットワーク方式の選択
+
+| 方式 | 今回の結果 | 判断 |
+|---|---|---|
+| QEMU user-mode / SLIRP | PASS、`restrict=on`で双方向TCPを確認 | ホストのroute/bridge/sysctlを変えずにKVM guestを実用接続できる。現段階の標準試験方式にする |
+| TAP | NOT_TESTED、`/dev/net/tun`なし | 正確な現行カーネルとのABI一致を証明できる`tun.ko`も未確認。未検証moduleをロードしない |
+| Linux bridge | NOT_TESTED | 物理portへL2を接続するため今回は使用しない。隔離試験用portと復旧経路を先に用意する |
+
+QEMU user-modeのTCP疎通は確認したが、物理LAN転送、Terminal 6上のLinux NAT/forwarding、throughput、CPU負荷は測っていない。
+
 ## 再現
 
 rootで実行する。QEMUが既に動作中、`/dev/kvm`がない、前回run directoryが存在する、または` t6kvm0 `が存在する場合、スクリプトは処理を開始せず停止する。既定のrun directoryを使い終えた場合は、スクリプト先頭の`RUN`を新しい`/run`下の一意なパスへ変更する。
