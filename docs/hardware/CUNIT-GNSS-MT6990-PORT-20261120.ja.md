@@ -81,10 +81,10 @@ v062 MCUDL sourceは`request_firmware()`で`soc7_1_ram_mcu_1a_1_hdr.bin`、`soc7
 
 ### 追加公開ソースの範囲
 
-- `soralis0912/SBA6D-OSS` の基準コミット `c7508cb46a6f51c9873604d6a94c94d5c433a8b6` にあるGPL/LGPL OSS開示一覧とBuildroot GPSレシピを確認した。GPSレシピは `TOPDIR/../mtk/package/system/connectivity/gps` を外部ソースとして参照するが、そのソースディレクトリは当該開示ツリーに含まれていない。
-- 同リポジトリの `package-info/openwrt-packages-package-details.tsv` は `gps_fw` (105 bytesのpackage metadata) をMediaTek Proprietary / `Disclose=No` / GNSS Firmware、`libmnl_gnss` をMediaTek Proprietary / `Disclose=No` / GNSS algorithm library、`mnld` をMediaTek Proprietary / `Disclose=No` / navigation daemon、`mtk_agpsd` もMediaTek Proprietary / `Disclose=No` と分類している。これは成果物そのものの配布許可ではないため、firmware・ライブラリ・daemonを取得、転載、C号機へ配置していない。
+- [`soralis0912/SBA6D-OSS`](https://github.com/soralis0912/SBA6D-OSS/tree/c7508cb46a6f51c9873604d6a94c94d5c433a8b6) の基準コミットにある[GPL/LGPL OSS開示説明](https://github.com/soralis0912/SBA6D-OSS/blob/c7508cb46a6f51c9873604d6a94c94d5c433a8b6/OSS_STATEMENT.txt)と[Buildroot GPSレシピ](https://github.com/soralis0912/SBA6D-OSS/blob/c7508cb46a6f51c9873604d6a94c94d5c433a8b6/buildroot/feeds/mtk/system/connectivity/gps/Makefile)を確認した。GPSレシピは `TOPDIR/../mtk/package/system/connectivity/gps` を外部ソースとして参照するが、そのソースディレクトリは当該開示ツリーに含まれていない。
+- 同リポジトリの[package inventory](https://github.com/soralis0912/SBA6D-OSS/blob/c7508cb46a6f51c9873604d6a94c94d5c433a8b6/package-info/openwrt-packages-package-details.tsv)は `gps_fw` (105 bytesのpackage metadata)をMediaTek Proprietary / `Disclose=No` / GNSS Firmware、`libmnl_gnss`をMediaTek Proprietary / `Disclose=No` / GNSS algorithm library、`mnld`をMediaTek Proprietary / `Disclose=No` / navigation daemon、`mtk_agpsd`もMediaTek Proprietary / `Disclose=No`と分類している。これは成果物そのものの配布許可ではないため、firmware・ライブラリ・daemonを取得、転載、C号機へ配置していない。
 - GPS BuildrootレシピはMT6990を `PLATFORM_6980_6990` ビルド分岐へ入れ、MT6980向け `libmnl_gnss` を選ぶ構成である。これは純正ビルド構成の手掛かりだが、DebianでのABI互換、再配布許可、実機動作の証拠ではない。
-- `hchyhchyxh/openwrt-air6` のmain commit `7377abbb5106eeebefcfff6c38cdbff4e4b42af1` をGNSS/GPS/conninfra名で確認した範囲では、`ugps`の初期化設定、ATCI GPSコマンド、modem-chain側のGNSS HALバイナリやAGPS設定はあるが、MT6990 GNSS kernel driver/ConSys実装の追加ソースは特定できなかった。これらはGNSS controllerのDebian実機対応を証明しない。
+- [`hchyhchyxh/openwrt-air6`](https://github.com/hchyhchyxh/openwrt-air6/tree/7377abbb5106eeebefcfff6c38cdbff4e4b42af1) のmain commitをGNSS/GPS/conninfra名で確認した範囲では、`ugps`初期化設定、ATCI GPSコマンド、modem-chain側のGNSS HALバイナリやAGPS設定はあるが、MT6990 GNSS kernel driver/ConSys実装の追加ソースは特定できなかった。これらはGNSS controllerのDebian実機対応を証明しない。
 - `SBA6D-OSS` の公開MT6990 DTSには `mediatek,mt6990-consys-atf` がある一方、同梱されたscrubbed OSS kernelのConnectivity実装はcommon build-in adapterだけで、対応するconninfra platform sourceは開示物として見つからなかった。GPLソース開示パッケージが完全なベンダーSDKではないことも同リポジトリのOSS statementに明記されている。
 
 ### Driver probeの静的レビュー
