@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+Subject: [PATCH] conninfra: guard legacy compatibility shims on Linux 6.18
+
+--- a/drivers/misc/mediatek/connectivity/compat/conninfra_compat.h
++++ b/drivers/misc/mediatek/connectivity/compat/conninfra_compat.h
+@@ -18,0 +19 @@
++#include <linux/version.h>
+@@ -20 +21,2 @@
+-/* strncpy() was removed from mainline headers. */
++/* The target 6.18 headers still provide fortify-aware strncpy(). */
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 18, 0)
+@@ -32,0 +35 @@
++#endif
+@@ -54 +57,2 @@
+-/* alarm_start_relative() folded into alarm_start_timer(). */
++/* The target 6.18 headers still provide alarm_start_relative(). */
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 18, 0)
+@@ -58,0 +63 @@
++#endif

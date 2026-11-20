@@ -1,0 +1,112 @@
+# C号機 Debian 13: MT6990 GNSS移植進捗 (2026-11-20)
+
+## 判定
+
+**GNSS測位・航法データ取得: NOT_TESTED (Debian)。**
+
+現行DebianにはMT6990 GPSのDevice Tree nodeが存在するが、platform deviceへドライバはbindしていない。GNSS class/device nodeもなく、実データ・衛星捕捉・測位・航法メッセージは確認していない。純正B号機のGNSS成功実績をDebianの実績として扱わない。
+
+この作業では、C号機の稼働中P25/P44、slot、boot control、GPT、GNSS制御状態を変更していない。P44へのファイル配置、モジュールロード、GNSS firmware要求、電源/clock/reset操作、NMEA/GNSS endpoint読み書き、再起動は未実施。
+
+## 既存の到達点と今回の読み取り専用確認
+
+対象はC号機 `terminal6-debian`、Debian 13.7、Linux `6.18.63-debian-t6-proto2`。実測時点でslot A、rootは`/dev/mmcblk0p44` ext4。管理SSHはraspi4から既知host keyを指定して成功した。
+
+| 段階 | 状態 | 根拠 |
+|---|---|---|
+| DT platform device | PASS | `/sys/bus/platform/devices/18000000.gps`、modalias `of:NgpsT(null)Cmediatek,mt6990-gps` |
+| ドライバbind | FAIL (現状) | `driver` symlinkなし |
+| GNSS kernel API/device | FAIL (現状) | `CONFIG_GNSS`未設定、`/sys/class/gnss`・`/dev/gps*`・`/dev/gnss*`なし |
+| firmware/consys初期化 | NOT_TESTED | ドライバ未bind。初期化を起動していない |
+| transport/data | NOT_TESTED | 読み書きしていない |
+| 衛星捕捉、fix、navigation | NOT_TESTED | Debianで測位試験していない |
+
+実機のactive DTで読み取った内容:
+
+- `/gps@18C00000`: `mediatek,mt6990-gps`。
+- `reg-names`: `conn_infra_base`, `conn_gps_base`, `conn_dyn_base`, `status_dummy_cr`, `tia2_gps_on`, `tia2_gps_rc_sel`。対応するreg tupleは6個。
+- interrupts propertyは0x17c〜0x186の11エントリ。
+- GPS reserved-memory nodeは`compatible=mediatek,gps-reserve-memory`、`size=0x60000`、`alignment=0x10000`、`no-map`。
+- `/consys@18000000`のcompatibleは`mediatek,mt6990-consys-atf`。
+- GPS/conninfra関連のロード済みmodule、driver bind、GNSS device node、dmesg初期化ログは今回の範囲で確認できなかった。
+- P44の`/lib/firmware`、`/usr/lib`、`/usr/{sbin,bin}`、`/etc/systemd`をファイル名で検索した範囲では、GPS/GNSS/mnld/conninfra名のfirmware・binary・unitは見つからなかった。関連dpkg packageと`/lib/modules/$(uname -r)`内の名前付きmoduleも見つからなかった。これは名前検索の範囲に限る不検出で、別名・埋込みデータまで否定しない。
+
+上記は実行中DTの記述とLinux列挙状態を示す。レジスタへアクセスしたこと、電源/クロックが有効であること、MCU firmwareが起動可能なことを証明しない。
+
+## 公開OSSとの照合
+
+参照ソースはGPL-2.0 `liudaoziwa/mainline-mt6991` commit `8e7a8e2f05ec3371bf6e498386c04b29bf03d404`。
+
+確認できた適合点:
+
+- `gps_dl_linux_plat_drv.c`のOF tableに`mediatek,mt6990-gps`があり、MT6990にSOC711X EMI layoutを選ぶ。
+- v062 driverのMCUDL構成時IRQ数は11で、実機DTのinterruptエントリ数と数値上は一致する。
+- driverが必須として名前で取得する最初の3領域 (`conn_infra_base`, `conn_gps_base`, `conn_dyn_base`) と `status_dummy_cr`、`tia2_gps_on`, `tia2_gps_rc_sel` は実機DTにある。
+
+未解決の不一致/リスク:
+
+1. conninfra source OF tableには`mediatek,mt6991-consys`があるが、実機の`mediatek,mt6990-consys-atf`はない。6991のplatform data/SMC/clock/power制御を6990へ流用する根拠はまだない。sourceに`CONFIG_MTK_COMBO_CHIP_CONSYS_6991`が存在しても、これはC号機MT6990対応の証拠ではない。
+2. GPS driverはDTにない`tia_gps`および`tia2_gps_debug`も名前で要求する。取得失敗が許容される経路はあるが、probe後のすべての利用経路が安全か、MT6990用に無効化すべきかをまだソース追跡していない。
+3. GPS platform codeにTIA/AP register writes、ATF/SMC連携、conninfra SPI、firmware loadingが含まれる。MT6990の承認済み制御ABI、ATF/firmware対応、PMIC/clock/reset初期化順との照合前にmoduleをbindすると危険である。
+4. 現行P25 configには`CONFIG_MTK_GPS_SUPPORT`とMediaTek conninfra/GPS構成がない。単純なP44 `.ko`追加だけでは成立しない可能性が高い。
+5. 対応するMT6990 firmware・純正daemonが公開OSSのみで代替できるかは未確定。固有firmwareや純正バイナリを公開・転用していない。
+
+v062 MCUDL sourceは`request_firmware()`で`soc7_1_ram_mcu_1a_1_hdr.bin`、`soc7_1_ram_gps_offload_1a_1_hdr.bin`、`MNL_hdr.bin`を要求し、ヘッダを除いた内容を予約EMI領域へコピーする実装を含む。C号機P44の限定ファイル名検索ではこれらの名前の資産は見つからなかった。ファイル名の記録は公開OSSのsource inspection結果であり、firmware自体は取得・公開していない。これらのblob、対応するATF/secure firmware、および許可されたロード順が揃わない限り、source buildだけでは初期化できない。
+
+## ホスト側ビルド実験
+
+ビルド対象はKVM成功P25と同じ公開kernel source commit `1cdda838e8475edf89b73ff0cc952005dd0b1fa7`、kernel release `6.18.63-debian-t6-proto2`。既存レシートにあるconfig SHA-256は`d5c4ac7b7f7d9da9f3fbbd62cb1e8dcf16284faa17e07877c844f76a0f1a53b8`。private kernel treeのconfig、Image、DTB、P25は変更していない。
+
+公開OSS v062を外部モジュールとして解析ビルドし、依存を次の順に調べた。
+
+1. connadpのbuild-in adapter群は通常`obj-y`である。依存関係調査のためだけにscratch Kbuildでmodule化し、`memcpy(dest, 0, size)`となっていたDFD handler clearを`memset`へ置換したところ、connadp.koのhost link/modpostに到達した (MODULE_DESCRIPTION警告あり)。この修正案は[patch 1](../../patches/gnss/0001-connadp-clear-dfd-handler-with-memset.patch)。本番kernel統合・実機ロードはしていない。
+2. conninfraを`CONFIG_MTK_COMBO_CHIP_CONSYS_6991=y`としてhost buildし、connadpのModule.symversを与えるとconninfra.koのlink/modpostに到達した (MODULE_DESCRIPTION警告あり)。Linux 6.18 headersとの競合を避けるcompat shim差分は[patch 2](../../patches/gnss/0002-conninfra-guard-legacy-compat-shims-on-6.18.patch)。これはコンパイル可否の確認に限る。6991をMT6990に対する正しいplatform選択と認定したわけではない。
+3. GPS v062/MCUDLを同一target kernel sourceに対して構築。target kernelにないGPS SMC IDをscratch preincludeから補い、Linux 6.18とのcompat shim差分を適用した。vendor codeの`missing-prototypes`, `empty-body`, `unused-value`が`-Werror`になるため、この探索ビルドでは該当警告だけ非fatal化した。
+4. 上記条件のhost-only探索ビルドは、connadp.ko、conninfra.ko、gps_drv_dl_v062.koのlink/modpostまで完了した。各`.modinfo`のvermagicは`6.18.63-debian-t6-proto2 SMP mod_unload aarch64`、dependsはそれぞれ空、`connadp`、`conninfra`。ただしMT6991選択を外部変数で与え、C号機target configにないSMC IDをscratch preincludeから与え、警告を降格した探索用出力である。これは採用可能なクリーンビルド・MT6990適合・モジュールABI完全一致・実機動作のいずれも証明しない。P44へ保存もロードもしていない。
+
+この実験から得た実装上の結論は、GPS driver単独では足りず、P25側のconninfra platform binding・secure-call定義・必要なcommon adapter exportsを含む、互換性を確認したkernel/module一式が必要ということ。仮の6991設定で生成したモジュールをC号機へ配置/ロードしてはならない。
+
+## 安全な次工程
+
+1. 公開または再配布可能なMT6990-specific conninfra/ATF source、DT binding、SMC contractを確認する。6991 aliasやMMIO値を推測しない。
+2. 実機DTの各GPS `reg-name`とv062 driverの`gps_dl_get_iomem_by_name()`、TIA選択/利用経路を静的に全追跡し、不在named resource時の全call pathをテストする。
+3. MT6990固有platform match/Kconfigを正しい証拠から追加し、Kbuildの正常な依存順 (built-in adapter exports、conninfra、GPS) と warning-free全体ビルドを行う。探索用の警告降格は製品ビルドから外し、各警告を修正または根拠付きで個別評価する。
+4. P25変更が必要な場合は別の候補だけを製造し、既知good P25を保護する。署名・書込み・再起動は別承認後のゲートとする。
+5. 実機bind/initはMT6990 firmware・secure firmware・power/reset依存を確認し、module probeが即座にMMIO/SMC/電源操作をするかレビューしてから、独立承認を得て実施する。
+6. transport/data取得後にgpsd連携、衛星捕捉、fix、各system navigation messageを段階的に検証する。GNSS endpointの競合と位置情報の非公開を維持する。
+
+純正B号機で確認された3D fixとGPS/GLONASS/BeiDou/Galileo navigation deliveryは比較基準のみ。Debian側の成功を意味しない。SBAS/QZSS L1Sbは別課題で、現時点UNKNOWN。
+
+## 2026-11-20 追加OSS監査とprobe経路レビュー
+
+### 追加公開ソースの範囲
+
+- [`soralis0912/SBA6D-OSS`](https://github.com/soralis0912/SBA6D-OSS/tree/c7508cb46a6f51c9873604d6a94c94d5c433a8b6) の基準コミットにある[GPL/LGPL OSS開示説明](https://github.com/soralis0912/SBA6D-OSS/blob/c7508cb46a6f51c9873604d6a94c94d5c433a8b6/OSS_STATEMENT.txt)と[Buildroot GPSレシピ](https://github.com/soralis0912/SBA6D-OSS/blob/c7508cb46a6f51c9873604d6a94c94d5c433a8b6/buildroot/feeds/mtk/system/connectivity/gps/Makefile)を確認した。GPSレシピは `TOPDIR/../mtk/package/system/connectivity/gps` を外部ソースとして参照するが、そのソースディレクトリは当該開示ツリーに含まれていない。
+- 同リポジトリの[package inventory](https://github.com/soralis0912/SBA6D-OSS/blob/c7508cb46a6f51c9873604d6a94c94d5c433a8b6/package-info/openwrt-packages-package-details.tsv)は `gps_fw` (105 bytesのpackage metadata)をMediaTek Proprietary / `Disclose=No` / GNSS Firmware、`libmnl_gnss`をMediaTek Proprietary / `Disclose=No` / GNSS algorithm library、`mnld`をMediaTek Proprietary / `Disclose=No` / navigation daemon、`mtk_agpsd`もMediaTek Proprietary / `Disclose=No`と分類している。これは成果物そのものの配布許可ではないため、firmware・ライブラリ・daemonを取得、転載、C号機へ配置していない。
+- GPS BuildrootレシピはMT6990を `PLATFORM_6980_6990` ビルド分岐へ入れ、MT6980向け `libmnl_gnss` を選ぶ構成である。これは純正ビルド構成の手掛かりだが、DebianでのABI互換、再配布許可、実機動作の証拠ではない。
+- [`hchyhchyxh/openwrt-air6`](https://github.com/hchyhchyxh/openwrt-air6/tree/7377abbb5106eeebefcfff6c38cdbff4e4b42af1) のmain commitをGNSS/GPS/conninfra名で確認した範囲では、`ugps`初期化設定、ATCI GPSコマンド、modem-chain側のGNSS HALバイナリやAGPS設定はあるが、MT6990 GNSS kernel driver/ConSys実装の追加ソースは特定できなかった。これらはGNSS controllerのDebian実機対応を証明しない。
+- `SBA6D-OSS` の公開MT6990 DTSには `mediatek,mt6990-consys-atf` がある一方、同梱されたscrubbed OSS kernelのConnectivity実装はcommon build-in adapterだけで、対応するconninfra platform sourceは開示物として見つからなかった。GPLソース開示パッケージが完全なベンダーSDKではないことも同リポジトリのOSS statementに明記されている。
+
+### Driver probeの静的レビュー
+
+参照対象はGPL-2.0 `liudaoziwa/mainline-mt6991` commit `8e7a8e2f05ec3371bf6e498386c04b29bf03d404` の `gps_dl_linux_plat_drv.c` と `gps_data_link_devices.c`。
+
+- `gps_dl_probe()` は `status_dummy_cr` が得られると `gps_dl_update_status_for_md_blanking(false)` を呼ぶ。この関数は当該resourceに `__raw_readl()` の後 `gps_dl_linux_sync_writel()` を行うため、**module bindだけでもMMIO書込みが発生し得る**。
+- GPS probeはnamed MMIOをioremapし、IRQ番号を収集した後、`gps_dl_device_context_init()` からcharacter device、reserved-memory初期化、IRQ登録、conninfra reset callbackを初期化する。P44への単純な `.ko` 配置だけで安全に待機する構造ではない。
+- GPS v062の `gps_dl_get_iomem_by_name()` はresourceが存在すれば `devm_ioremap()` の戻り値を検査せず成功を返す。さらに `gps_dl_tia2_gps_ctrl(false)` では `tia2_gps_rc_sel` のNULL確認なしにreadする。一方、live C DTは `tia2_gps_on` と `tia2_gps_rc_sel` を持ち、`tia2_gps_debug` は持たない。debug resourceの読み出しにはNULLガードがある。`tia_gps` はprobe中に取得を試みるが、選択関数は `tia2_gps_on` が存在すればTIA2側を優先する。
+- 以上を反映する防御的な候補差分 `patches/gnss/0003-gps-dl-check-ioremap-and-optional-tia-resource.patch` を追加した。これはsourceへ適用可能か確認しただけで、対象カーネルでのコンパイル・実機probe・MMIO安全性の認定は未実施である。
+- conninfra `mtk_conninfra_probe()` は `consys_hw_init()` を直ちに実行する。C号機DTのcompatibleに一致するMT6990 platform implementationとATF/SMC契約が特定できていないため、MT6991設定を流用した探索用moduleをロードしてはならない。
+
+### 今回の追加実施結果
+
+| 項目 | 結果 |
+|---|---|
+| C号機Debian GNSS | NOT_TESTED: driver未bind、GNSSデータ/捕捉/fixなし |
+| OSSソース照合 | PASS: 上記公開OSSの開示範囲・package recipe・MT6990 DTを確認 |
+| MT6990 conninfra/ATF契約 | BLOCKED: DT compatibleに一致する実装・許可されたsecure-call契約を特定できず |
+| probe副作用レビュー | PASS: probe時のMMIO書込み、ioremap/IRQ/reserved-memory/cdev副作用をソースで特定 |
+| 防御パッチ | PASS: pinned donor sourceへの `git apply --check` |
+| clean target module build | NOT_TESTED: 有効なMT6990 platform選択がなく、探索ビルド条件を製品ビルドに転用しない |
+| 実機module配置/ロード、再起動、P25/P44変更 | NOT_DONE |
+
+次の実機進行条件は、MT6990-specific conninfra implementationとATF/firmware契約、GNSS firmware/userlandの再配布・利用条件、probeに必要なDT resourceとpower/clock/reset順序を一致させ、差分をレビュー可能にすること。その後もprobeのMMIO/SMC/IRQ副作用を再評価し、実機初期化の個別承認を得てからbindする。現在はC号機を変更していない。

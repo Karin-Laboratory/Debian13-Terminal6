@@ -9,6 +9,7 @@
 - [総合インベントリ・ドライバ/API対応表](CUNIT-INVENTORY-API-20261114.ja.md)
 - [CPU・ストレージ・Ethernet・周辺機能の詳細](CUNIT-DEVICE-DETAILS-20261114.ja.md)
 - [Wi-Fi・Bluetooth・GNSS・WWAN](CUNIT-RADIOS-20261114.ja.md)
+- [追加: MT6990 GNSS移植・実機DTと公開ドライバの差分 (2026-11-20)](CUNIT-GNSS-MT6990-PORT-20261120.ja.md)
 - [Device Tree解析と未知候補](CUNIT-DT-UNKNOWN-20261114.ja.md)
 - [Debian / OpenWrt比較・優先順位](CUNIT-OPENWRT-DELTA-20261114.ja.md)
 - [ストレージ障害・変更・復旧記録](CUNIT-STORAGE-INCIDENT-20261114.ja.md)
