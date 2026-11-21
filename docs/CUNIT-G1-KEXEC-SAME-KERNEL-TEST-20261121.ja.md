@@ -174,3 +174,19 @@ LOAD_EXIT_CODE=0
 ```
 
 先行する`kexec --load`終了コード0に加え、**実カーネル側のload状態表示もPASS**。第2段へのジャンプ、Linux起動、eMMC再認識、P44 rootfs、SSH復帰は**いずれも未検証**。ロードされた第2段イメージはRAM上にあり、実機は現時点で稼働中。次段の`kexec -e`はユーザーがraspi4のUART監視、事前のP44書込み同期、バックアップ・手動復旧手順を準備した後で行うこと。ブート制御フラグ・P26・P25には触れない。
+
+## 追記：第2段ジャンプ後のネットワークとSSH鍵変化（2026-11-21、所有者実機観測）
+
+所有者が`/root/g1-kexec-bin/usr/sbin/kexec -e`を実行した直後、raspi4からC号機`192.168.3.1`への初回SSHは`No route to host`。しかしその後の同一raspi4での確認では、`eth0`から`192.168.3.1`へ**ping 3/3成功**（平均約0.648ms）し、Neighbor MAC `18:2c:a9:03:1a:78` を観測。**kexec前Debianのlan2 MACは `c2:4c:3f:f3:9b:a9`**。
+
+SSH TCP/22応答は得られるが、既知のホスト鍵と一致しない：
+
+```text
+WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!
+ED25519 fingerprint SHA256:5nDaTMqEuIOQNrOAayFxSpHnpcAI904Fx4cYUycBDeg
+Offending ECDSA key in /home/masataka/.ssh/known_hosts:4
+```
+
+ユーザーは`ssh-keygen -R 192.168.3.1`を実行済みで、以前のknown_hostsは`known_hosts.old`に退避されている。以後は`StrictHostKeyChecking=yes`によって新規鍵の受理が拒否されている。**新ホスト鍵はSSHサービスが違うか、初期化でホスト鍵を再生成した可能性を示すが、これだけでは第2段Debian実起動成功を示さない。** UART監視はraspi4 `/dev/ttyUSB0`を`cat` PID 21540が保持し、`~/cunit-g1/g1-kexec-uart.log`は空。監視開始前のブートログは残っていない可能性がある。
+
+次の調査：`ssh-keyscan`でED25519指紋を観測し`known_hosts.old`と比較。物理直結を確認し、独立の`UserKnownHostsFile`を使い`StrictHostKeyChecking=ask`で明示同意の後、ログインできる場合は`uname -a`、`/proc/cmdline`、`findmnt /`、`/etc/os-release`、uptime、ネットワークMACで後段Debianか別OSかを識別する。**現時点でG1第2段Linux起動はUNKNOWNでありPASSと報告しない。**
