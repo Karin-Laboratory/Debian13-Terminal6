@@ -62,3 +62,16 @@
 - **署名：NOT_EXECUTED。C号機G1–G5：NOT_TESTED。** 旧失敗版への再署名・再起動や実機への書込みは一切行っていない。
 
 **解釈上の注意**：入力FDTの重複は観測されなかったが、LK `mrdump_debug_kinfo_fdt_setup` の正確な重複挿入原因は依然未特定。外部ramdiskをゼロに戻す今回の改善は**合理的な回避仮説**であり、実機でLKのASSERTが解消する保証ではない。新しいImage自体もソースsnapshotを再コンパイルしたため、元の起動成功版と同等のハードウェア動作は未証明。個別の正確なunsigned SHAに対する所有者の署名承認を受けるまで、実機試験は行わない。
+
+
+## 新候補の所有者承認署名・非公開保全（2026-11-22）
+
+- 対象 **unsigned P25 SHA256**：`cc13517ca9c00b350eeb1c10fb15e4d1e1139993bb34332e441120ca9ed6a0a5`（32MiB）。
+- **signed P25 SHA256**：`c37400a6788436773fb69b4fd4ed65193fd414df2e5d30d7514894f6cde00314`（33,554,432B）。
+- [署名ビルド・独立検証・非公開読戻しCI #44942758196](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44942758196) は **SUCCESS**。オーナーが承認したunsigned完全SHAだけをSHA固定で保護ランナーに取り込み、1回署名、別プロセスRSA-PSS ROOT/IMAGE鎖を照合。署名前後のboot body同一・署名末尾・サイズ・完全SHA PASS。
+- 元DTB実物SHA `49fc129e...`、built ARM64 Image `f1cc341b...`、内蔵loader CPIO `a6f4f041...`、外部boot-v2 ramdisk size=0、構造と承認SHAを独立検証。
+- **非公開Draft Release ID `453939830`**、tag `debian13-cunit-signed-cc13517c-44942758196`。署名済みP25 asset ID `776685290`、暗号検証receipt asset ID `776685611`（receipt SHA256 `319daa5d42ed35c10421b8afa580ab7e62076069f7b23226d5af3dbfb51279ab`）。**両ファイルをasset IDで独立再取得・cmp・SHA PASS**。
+- 非公開の署名ソース・ワークフローは [Draft PR #190](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/pull/190)、新しいunsigned製造元は [Draft PR #189](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/pull/189)。
+- **実機G1、LKのMRDUMP FDT処理、Linux initramfs、MMC、管理LAN、SSH、kexecはすべてNOT_TESTED。** 最新署名承認は実機への書込み・slot切替・再起動の承認ではない。C号機実機は今回一切操作していない。旧署名失敗版`d259237b...`、`886614ed...`の再利用は禁止。
+
+状態：`SIGNED_EXACT_SHA_RSA_PSS_AND_PRIVATE_RELEASE_READBACK_PASS` / `CUNIT_HARDWARE_G1_NOT_TESTED`。
