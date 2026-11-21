@@ -59,3 +59,29 @@ python3 scripts/stage-v10-debian-kexec-offline.py \
 ## この準備ブランチの成果範囲
 
 このブランチはsource-onlyであり、既存PR #43の共通ローダーやPR #41の旧P44製造ルートを変更しない。**新しいP44.zipの実製造、Image/DTBの独立SHA、非公開Releaseへのアップロードは、本ブランチだけでは完了しない**。次に行うのは非公開ビルド環境で私有の成功版Image/DTBを取得・独立検証して、上記ステージングスクリプトと試験で仕上げる工程である。
+
+
+## 2026-11-21 非公開実製造成果（実機操作なし）
+
+- 非公開製造ソース: `SBAT6A-Offline-Archive` branch `codex/v10-debian-kexec-private-manufacture-20261121`、製造ジョブ [#44886374294](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44886374294)。
+- **非公開Draft Release保存・再取得SHAと全バイトcmp: PASS**。保存先 [private Draft Release](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/releases/tag/untagged-fa7e82f4efb2f0eb4610) (Release ID `453556881`)。
+- 検証済み入力: 旧署名済みP25 `74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e`、旧P44 ZIP `9aded7613ffc262060501d633dd2d27600a544b5fd7d35a6bdbeb25ff9b28f09`。
+- 旧P25 boot-v2のkernel gzipと1-entry AOSP DT tableから独立抽出した Image SHA256 **`141b6750698cb362169cc150974b3464577d6ab5fa98aa941449fc3990c8ad00`** (18,921,480 bytes)、DTB SHA256 **`a6bef90e18c0a16934e6c4196fea60408a1fed08b6ef9b62c7fbe5d7c5632d91`** (148,753 bytes)。Linux `6.18.63-debian-t6-proto2`。
+- `P43-debian-kexec.zip`: **19,072,579 bytes** SHA256 **`60437aad2f26654648b0c0df022d364bf3c5d861414c6fc74a8da69965a5bccc`**。
+- `P44-install-v10-kexec-candidate.zip`: **197,581,135 bytes** SHA256 **`b40faae5fb46ac3fe073005fb9d6db5edd5e69bc86bdbadd274fa16ff7da084c`**。旧proto2 rootfs・module tarと第2段起動資産を同梱する**C号機P44互換試験候補**。v1.0標準のP43 rootfs配布方式とは別で、OS移行用の暫定構成。
+- `BUILD-RECEIPT.json` SHA256 `b2c787e46f949dff0d26c86f28cd9a254953036dba6010d992a0bdf529c56bc3`。公開ZIPの配布許可はなく、非公開保全のみ。
+- ビルドの製造・Release再取得・ZIP内部CRC/SHA・入力照合はPASS。**Actions run全体はFAIL**: 補助的な `actions/upload-artifact@v4` がArtifact storage quota超過で失敗。製造と非公開Releaseの独立再取得はその前にPASSしている。余分なArtifact保存を後続workflowから除去。
+- **実機kexec/P44 mount/LAN/SSHはNOT_TESTED**。boot.confは `autoboot=0`、debian.confは未確定の `cmdline` テンプレートのみ。P43/P44実機書込みや再起動は実施していない。
+
+### 更新したゲート
+
+| Gate | 状態 |
+|---|---|
+| A1 旧資産独立再ダウンロード・全体SHA | PASS |
+| A2 第2段Image/DTB抽出・実バイナリSHA | PASS |
+| C1 P43/P44互換候補ZIP実製造 | PASS (private candidate only) |
+| C2 非公開Draft Release保存・独立SHA/cmp | PASS |
+| B0-B5 実機P25受入/kexec/Debian起動 | NOT_TESTED (別セッションに委ねる) |
+| C-final 標準P43 rootfs方式・公開配布判定 | BLOCKED |
+
+**次の作業で注意**: 成功版P25のembedded initramfsと `root=` などのコマンドラインを実機ログ・過去の正本と照合するまで、kexecに渡すコマンドラインを推測して埋めない。再パッケージ化済みZIPの存在は実機互換性を意味しない。
