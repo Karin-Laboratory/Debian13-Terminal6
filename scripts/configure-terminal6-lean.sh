@@ -63,4 +63,12 @@ scripts/config --enable CC_OPTIMIZE_FOR_SIZE \
 # Do not declare deployment complete until same-build modules are installed.
 scripts/config --module OVERLAY_FS --module TUN --module VETH \
   --module BLK_DEV_LOOP
+# Common v1.0 rescue loader must execute a different unsigned ARM64 Image.
+# Built-in only: no P44 module dependency. P25 does not operate PCIe, RF,
+# modem or USB; all such peripherals are left to the second-stage kernel.
+scripts/config --enable KEXEC --disable PCI --disable PCIEPORTBUS \
+  --disable PCIEAER --disable WIRELESS --disable WLAN --disable USB \
+  --disable USB_SUPPORT --disable VIRTUALIZATION
+scripts/config --set-str LOCALVERSION "-t6-minimal-loader-v10"
+scripts/config --disable LOCALVERSION_AUTO
 echo "TERMINAL6_LEAN_KCONFIG_REQUESTED_NOT_YET_RESOLVED"
