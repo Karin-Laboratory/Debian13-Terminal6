@@ -133,3 +133,17 @@ This addendum supersedes the earlier runtime-persistence `NOT_TESTED` note for t
 - The post-boot misc image was 524,288 bytes, SHA256 `9119a411b6ca28e05b48a6b4dbba25a1d452cf3ed04d312496748c4f9ea7ee33`, matching the earlier after-A-boot snapshot. A's retry field advanced to 04; A success remained 00 and B success remained 01. A was **not** made permanent. Current state is slot A running as a finite trial; a later restart is expected to fall back to stock B unless boot policy is separately changed.
 - Wi-Fi remains **FAIL/BLOCKED** at the known `rootfs_a` SquashFS prerequisite; no PHY registered and no RF transmission occurred. This retest did not rerun the KVM guest or storage write test.
 - Raw UART and device-specific evidence remain in the private raspi4 directory `/home/masataka/private/cunit-p44-acceptance-20261121/`; no private logs, keys, or device-specific host-key fingerprints are published. No further reboot or P44/P25/GPT write was performed.
+
+
+## 2026-11-21: ②新P44受入結果と修正候補（ソースのみ、未実機試験）
+
+- 署名済みproto2 P25 SHA256 74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e と旧P44 ZIP SHA256 9aded7613ffc262060501d633dd2d27600a544b5fd7d35a6bdbeb25ff9b28f09 でDebian/P44起動、再起動後のLAN2・認証付きSSH・P44永続性はPASS。eMMC実測94,999,965Hz、CQE無効、該当I/Oログなし。A success=0/retry=04、B success=1は未変更。Wi-Fi PHY FAIL、今回のKVMゲストはNOT_TESTED。
+- 原因：従来のWi-Fi初期化はP26(rootfs_a)がSquashFSでfirmwareを保持する前提だった。C号機P26は空のext4 terminal6-config。マウント時点で止まり、ドライバ初期化へ到達していない。
+- scripts/proto2-wifi-start.sh はC号機自身の純正rootfs_bをROで使用し、そこからEEPROMを取得する。firmwareの完全セットはstock B、実際にSquashFSの個体のみstock A、最後に所有者が個体別・非公開でSHA検証して準備したP44領域の順で試す。どの候補も欠けた場合はWi-FiだけFAIL。個体固有のEEPROM/OTP、OEM firmwareを公開ZIPに入れない。無線送信/AP/STAは開始しない。
+- **未確認：** stock Bのfirmwareディレクトリに必要な4ファイルがあるかは現物で未照合。無ければprivate証拠の実ファイル位置とハッシュを採取し、採用済みの同一カーネルMT76モジュールを維持したまま入力源を修正する。PHY、46bytes OTP、EEPROM 8/8 ACKは次回実機で初めて判定する。
+- scripts/proto2-slot-a-success.py と terminal6-slot-a-success.service を次期P44 rootfsへ搭載。サービスは**初期状態で無効**。所有者がC号機miscの実書込みを別途承認した後、root所有0600の専用承認マーカーを作成しenableする。デフォルトのスクリプト実行はdry-run。
+- 成功書込みゲート：実機slot Aと正確なP25 full SHA、Debian 13/systemd、P44 ext4 rw、LAN2 IP、初回設定完了、認証付きOpenSSH、Wi-Fi service＋PHY＋OTP46bytes＋EEPROM8/8 ACK、MMC/ext4/I/Oエラーなし。全てPASSした場合のみC号機で確認したmisc 512KiB offset 2052のA/B構造を検証し、A retry=0/success=1へ変更。Bのpriority/retry/successなどを不変のまま維持。512KiB全量バックアップ・fsync・readbackを必須とする。
+- **未確認とリスク：** このmisc位置はC号機の観測に限定。他個体互換性と停電時のsector書込み原子性は未検証。既知外の値は書込み拒否。ブート成功マークを設定した後の再起動PASSもまだ得ていない。純正Bの復旧資産を保持する。
+- **製造境界：** ②では既存の署名済みproto2 P25をバイト固定するので、新たなP25署名は不要。旧P44-install.zipは修正を含まない。次回は新ソースcommit pinでnative arm64 rootfs/ZIPを製造し、内部SHA、モジュールABI、owner-neutral scan、非公開Release保存・独立再取得を完了する。新ZIP SHAが発行されるまでは署名直前・配布完成などと呼ばない。
+
+暫定計画により、C号機実機試験は①と②で排他・原則交互。②の実機PASSを①の共通ローダーP25へ流用しない。署名、P44書込み、slot切替、再起動、RF、misc書込みの承認は別途必要。
