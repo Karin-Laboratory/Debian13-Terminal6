@@ -28,16 +28,44 @@ MODULE_SHAS = {
 
 def verify_modules_tar(path: Path):
     prefix = f"lib/modules/{KERNEL}/updates/terminal6-mt76/"
+    base = f"lib/modules/{KERNEL}/kernel/"
+    meta = f"lib/modules/{KERNEL}/modules."
+    base_required = {base + "net/wireless/cfg80211.ko",
+                     base + "net/mac80211/mac80211.ko"}
+    base_found = set()
     seen = set()
+    manifest = False
     with tarfile.open(path, "r:") as tar:
         for entry in tar:
             name = entry.name.removeprefix("./")
+            if name.startswith("/") or ".." in name.split("/"):
+                raise ValueError("unsafe modules tar path")
             if entry.isdir():
                 continue
-            if not entry.isfile() or not name.startswith(prefix):
+            if not entry.isfile():
+                raise ValueError("non-regular modules tar entry: " + name)
+            if name.startswith(base):
+                if not name.endswith(".ko"):
+                    raise ValueError("non-module in kernel base tree: " + name)
+                if name in base_required:
+                    base_found.add(name)
+                continue
+            if name.startswith(meta):
+                continue
+            if not name.startswith(prefix):
                 raise ValueError("unexpected modules tar entry: " + name)
             filename = name[len(prefix):]
             if filename == "SHA256SUMS":
+                if manifest:
+                    raise ValueError("duplicate module manifest")
+                stream = tar.extractfile(entry)
+                if stream is None:
+                    raise ValueError("unreadable module manifest")
+                expected = {sha + "  " + fname for fname, sha in MODULE_SHAS.items()}
+                lines = stream.read().decode("ascii").splitlines()
+                if len(lines) != 3 or set(lines) != expected:
+                    raise ValueError("module manifest mismatch")
+                manifest = True
                 continue
             if filename not in MODULE_SHAS or filename in seen:
                 raise ValueError("unapproved module or duplicate: " + filename)
@@ -47,8 +75,10 @@ def verify_modules_tar(path: Path):
             if hashlib.sha256(stream.read()).hexdigest() != MODULE_SHAS[filename]:
                 raise ValueError("module SHA mismatch: " + filename)
             seen.add(filename)
-    if seen != set(MODULE_SHAS):
-        raise ValueError("incomplete 3-module proto2 set")
+    if seen != set(MODULE_SHAS) or not manifest:
+        raise ValueError("incomplete pinned 3-module set")
+    if base_found != base_required:
+        raise ValueError("missing ABI-matched cfg80211/mac80211 for fresh P44")
 
 
 def verify_owner_neutral_rootfs(path: Path):
@@ -75,7 +105,7 @@ def verify_owner_neutral_rootfs(path: Path):
             if name in {"var/lib/terminal6/firstboot-complete",
                         "var/lib/terminal6/firstboot-auth-verified"}:
                 raise ValueError("preprovisioned firstboot marker")
-            if name.startswith("lib/firmware/mediatek/mt7996/") and "eeprom" in name.lower():
+            if (name.startswith("lib/firmware/mediatek/mt7996/") or name.startswith("usr/lib/firmware/mediatek/mt7996/")) and "eeprom" in name.lower():
                 raise ValueError("embedded device calibration data")
             if name == "etc/machine-id" and (not entry.isfile() or entry.size):
                 raise ValueError("shared machine-id")
