@@ -1,0 +1,50 @@
+name: proto2 P44 source safety gates
+on:
+  pull_request:
+    paths:
+      - 'scripts/build-proto2-p44-rootfs.sh'
+      - 'scripts/p44-firstboot.sh'
+      - 'scripts/proto2-wifi-start.sh'
+      - 'scripts/proto2-slot-a-success.py'
+      - 'scripts/prepare-proto2-wifi-modules.sh'
+      - 'scripts/fetch-proto2-private-baseline.sh'
+      - 'scripts/package-proto2-p44.py'
+      - 'tests/test_proto2_p44.py'
+      - '.github/workflows/proto2-p44-source.yml'
+  workflow_dispatch:
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax only, no device commands
+        run: |
+          bash -n scripts/build-proto2-p44-rootfs.sh scripts/prepare-proto2-wifi-modules.sh scripts/fetch-proto2-private-baseline.sh
+          sh -n scripts/proto2-wifi-start.sh scripts/p44-firstboot.sh
+      - name: Python gates
+        run: |
+          python3 -m py_compile scripts/package-proto2-p44.py scripts/proto2-slot-a-success.py tests/test_proto2_p44.py
+          python3 -m unittest discover -s tests -p test_proto2_p44.py -v
+
+  native-arm64-rootfs:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host builder prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y debootstrap
+      - name: Build owner-neutral Debian 13 rootfs tar (no private binaries)
+        run: |
+          sudo bash scripts/build-proto2-p44-rootfs.sh "$RUNNER_TEMP/proto2-rootfs"
+      - name: Validate real tar confidentiality and firstboot contents
+        run: |
+          sudo env RUNNER_TEMP="$RUNNER_TEMP" python3 -c "import importlib.util, pathlib, os; p='scripts/package-proto2-p44.py'; s=importlib.util.spec_from_file_location('p44',p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); m.verify_owner_neutral_rootfs(pathlib.Path(os.environ['RUNNER_TEMP'])/'proto2-rootfs/debian13-p44-rootfs.tar.gz'); print('OWNER_NEUTRAL_TAR_PASS')"
+          sudo cat "$RUNNER_TEMP/proto2-rootfs/STATUS.txt"
+          sudo sha256sum "$RUNNER_TEMP/proto2-rootfs/debian13-p44-rootfs.tar.gz"
+      # No public upload-artifact or Release: binary publication rights remain gated.
