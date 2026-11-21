@@ -35,7 +35,7 @@ def fake_elf(interpreter="/lib/ld-linux-aarch64.so.1"):
 
 def fixture(base: Path, *, absolute_loader=False):
     root = base / "p44"
-    for name in ("usr/sbin", "usr/lib", "usr/lib/aarch64-linux-gnu", "etc"):
+    for name in ("usr/sbin", "usr/lib", "usr/lib/systemd", "usr/lib/aarch64-linux-gnu", "etc"):
         (root / name).mkdir(parents=True, exist_ok=True)
     (root / "sbin").symlink_to("usr/sbin")
     (root / "lib").symlink_to("usr/lib")
@@ -43,13 +43,14 @@ def fixture(base: Path, *, absolute_loader=False):
     (root / "usr/lib/systemd/systemd").write_bytes(fake_elf())
     (root / "usr/lib/systemd/systemd").chmod(0o755)
     if absolute_loader:
-        (root / "usr/lib/ld-linux-aarch64.so.1").symlink_to(
-            "/usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1")
         loader = root / "usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1"
     else:
         loader = root / "usr/lib/ld-linux-aarch64.so.1"
     loader.write_bytes(b"\x7fELF\x02\x01\x01")
     loader.chmod(0o755)
+    if absolute_loader:
+        (root / "usr/lib/ld-linux-aarch64.so.1").symlink_to(
+            "/usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1")
     tarpath = base / "rootfs.tar.gz"
     with tarfile.open(tarpath, "w:gz", dereference=False) as archive:
         # Do not traverse symlink directories.
