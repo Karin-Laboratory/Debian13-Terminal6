@@ -341,3 +341,24 @@ bootslot=a
 よって前回DABTの`ccci_util_init`は実カーネル内に存在。Linuxの`initcall_blacklist=`は起動時に指定されたinitcall関数の実行をスキップする正式なデバッグ機構。次回実験では新しいRAMステージ専用directoryを作り、`initcall_blacklist=ccci_util_init module_blacklist=mt7996e modprobe.blacklist=mt7996e`を**第2段kexecに渡す一時cmdlineだけ**に付加する（stock A/BのP25その他には一切永続的変更なし）。
 
 **ただし**symbolの存在だけでは、initcall関数のスキップがCCCIの他の依存初期化を安全にする保証はなく、モデム・PCIe・rootfsが正常稼働することも保証しない。次回はload PASSとUART/P44保全を先に確認し、段階的に実行判断する。
+
+## 追記：CCCI/MT7996 blacklist併用G1 RAMロードPASS（2026-11-21）
+
+所有者がC号機Debian `6.18.63-debian-t6-proto2` slot Aで、新たな`/run/terminal6-kexec-g1-ccci-skip` RAMステージを製造し、`STAGE_PASS`を確認。その後、第2段に一時的に渡すcmdlineを次のように設定：
+
+```text
+initcall_blacklist=ccci_util_init
+module_blacklist=mt7996e
+modprobe.blacklist=mt7996e
+```
+
+`kexec --kexec-syscall --load "$STAGE/Image" --dtb="$STAGE/live.dtb" --append="$CMDLINE"`の結果は以下。
+
+```text
+Can't open (/proc/kcore).
+Can't get the symbol of _text to calculate page_offset.
+LOAD_EXIT_CODE=0
+1
+```
+
+すなわち**CCCIスキップ＋Wi-Fiドライバブラックリスト付きの第2段RAMロードPASS**。これらのboot argsは第2段の初期化完了まで有効かは未検証。次はUARTを実際に受信していることを検証してから手動`kexec -e`。**この記録時点では第3回の実行・再起動は未実施**。P25/P26/P44/ブート制御は変更していない。
