@@ -35,11 +35,29 @@ class LoaderSourceTests(unittest.TestCase):
         self.assertIn("--disable USB_SUPPORT", s)
         self.assertIn("LOCALVERSION", s)
 
+    def test_real_util_linux_commands_not_broken_busybox_links(self):
+        s = (ROOT / "scripts/build-loader-initramfs.sh").read_text()
+        self.assertIn("kexec blkid mountpoint", s)
+        self.assertIn('test ! -L "$tmp/sbin/$tool"', s)
+        self.assertNotIn("umount mountpoint blkid cat", s)
+        self.assertIn("INITRAMFS_REQUIRED_BUSYBOX_APPLET_MISSING", s)
+
+    def test_real_arm64_command_execution_in_ci(self):
+        s = (ROOT / "tests/smoke-loader-initramfs.sh").read_text()
+        self.assertIn("sudo chroot", s)
+        self.assertIn("P26_EXT4_PROBE_FAIL", s)
+        self.assertIn("P26_SQUASHFS_PROBE_FAIL", s)
+        self.assertIn("P26_CORRUPTION_FALSE_EXT4", s)
+        self.assertIn("P26_MISSING_FALSE_FS", s)
+        self.assertIn("UNMOUNTED_P43_FALSE_POSITIVE", s)
+
     def test_packager_profile_independent_of_p44(self):
         import json
         p = json.loads((ROOT / "configs/minimal-loader-boot-v2-profile.json").read_text())
         self.assertIn("t6_loader=1", p["cmdline"])
         self.assertIn("rdinit=/init", p["cmdline"])
+        self.assertIn("console=ttyS0,115200n8", p["cmdline"])
+        self.assertNotIn("console=ttyS0,115200n1", p["cmdline"])
         self.assertNotIn("rootfs_data", p["cmdline"])
 
 
