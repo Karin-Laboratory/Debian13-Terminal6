@@ -147,3 +147,22 @@ This addendum supersedes the earlier runtime-persistence `NOT_TESTED` note for t
 - **製造境界：** ②では既存の署名済みproto2 P25をバイト固定するので、新たなP25署名は不要。旧P44-install.zipは修正を含まない。次回は新ソースcommit pinでnative arm64 rootfs/ZIPを製造し、内部SHA、モジュールABI、owner-neutral scan、非公開Release保存・独立再取得を完了する。新ZIP SHAが発行されるまでは署名直前・配布完成などと呼ばない。
 
 暫定計画により、C号機実機試験は①と②で排他・原則交互。②の実機PASSを①の共通ローダーP25へ流用しない。署名、P44書込み、slot切替、再起動、RF、misc書込みの承認は別途必要。
+
+## 2026-11-21: Wi-Fi修正版P44のprivate実製造・独立再取得 PASS
+
+前節の「新ZIP未製造」はこの節の記録で更新する。旧候補とは別の製造物。
+
+- P25：実機起動済み署名済み SHA256 74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e。変更・再署名なし。
+- 固定ソースcommit：fcacb9244336807a209b171b34af43cb17678231（PR #41）。
+- 公開source/native ARM64 CI：44906293597 SUCCESS。
+- private ARM64製造CI：[44906745723](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44906745723) SUCCESS。成功MT76 trioの個別SHAと同一proto2カーネルframework ABI PASS。Debian13 native rootfs製造、owner-neutral scan PASS。
+- **新 P44-install.zip：187,389,339 bytes、SHA256 57058163645c0acfe7b9f5f760d7a2dc8af78fca33a81604a8d37d23c5815d3b**。
+- Private Draft Release ID 453695494、[保存先](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/releases/tag/untagged-bd937c97c022c490c56e)、ZIP asset 775606937。
+- SHA256SUMS asset 775606935、SHA256 e1b5ad63c7dae4142dbb6536f4816102e63de7278e2130b8fae73c738a9de2c5。
+- BUILD-RECEIPT.json asset 775606939、SHA256 54d77cfe5ffd2e3b422b0e8eec47d43ab4c2a05f6f0691e6d4e6f5843cb2c5e8。
+- ZIP CRC/内部manifest確認、private Releaseから独立再ダウンロード、SHA256SUMSの照合、ZIPとreceiptのcmp全バイト一致：PRIVATE_RELEASE_INDEPENDENT_ASSET_READBACK_PASS。
+- 旧P44-install.zip（SHA256 9aded7613ffc262060501d633dd2d27600a544b5fd7d35a6bdbeb25ff9b28f09）を上書き・破棄していない。
+
+**未達：** 新ZIPの実機インストール、Wi-Fi PHY、stock B firmware実ファイルの位置、EEPROM 8/8、OTP、RF、misc成功フラグの実機受入はいずれもNOT_TESTED。先代ZIPでのDebian再起動・認証SSH PASSはこの新ZIPの実測ではない。
+
+**境界：** 今回はC号機アクセス、署名、P25/P44/P26/stock B/misc書込み、slot切替、再起動、RFを行っていない。次のC号機受入は①系統と排他調整し、必要な個別承認と現行P44の整合性ある保全後に方式Bで実施する。
