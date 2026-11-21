@@ -2,7 +2,7 @@
 
 **Status (2026-11-21): PRIVATE P44 CANDIDATE ZIP MANUFACTURED, INDEPENDENT READBACK PASS. HARDWARE NOT TESTED; NO PUBLIC BINARY RIGHTS CLEARED.**
 
-Governing source: design charter v1.4 in docs/architecture/P25-FOUNDATION-POLICY.ja.md. Method B only: manually install using existing Linux commands after a separate, SHA-exact owner authorization. No dedicated installer. No device writes or RF actions are authorized by this source change.
+**Temporary C-unit test sequencing (owner instruction, until BOTH ① loader and ② standalone Debian are complete):** [①/② alternating hardware acceptance policy, owner-private](https://github.com/Karin-Laboratory/Chappie-Memory/blob/main/terminal6/SoftBank-Air6-%E4%BA%8C%E7%B3%BB%E7%B5%B1%E4%BA%A4%E4%BA%92%E5%AE%9F%E6%A9%9F%E8%A9%A6%E9%A8%93%E3%81%AE%E6%9A%AB%E5%AE%9A%E9%81%8B%E7%94%A8%E6%96%B9%E9%87%9D-20261121.md). Hardware tests are exclusive and serial on the C-unit; development/CI can be parallel. On failure, record the first failing gate, exact artifact SHA and UART evidence, restore a known-safe state, and return the defect to the correct workstream. Switch to the other stream only when its candidate is ready and individually authorized. This is not a permanent policy or permission to sign, flash, change slots, reboot or alter P44. Do not confuse proto2 P25/P44 with the separate minimal-loader P25.\n\nGoverning source: design charter v1.4 in docs/architecture/P25-FOUNDATION-POLICY.ja.md. Method B only: manually install using existing Linux commands after a separate, SHA-exact owner authorization. No dedicated installer. No device writes or RF actions are authorized by this source change.
 
 ## Fixed P25 boundary
 
