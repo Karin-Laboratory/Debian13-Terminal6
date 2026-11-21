@@ -107,3 +107,16 @@ This hardware run was separately authorized by the owner; it does not broaden th
 
 The Debian clock reported an incorrect April date; JST timing used the raspi4 clock. Current status at end of test: slot A Debian/P44 running with authenticated SSH on the isolated management link. P25, boot_b, P26, P43, GPT and stock B were not modified except for the authorized boot_a/P44 operations and finite boot-control selection described above.
 
+
+
+## Persistence reboot addendum — owner-approved single restart
+
+After the first finite A trial had successfully reached Debian/P44, the owner separately approved one persistence reboot. The bootloader then reported A retry=4 / success=0 and automatically switched to B. B booted with `bootslot=b`; stock Linux 5.4.238, ping, and strict-key SSH recovered. This is expected finite-trial fallback because A had not been marked successful; it is not a failure of the prior Debian/P44 session.
+
+- boot_a still matched the exact signed candidate SHA. boot_b still matched its preserved pre-write SHA.
+- Post-fallback misc was byte-identical to the original stock-B misc snapshot. Only the expected A priority/retry and B priority bytes differed from the post-first-A snapshot; B success remained 1. No software boot-control write was issued.
+- In stock B, P44 was mounted only read-only with `ro,noload`, then unmounted. The firstboot completion/auth markers, authorized_keys and SSH host key remained on disk. The host-key fingerprint and authorized-key fingerprint matched their pre-reboot values.
+- **On-disk P44 credential persistence: PASS. P44 SSH service runtime after reboot: NOT_TESTED**, because bootloader automatically selected B.
+- Current hardware state after this addendum: stock slot B, P44 intact but not mounted, with authenticated B SSH available. The A trial was not made permanent. No further reboot or RF transmission occurred.
+- Full UART logs, misc images and device-specific fingerprints remain in private raspi4 evidence; they are not included in this public document.
+
