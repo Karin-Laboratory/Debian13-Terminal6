@@ -190,3 +190,15 @@ Offending ECDSA key in /home/masataka/.ssh/known_hosts:4
 ユーザーは`ssh-keygen -R 192.168.3.1`を実行済みで、以前のknown_hostsは`known_hosts.old`に退避されている。以後は`StrictHostKeyChecking=yes`によって新規鍵の受理が拒否されている。**新ホスト鍵はSSHサービスが違うか、初期化でホスト鍵を再生成した可能性を示すが、これだけでは第2段Debian実起動成功を示さない。** UART監視はraspi4 `/dev/ttyUSB0`を`cat` PID 21540が保持し、`~/cunit-g1/g1-kexec-uart.log`は空。監視開始前のブートログは残っていない可能性がある。
 
 次の調査：`ssh-keyscan`でED25519指紋を観測し`known_hosts.old`と比較。物理直結を確認し、独立の`UserKnownHostsFile`を使い`StrictHostKeyChecking=ask`で明示同意の後、ログインできる場合は`uname -a`、`/proc/cmdline`、`findmnt /`、`/etc/os-release`、uptime、ネットワークMACで後段Debianか別OSかを識別する。**現時点でG1第2段Linux起動はUNKNOWNでありPASSと報告しない。**
+
+## 追記：kexec -e後、slot B純正起動を実測（2026-11-21）
+
+所有者が第2段カーネルをRAMロードし、`/sys/kernel/kexec_loaded = 1`を確認後、C号機で`/root/g1-kexec-bin/usr/sbin/kexec -e`を実行。直後はSSHに接続できなくなったが、raspi4から`ping -I 192.168.3.71 -c 3 192.168.3.1`が3/3で応答した。SSH接続先のED25519指紋は`SHA256:5nDaTMqEuIOQNrOAayFxSpHnpcAI904Fx4cYUycBDeg`に変化し、所有者は指紋を確認して新しい専用known_hostsへ登録した。
+
+接続先はDebianではなく**純正slot BのBusyBox 1.33.2、プロンプト `root@SBA6D:~#`**であった（所有者による実機確認）。`Warning! There is no root password defined on this device!` と表示された。**G4純正slot BのSSH復帰実証PASS**。ただし初期無認証SSHなのでLAN物理隔離を維持。
+
+**G1最終判定：第2段起動 NOT_PROVEN / 実機結果は純正Bへの復帰。** RAMロードのPASSを後段Linuxの起動PASSと混同しない。故障経路は現時点で不明：kexec実行処理の問題、転送直後のリセット、2段目MMC/割込み/DTB/clock/メモリの初期化失敗、LKのslot Aのretry/success状態など可能性が残る。`kexec -e`自体の戻り値はSSH切断で確認できない。
+
+既存UART `cat /dev/ttyUSB0` PID 21540に対応する`~/cunit-g1/g1-kexec-uart.log`は所有者確認時点で空であり、起動前からのログが得られていない可能性がある。次回は**実行前から独立したUART監視**を確認し、実機変更なしの純正B read-only調査（`/proc/cmdline`、`dmesg`、`/sys/fs/pstore`の有無、起動制御APIの読取り）を先行。**現時点ではboot control、P25/P26、slot A/B、P44を変更しない。**
+
+次回実機実験の重要点：`kexec`前の現行cmdline `init=/etc/preinit root=/dev/mmcblk0p26` と、実際のP44 rootfs `/dev/mmcblk1p44` が異なる。現行内蔵initramfsが`rootfs_data`を識別して後段へ移行できるか、残存デバイス初期化の影響に注意。ブート時pstore/ramoopsが取得できるなら原因を切り分ける。
