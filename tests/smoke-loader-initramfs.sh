@@ -17,7 +17,7 @@ mkdir -p "$tmp"/{fixtures,config,userdata,proc}
 test -x "$tmp/sbin/blkid" && test ! -L "$tmp/sbin/blkid"
 test -x "$tmp/sbin/mountpoint" && test ! -L "$tmp/sbin/mountpoint"
 for app in sh mount umount ip cat grep sed mkdir ln chmod sync passwd; do
-  sudo chroot "$tmp" /bin/busybox --list | grep -qx "$app" || { echo "BUSYBOX_APPLET_FAIL:$app"; exit 42; }
+  sudo chroot "$tmp" /bin/busybox --list | grep -x "$app" >/dev/null || { echo "BUSYBOX_APPLET_FAIL:$app"; exit 42; }
 done
 sudo chroot "$tmp" /sbin/blkid --help >/dev/null 2>&1 || {
   echo 'ARM64_REAL_BLKID_RUNTIME_FAIL'; exit 42;
