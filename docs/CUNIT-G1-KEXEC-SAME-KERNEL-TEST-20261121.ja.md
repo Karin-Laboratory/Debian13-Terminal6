@@ -293,3 +293,34 @@ terminal6-debian login:
 **重要**：panicは起動後0.502秒で、前回の`mt7996e` init時刻6.358秒より早い。今回の例外を前回と同原因と断定しない。UARTファイル全文の行7〜51のexception/Oops/traceを取得し、kexecへの制御移行地点とPC/LR/Call traceを分析するまで原因UNKNOWN。末尾にLK/ATF通常ブート、P44 Debianログインプロンプトがあるため、**その通常起動成功をkexec第2段起動成功と混同しない**。
 
 取得指示：raspi4で`nl -ba ~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log | sed -n '1,110p'`、ログ全体のSHA256、必要ならソースファイルをread-onlyコピーして保管。再試験の前に原因を切り分ける。
+
+## 追記：G1実起動の最終トレース解析、CCCI initcallでDABT（2026-11-21）
+
+Wi-Fi blacklist付きの`kexec -e`を実行する直前のUART marker `G1-KEXEC-EXEC-START`に続く、**第2段Linux 6.18.63-debian-t6-proto2の起動開始後**の完全な例外スタックを所有者がraspi4から取得した。
+
+```text
+[    0.256741] Unable to handle kernel paging request at virtual address ffffffc0e6ffc845
+[    0.267589]   ESR = 0x0000000096000005
+[    0.271371]   EC = 0x25: DABT (current EL)
+[    0.283002]   FSC = 0x05: level 1 translation fault
+[    0.313613] [ffffffc0e6ffc845] pgd=0000000000000000
+[    0.331206] CPU: 0 UID: 0 PID: 1 Comm: swapper/0 Not tainted 6.18.63-debian-t6-proto2 #2 NONE
+[    0.352984] pc : memcpy_fromio+0x8/0xa0
+[    0.356863] lr : find_ccci_tag_inf+0x104/0x1e0
+[    0.436851] Call trace:
+[    0.439319]  memcpy_fromio+0x8/0xa0 (P)
+[    0.443199]  ccci_util_fo_init+0x4c8/0x2278
+[    0.447432]  ccci_util_init+0x10/0x2c
+[    0.451139]  do_one_initcall+0x4c/0x1f8
+[    0.455021]  kernel_init_freeable+0x274/0x2e4
+[    0.502183] Kernel panic - not syncing: Oops: Fatal exception
+[    0.531370] Rebooting in 1 seconds..
+```
+
+その後LK/ATFブートログが始まりslot A Debian 13はP44に復帰。**kexec実行と第2段Linux起動開始（kernel initcall開始）は実機で初めてPASSと確定。** ただし**第2段Linuxの完全起動はFAIL**。対象はP25由来の同じARM64 Imageを署名手続きなしでRAMロードしたもの。「任意の別カーネルの実運用起動まで検証済み」とは区別する。
+
+**直接原因**：CCCI（MediaTek modem boot tag）初期化中に`find_ccci_tag_inf`経由で`memcpy_fromio`が未マップの仮想アドレス`ffffffc0e6ffc845`を読もうとし、translation faultを起こした。これは前回の約6.36秒の`mt7996e`MMIO external abortとは別の、約0.26秒の**カーネル初期initcallレベルの故障**。新しい`module_blacklist=mt7996e`は今回の障害に対して直接の対策ではない。DTBから引き継いだmodem reserved-memory/tagの一時不整合やkexecでのメモリマッピング再構築が仮説だが、特定のDTノードやLK tag値が破損したとはまだ断定できない。
+
+UART v2ファイル`~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log`のユーザー実測SHA256 `400881f4093b38bcdbe2e8d50dbca688aa3104b42bbc20d4244b29759a6bd684`、size 100,894 bytes。録画は`G1-KEXEC-EXEC-START`が6行目、DABTは7行目、panicは49行目、rebootは51行目と連続している。証拠ログ原本はユーザーのraspi4に保持。
+
+次の**非破壊診断ゲート**：現行slot A Debianで`zcat /proc/config.gz | grep -E '^(CONFIG_KALLSYMS=|CONFIG_KEXEC=)'`、`grep -w ccci_util_init /proc/kallsyms`、`cat /sys/kernel/kexec_loaded`を実測する。`initcall_blacklist=ccci_util_init`はLinux公式カーネル引数でinitcallのみをスキップするが、config/symbol確認後、モデム不動などの副作用を前提に**隔離実験のRAMロード第2段だけ**での一時的検証候補。P25、P26、P44、ブート制御フラグ、純正Bは変更しない。通常OSのCCCI無効化は提案しない。
