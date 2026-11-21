@@ -3,8 +3,7 @@
 **状態：SOURCE_CANDIDATE、署名なし・実機未適用。**
 本ブランチは、現行C号機の起動実績P25 `74c1c98b...` と本線のP44 ZIPを**改変せず**、署名直前の未署名P25を独立製造する作業用。製造してもLKでの署名済起動は証明されない。実機に`dd`せず、署名をしない。
 
-## 原則
-
+## 原則\n\n- **両系統完成までの期間限定の実機試験運用（非公開・owner権限必要）：** [①共通ローダー／②Debian単独版の交互C号機試験方針](https://github.com/Karin-Laboratory/Chappie-Memory/blob/main/terminal6/SoftBank-Air6-%E4%BA%8C%E7%B3%BB%E7%B5%B1%E4%BA%A4%E4%BA%92%E5%AE%9F%E6%A9%9F%E8%A9%A6%E9%A8%93%E3%81%AE%E6%9A%AB%E5%AE%9A%E9%81%8B%E7%94%A8%E6%96%B9%E9%87%9D-20261121.md)。両開発は並行、**実機だけ直列・原則交互**。①がFAILなら最初の失敗ゲートを記録し①へ修正を返し、準備できた②へC号機を安全に引継ぐ。②の安定P25/P44と①の候補を混同せず、所有者の個別承認・rollbackを省略しない。**①と②両方の完成で本運用終了。**\n
 - **設計意図の補足（非公開・閲覧権限が必要）：** [最小P25＋kexec方式の技術判断と注意点](https://github.com/Karin-Laboratory/Chappie-Memory/blob/main/terminal6/SoftBank-Air6-%E6%9C%80%E5%B0%8FP25-kexec%E6%96%B9%E5%BC%8F%E3%81%AE%E6%8A%80%E8%A1%93%E5%88%A4%E6%96%AD%E3%81%A8%E6%B3%A8%E6%84%8F%E7%82%B9-20261121.md)。LK改造案・純正Linux＋kexec-mod案との比較、kexec後段の正確な責任範囲、eMMC/DTB/watchdogなどの残存ハードウェア状態、署名と信頼境界を整理した実装参照資料。**仕様変更や実機PASSの根拠にはしない。**
 - 非公開確定仕様 `Karin-Laboratory/Chappie-Memory/terminal6/SoftBank-Air6-共通ローダー確定仕様-v1.0-20261121.md` に従う。公開Debian憲章v1.4には未反映で、互換性を主張しない。
 - P25は単独initramfs（rootfs_data/P44への強制切替なし）。内蔵: UART、eMMC PARTNAME検出、ext4、管理LAN2、SSH、kexec、OS選択スクリプト。
