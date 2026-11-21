@@ -37,8 +37,9 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq debootstrap
           sudo bash scripts/build-proto2-p44-rootfs.sh "$RUNNER_TEMP/proto2-rootfs"
-          test -s "$RUNNER_TEMP/proto2-rootfs/p44-init-version.txt"
-          test -s "$RUNNER_TEMP/proto2-rootfs/p44-switchroot-init-version.txt"
-          grep -q '^systemd ' "$RUNNER_TEMP/proto2-rootfs/p44-init-version.txt"
+          # Builder intentionally creates a root-owned 0700 private directory.
+          sudo test -s "$RUNNER_TEMP/proto2-rootfs/p44-init-version.txt"
+          sudo test -s "$RUNNER_TEMP/proto2-rootfs/p44-switchroot-init-version.txt"
+          sudo grep -q '^systemd ' "$RUNNER_TEMP/proto2-rootfs/p44-init-version.txt"
           echo 'P44_PID1_NATIVE_ARM64_CANONICAL_AND_EXACT_SBIN_ENTRYPOINT_PASS'
           echo 'THIS_IS_NOT_PID1_BOOT_NOT_DEVICE_P44_INSPECTION'
