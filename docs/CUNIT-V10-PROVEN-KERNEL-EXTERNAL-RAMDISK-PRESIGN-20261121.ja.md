@@ -39,3 +39,14 @@
 private源バイト、署名資材、端末固有データを公開しない。製造コードは非公開 `Karin-Laboratory/SBAT6A-Offline-Archive` の `codex/cunit-v10-proven-kernel-loader-pre-sign-20261121` に保存。
 
 本方式は「起動実績のあるImageを守る」ことには成功しているが、**ramdiskを独立セクションとしてLKへ渡すこと自体が新しい変更**。未署名ファイルの製造成功を「起動保証」や「署名許可」と呼ばない。公開Debianの設計憲章v1.4は従来のP44方式であり、独立ローダーv1.0憲章への自動変更は行わない。
+
+
+## 最終の署名前成果物と厳格ゲート更新（2026-11-21）
+
+- **最終候補の未署名P25** SHA256：`54a62dfb4ff4bfb7fb6fbebeae7fe7882375fc0d4822ba38ea2b96d94487847a`（32MiB、初回CIと同一byte identity）。
+- [非公開Draft PR #188](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/pull/188) に私有の製造ソースと独立検証器を分離して保存。公開リポジトリにはブートバイナリを含めない。
+- **最新の[厳格CI #44898912844](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44898912844) SUCCESS**：既知成功Image実物中のIKCONFIGより、`CONFIG_BLK_DEV_INITRD=y`、`CONFIG_RD_GZIP=y`、`CONFIG_INITRAMFS_FORCE=y`なしを検証。2回独立製造バイト一致、別実装のboot-v2/Android ID/loader marker/unsignedゼロ末尾検査、非公開Releaseから再取得した実物の同一性検査を全PASS。
+- **最終Private Draft Release ID `453640260`**、tag `cunit-v10-proven-kernel-loader-unsigned-44898912844`。成果物：`p25-unsigned.img`、`RECEIPT.json`、`SHA256SUMS`。保存後、asset IDから独立に再ダウンロード、SHA256SUMS／`cmp`／完全構造検証PASS。
+- 最終ステータス：**UNSIGNED_MANUFACTURE_AND_PRIVATE_READBACK_PASS**。新署名＝**NOT_EXECUTED**、LK非ゼロramdisk実行＝**NOT_TESTED**、物理DDR/予約メモリ互換性＝**NOT_TESTED**、C号機G1–G5＝**NOT_TESTED**。署名許可は発行していない。
+
+製造時にkernel本体を新規buildしていないため、これは成功版のソース再現製造という意味ではなく、**実機成功バイナリの再利用に基づく新しい未署名P25製造**である。機能の証拠と起動の証拠は分ける。
