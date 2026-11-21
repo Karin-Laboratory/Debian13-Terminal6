@@ -5,6 +5,7 @@ on:
       - 'scripts/build-proto2-p44-rootfs.sh'
       - 'scripts/p44-firstboot.sh'
       - 'scripts/proto2-wifi-start.sh'
+      - 'scripts/proto2-slot-a-success.py'
       - 'scripts/prepare-proto2-wifi-modules.sh'
       - 'scripts/fetch-proto2-private-baseline.sh'
       - 'scripts/package-proto2-p44.py'
@@ -24,7 +25,7 @@ jobs:
           sh -n scripts/proto2-wifi-start.sh scripts/p44-firstboot.sh
       - name: Python gates
         run: |
-          python3 -m py_compile scripts/package-proto2-p44.py tests/test_proto2_p44.py
+          python3 -m py_compile scripts/package-proto2-p44.py scripts/proto2-slot-a-success.py tests/test_proto2_p44.py
           python3 -m unittest discover -s tests -p test_proto2_p44.py -v
 
   native-arm64-rootfs:
