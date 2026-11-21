@@ -236,7 +236,7 @@ Linux \`6.18.63-debian-t6-proto2\` と initramfs へ到達し、
 ### 今回のソース修正（実機未適用）
 
 - \`build-proto2-p44-rootfs.sh\`：ネイティブARM64 rootfsを最終tar化する前に
-  \`chroot "$out" /sbin/init --version\` を実行し、統合/usr symlink・動的ローダ等が壊れたビルドを拒否する。
+  \`chroot "$out" /usr/lib/systemd/systemd --version\` を実行し、統合/usr symlink・動的ローダ等が壊れたビルドを拒否する。
 - \`package-proto2-p44.py\`：実際のrootfs tar内で\`/sbin/init\`までの中間symlink、
   AArch64 ELF64、ELF \`PT_INTERP\` の存在と実行権限を独立確認し、
   欠損ならZIP製造を拒否する。
