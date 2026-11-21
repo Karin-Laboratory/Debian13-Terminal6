@@ -115,3 +115,12 @@ BLOCKED: ... returned non-zero exit status 127
 公式Debian trixie arm64の `libxenmisc4.20` に `/usr/lib/aarch64-linux-gnu/libxenctrl.so.4.20` が含まれる（[Debianファイル一覧](https://packages.debian.org/trixie/arm64/libxenmisc4.20/filelist)）。2026-11-21の公式パッケージは `4.20.4+63-g7abfd2bce2-0+deb13u1`（[ダウンロード](https://packages.debian.org/trixie/arm64/libxenmisc4.20/download)）。SHA256 `0210f704762f70408420191458ee6814f284ca911b1df451bd1dbfffcae10390`。SSH/raspi4経由でパッケージを転送、**別ディレクトリへ展開してLD_LIBRARY_PATHでローカル検証**。このパッケージにはXen関連の依存ライブラリがさらに複数あるため、必ず `ldd` で次の不足を確認してから`load`を再試行する。Xen hypervisor自体をインストールする必要はない。
 
 検証作業によって `P25`、`P26`、`GPT`、`misc` を書き換えない。後段実行`kexec -e`を行わない。
+
+## 追記：Xen動的リンクの追加6ライブラリ（実機ログ）
+
+所有者が`libxenmisc4.20_4.20.4+63-g7abfd2bce2-0+deb13u1_arm64.deb`をDebian公式ミラーから取得、SHA256 `0210f704762f70408420191458ee6814f284ca911b1df451bd1dbfffcae10390`照合PASS、C号機へSSH転送。`dpkg-deb -x`で別領域へ展開して`LD_LIBRARY_PATH`を指定した。
+
+その結果、`libxenctrl.so.4.20`本体は解決したが、`ldd`で次の**6個**が未解決：
+`libxentoollog.so.1`, `libxencall.so.1`, `libxenevtchn.so.1`, `libxengnttab.so.1`, `libxenforeignmemory.so.1`, `libxendevicemodel.so.1`。
+
+`kexec --version`は`libxentoollog.so.1`ロードエラーで失敗。**G1は依然BLOCKED（ランタイム依存不足）、`kexec_load` syscalls未実施。** 次回はDebian security repoの同バージョンで `libxentoollog1`, `libxencall1`, `libxenevtchn1`, `libxengnttab1`, `libxenforeignmemory1`, `libxendevicemodel1` と間接依存 `libxentoolcore1`, `libxenhypfs1`, `libxenstore4` を同時に取得して隔離領域へ展開。再度 `ldd` と `--version` を検証し、未解決ならそこでSTOP。その他の装置書込み・`kexec -e`なし。
