@@ -89,3 +89,21 @@ Before initial install, use charter v1.4 Method B and independently prove P44 is
 - New P44 Wi-Fi PHY, OTP 46 bytes, EEPROM 8/8 ACK and 2.4/5/6 GHz RF: **NOT_TESTED** on device.
 - Unit-independent stock filename/board layouts, signed P25 and OEM redistributability: **BLOCKED / NOT_TESTED**.
 - P25 writes, P44 writes, slot control, reboot and RF in this workflow: **NOT PERFORMED**.
+
+
+## Hardware acceptance addendum — C-unit, 2026-11-21
+
+This hardware run was separately authorized by the owner; it does not broaden the source-change authorization above.
+
+- Exact signed P25 SHA `74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e` was written only to PARTNAME `boot_a`. Full readback matched. Exact P44 ZIP SHA `9aded7613ffc262060501d633dd2d27600a544b5fd7d35a6bdbeb25ff9b28f09` was installed by Method B after the existing full P44 backup was independently reverified.
+- **Debian/P44 boot PASS:** UART observed LK → ATF → Linux/initramfs → P44 `switch_root` → Debian 13. Runtime kernel was `6.18.63-debian-t6-proto2 #2`; root was ext4 RW on `rootfs_data`.
+- **eMMC PASS:** HS400, actual clock 94,999,965 Hz, 8-bit, 1.8 V, `cmdq_en=0`; no matching MMC, I/O, or ext4 error in the postboot scan.
+- **LAN/SSH PASS:** isolated LAN2 carrier and IP were present; raspi4 ping succeeded 3/3. UART host-key fingerprint was verified out of band. A separate port-2223 public-key session succeeded before firstboot finalization; strict port-22 public-key login then succeeded, unauthenticated access was denied, root password was locked, and firstboot service was inactive.
+- **Wi-Fi PHY FAIL at prerequisite:** `terminal6-proto2-wifi.service` stopped at `ROOTFS_A_RO_MOUNT` because P26 (`rootfs_a`) was ext4 `terminal6-config`, not the expected SquashFS. A read-only `ro,noload` inspection found only `lost+found`. No PHY registered; regulatory.db request failed with `-2`. P26 was not changed and no RF transmission occurred.
+- **Storage smoke test PASS:** one 16 MiB P44 direct-I/O write/fsync/readback had identical source/readback SHA and was removed after sync; no matching storage errors followed.
+- **KVM partial:** `/dev/kvm` and VHE initialization were present; QEMU was absent, so guest regression was NOT_TESTED.
+- **Persistence after another reboot NOT_TESTED:** only the separately authorized single A-trial reboot was performed. The A trial was not made permanent. Preboot readback showed B `success=1`; no postboot boot-control writer was used.
+- Full UART, partition images, host-key data and device-specific hashes remain in the private evidence area and are intentionally omitted here.
+
+The Debian clock reported an incorrect April date; JST timing used the raspi4 clock. Current status at end of test: slot A Debian/P44 running with authenticated SSH on the isolated management link. P25, boot_b, P26, P43, GPT and stock B were not modified except for the authorized boot_a/P44 operations and finite boot-control selection described above.
+
