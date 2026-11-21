@@ -11,7 +11,7 @@ for tool in sudo chroot gzip cpio mkfs.ext4 mksquashfs python3; do
   command -v "$tool" >/dev/null || { echo "MISSING_TEST_HELPER:$tool"; exit 42; }
 done
 tmp="$(mktemp -d)"
-trap 'rm -rf -- "$tmp"' EXIT
+trap 'sudo -n rm -rf -- "$tmp"' EXIT
 mkdir -p "$tmp"/{fixtures,config,userdata,proc}
 (cd "$tmp" && gzip -dc "$1" | cpio --quiet -idm)
 test -x "$tmp/sbin/blkid" && test ! -L "$tmp/sbin/blkid"
