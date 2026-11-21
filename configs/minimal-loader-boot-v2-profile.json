@@ -1,5 +1,5 @@
 {
-  "cmdline": "console=ttyS0,115200n1 earlycon=uart8250,mmio32,0x11002000 loglevel=7 rdinit=/init rootwait mtk_printk_ctrl.disable_uart=0 t6_loader=1",
+  "cmdline": "console=ttyS0,115200n8 earlycon=uart8250,mmio32,0x11002000 loglevel=7 rdinit=/init rootwait mtk_printk_ctrl.disable_uart=0 t6_loader=1",
   "dtb_addr": 32505856,
   "header_size": 1660,
   "header_version": 2,
