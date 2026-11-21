@@ -387,3 +387,35 @@ G1第3回の実機試験で`initcall_blacklist=ccci_util_init module_blacklist=m
 **G1進捗**：CCCI initcallをスキップした結果、直前の起動0.26秒のtranslation faultを回避し、**第2段Linuxがinitramfs実行とP44へのswitch_root開始まで到達**。ただし`switch_root`完了/P44 userspace起動完了を実証したわけではない。**1.39秒で別のsynchronous external abort**を起こしてリセット。後段3857以降のDebianログはリセット後のslot A経由通常ブートと解釈可能なので混同しない。
 
 **次の必須情報**：第3回パニックのUARTセグメント`nl -ba ~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log | sed -n '1930,2005p'`を取得し、該当のPC/LR/Call trace/ESRを特定するまでは、次のinitcall skipを推測で追加しない。再試験なし・書込みなしの解析フェーズ。
+
+## 追記：第3回のpanicをPCIe AER ISR由来と特定（2026-11-21）
+
+所有者がraspi4 UART全ログ`~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log`の1930～2005行を独立確認した。G1第3回`G1-CCCI-SKIP-KEXEC-START`（行1937）に続き、第2段Linuxで`mtk-pcie-gen3 11290000.pcie: PCIe link down, ... detect.quiet (0x1)`（行1944）／controller probe -110（行1945）、内蔵initramfsとP44切替のログ（行1946～1949）を確認。
+
+直接の例外：
+
+```text
+[    1.118533] Internal error: synchronous external abort: 0000000096000010 [#1] SMP
+[    1.129216] CPU: 2 UID: 0 PID: 730 Comm: irq/200-aerdrv ... 6.18.63-debian-t6-proto2
+[    1.156751] pc : pci_generic_config_read32+0x30/0x9c
+[    1.161737] lr : pci_generic_config_read32+0x2c/0x9c
+[    1.244080] pci_generic_config_read32+0x30/0x9c (P)
+[    1.249065] mtk_pcie_config_read+0x4c/0x58
+[    1.253268] pci_bus_read_config_word+0x78/0xcc
+[    1.257815] pcie_capability_read_word+0x90/0xa8
+[    1.262448] find_device_iter+0x64/0x1a0
+[    1.266385] __pci_walk_bus+0x54/0x84
+[    1.270064] pci_walk_bus+0x3c/0x54
+[    1.273570] aer_isr_one_error_type+0x48/0x340
+[    1.278027] aer_isr_one_error+0x94/0x12c
+[    1.282049] aer_isr+0x64/0x94
+[    1.285117] irq_thread_fn+0x28/0x88
+[    1.392774] Kernel panic - not syncing: synchronous external abort: Fatal exception
+[    2.707143] Rebooting in 1 seconds..
+```
+
+**診断**：PCIe AER（Advanced Error Reporting）割込みスレッド`irq/200-aerdrv`でconfig spaceを読みに行き、`pci_generic_config_read32`が外部abortを起こす。直前のPCIe link downと関連している可能性は強いが、AER割込みの発生源／リンクダウンの直接原因までは未特定。P44の`switch_root`ログが出た直後なので、その完了前後かも未判定。**前回のCCCI 0.26秒panicは越えた**。
+
+証拠UARTログの今回保存時点の所有者実測SHA256は`ee7b026f48f79e03692ac66aaef98ad73e2cc97662585907f1f0467249ca7018`。このファイルは追記し続けるログのため、後から別の値になる可能性があり、SHAはスナップショット時点として記録。
+
+Linux 6.18公式docs（https://www.kernel.org/doc/html/v6.18/admin-guide/kernel-parameters.html）で、`pci=noaer`はAER無効化、`pcie_ports=compat`はより広いPCIe native port servicesの無効化と確認。次回は**切り分けを優先しAERのみ**を暫定的に無効化：現行`pci=pcie_bus_safe`を`pci=pcie_bus_safe,noaer`へ置換し、`initcall_blacklist=ccci_util_init module_blacklist=mt7996e modprobe.blacklist=mt7996e`を第2段の一時cmdlineに付与。C号機で`CONFIG_PCIEAER=y`などkernel configを事前確認し、RAM-only stage/load後にUART・P44保全の実行ゲートを設ける。**PCIeリンク自体を修復するものではなく診断用回避策**。第4回の実際のkexecは未実施。P25/P26/P44/slot制御へ永続変更なし。
