@@ -45,3 +45,20 @@
 - この変更はコード・ホストCI・私有成果物の整理のみ。**署名・boot_a書込み・slot切替・再起動・P26/P43/P44変更・公開配布は行わない**。
 - 仮に製造CIがPASSしても、LKのMRDUMP FDT処理、Linux初期表示、内蔵ローダー`/init`、MMC・管理LAN/SSH、後段kexecは**実機 NOT_TESTED**。
 - ①共通ローダーと②Debian13単独版は別SHA・別受入ゲート。現在のC号機の排他使用権を妨げない。
+
+
+## 新方式による未署名P25の実製造・独立読戻し（2026-11-21 最終）
+
+**[非公開CI #44909418320](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44909418320) 全工程SUCCESS**。コンテナDebian trixie、AArch64 GCC 14系によるARM64 Image新規コンパイルと、独立P25検証・非公開保存・再ダウンロードが完了した。
+
+- **新unsigned P25 32MiB SHA256：`cc13517ca9c00b350eeb1c10fb15e4d1e1139993bb34332e441120ca9ed6a0a5`**。
+- 新ARM64 Image 20,428,808B SHA256：`f1cc341b3982e42df9c825e7da949f6fff99380268af9188389fb76b3e736d79`。※歴史的成功Image 18,921,480Bとは**バイト非同一**。
+- **歴史的成功Imageの実物IKCONFIGから再構成したconfigと新configの差分は1キー**。意図した `CONFIG_INITRAMFS_SOURCE` の差分であり、MMC・GICv3・PSCI・VA39・UART・KEXECなど起動重要設定が一致することをCIで確認。
+- 既存loader gzip/newc SHA256 `a6f4f04170386bb9448acebeb9bafe655f0fd40b8ddb3bfe68ca1251d570b0ba` の**全バイトが新Imageの内部に存在**することを確認。
+- Android boot v2は**外部ramdisk size=0**、ramdisk_addr=`0x01000000`（未使用、起動成功版と同じ）。元の起動成功FDTセクションSHA `49fc129e2dd7ccc2d2ed4c0c4cac461e33566e2dda164f4ec06d5577baa4286a`、cmdline・kernel/dtb load addressを維持。
+- Android boot ID SHA1再計算・署名用ゼロ末尾・32MiBサイズ・カーネル埋込みCPIOの検証PASS。二度のP25組立がバイト一致。生産コードとは独立した検査器でも全量検証PASS。
+- **非公開Draft Release ID `453727986`**、tag `cunit-v10-builtin-loader-unsigned-44909418320`。新P25 asset ID `775744949`、BUILD-RECEIPT asset ID `775745052`、Image asset `775745085`、KCONFIG-COMPARE asset `775745227`、kernel.config asset `775745168`、kernel.release asset `775745254`、SHA256SUMS asset `775745280`。全7件はprivate Releaseから**再取得し、サイズ・SHA・バイト比較PASS**。
+- 新製造・検証ソース：[非公開Draft PR #189](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/pull/189)。
+- **署名：NOT_EXECUTED。C号機G1–G5：NOT_TESTED。** 旧失敗版への再署名・再起動や実機への書込みは一切行っていない。
+
+**解釈上の注意**：入力FDTの重複は観測されなかったが、LK `mrdump_debug_kinfo_fdt_setup` の正確な重複挿入原因は依然未特定。外部ramdiskをゼロに戻す今回の改善は**合理的な回避仮説**であり、実機でLKのASSERTが解消する保証ではない。新しいImage自体もソースsnapshotを再コンパイルしたため、元の起動成功版と同等のハードウェア動作は未証明。個別の正確なunsigned SHAに対する所有者の署名承認を受けるまで、実機試験は行わない。
