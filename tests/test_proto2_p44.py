@@ -5,6 +5,7 @@ import importlib.util
 import io
 import pathlib
 import hashlib
+import struct
 import tarfile
 import tempfile
 import unittest
@@ -126,6 +127,74 @@ class Proto2SourceTests(unittest.TestCase):
             self.assertIn(token, first)
         self.assertNotIn('install -m 0600 "$auth"', rootfs)
         self.assertNotIn("terminal6-public-management", rootfs)
+
+    @staticmethod
+    def _synthetic_arm64_init():
+        binary = bytearray(192)
+        binary[:6] = b"\x7fELF\x02\x01"
+        struct.pack_into("<H", binary, 18, 183)
+        struct.pack_into("<Q", binary, 32, 64)
+        struct.pack_into("<H", binary, 54, 56)
+        struct.pack_into("<H", binary, 56, 1)
+        interpreter = b"/lib/ld-linux-aarch64.so.1\x00"
+        struct.pack_into("<I", binary, 64, 3)
+        struct.pack_into("<Q", binary, 72, 128)
+        struct.pack_into("<Q", binary, 96, len(interpreter))
+        binary[128:128 + len(interpreter)] = interpreter
+        return bytes(binary)
+
+    @staticmethod
+    def _write_init_tar(path, include_loader=True, include_init=True):
+        directory = ["usr", "usr/sbin", "usr/lib", "usr/lib/systemd"]
+        links = {"sbin": "usr/sbin", "lib": "usr/lib"}
+        if include_init:
+            links["usr/sbin/init"] = "../lib/systemd/systemd"
+        with tarfile.open(path, "w:gz") as archive:
+            for name in directory:
+                entry = tarfile.TarInfo("./" + name)
+                entry.type = tarfile.DIRTYPE
+                entry.mode = 0o755
+                archive.addfile(entry)
+            for name, target in links.items():
+                entry = tarfile.TarInfo("./" + name)
+                entry.type = tarfile.SYMTYPE
+                entry.linkname = target
+                archive.addfile(entry)
+            content = Proto2SourceTests._synthetic_arm64_init()
+            entry = tarfile.TarInfo("./usr/lib/systemd/systemd")
+            entry.size = len(content)
+            entry.mode = 0o755
+            archive.addfile(entry, io.BytesIO(content))
+            if include_loader:
+                entry = tarfile.TarInfo("./usr/lib/ld-linux-aarch64.so.1")
+                entry.mode = 0o755
+                entry.size = 4
+                archive.addfile(entry, io.BytesIO(b"ELF!"))
+
+    def test_p44_init_archive_merged_usr_and_interpreter(self):
+        module = packager()
+        with tempfile.TemporaryDirectory() as temp:
+            rootfs = pathlib.Path(temp) / "rootfs.tar.gz"
+            self._write_init_tar(rootfs)
+            state = module.verify_bootable_proto2_rootfs(rootfs)
+            self.assertEqual(state["init_path"], "usr/lib/systemd/systemd")
+            self.assertEqual(state["interpreter_path"], "usr/lib/ld-linux-aarch64.so.1")
+
+    def test_p44_init_archive_rejects_missing_interpreter_and_init(self):
+        module = packager()
+        with tempfile.TemporaryDirectory() as temp:
+            rootfs = pathlib.Path(temp) / "rootfs.tar.gz"
+            self._write_init_tar(rootfs, include_loader=False)
+            with self.assertRaisesRegex(ValueError, "P44_INIT_INTERPRETER_MISSING"):
+                module.verify_bootable_proto2_rootfs(rootfs)
+            self._write_init_tar(rootfs, include_init=False)
+            with self.assertRaisesRegex(ValueError, "P44_INIT_MISSING"):
+                module.verify_bootable_proto2_rootfs(rootfs)
+
+    def test_native_builder_checks_real_init_chroot_execution(self):
+        rootfs = read("scripts/build-proto2-p44-rootfs.sh")
+        self.assertIn('chroot "$out" /sbin/init --version', rootfs)
+        self.assertIn("P44_INIT_NATIVE_ARM64_CHROOT_EXEC_PASS", rootfs)
 
     def test_wrong_p25_rejected_without_zip(self):
         module = packager()
