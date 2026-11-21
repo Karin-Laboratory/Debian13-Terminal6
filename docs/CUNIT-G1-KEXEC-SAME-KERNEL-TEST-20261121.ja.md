@@ -164,3 +164,13 @@ LOAD_EXIT_CODE=0
 `kexec --kexec-syscall --load` は終了コード0で完了したため**G1 RAMロード試験PASS（ツール終了コード）**。ソース上の`/proc/kcore` / `_text`情報解析警告は非致命扱いで残っており、次に`/sys/kernel/kexec/loaded`（互換パス`/sys/kernel/kexec_loaded`）が`1`であることを独立確認する。該当表示の独立確認ができるまでは、異常なくロードされたことの別証拠にはしない。
 
 第2段カーネルへの制御移行（`kexec -e`）・Linux起動・P44のマウント・SSH復帰はいずれも**NOT_TESTED**。再起動せず装置への永続書込みも無し。独立復旧導線（raspi4 UART、純正slot B）を確認してから、所有者操作で有限回の`kexec -e`試験に進む。
+
+## 追記：カーネル自身のkexecロード確認PASS（2026-11-21）
+
+所有者がC号機で`/sys/kernel/kexec_loaded`を読み取ったところ、**`1`** を実測。
+
+```text
+/sys/kernel/kexec_loaded = 1
+```
+
+先行する`kexec --load`終了コード0に加え、**実カーネル側のload状態表示もPASS**。第2段へのジャンプ、Linux起動、eMMC再認識、P44 rootfs、SSH復帰は**いずれも未検証**。ロードされた第2段イメージはRAM上にあり、実機は現時点で稼働中。次段の`kexec -e`はユーザーがraspi4のUART監視、事前のP44書込み同期、バックアップ・手動復旧手順を準備した後で行うこと。ブート制御フラグ・P26・P25には触れない。
