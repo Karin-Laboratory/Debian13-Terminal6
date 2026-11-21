@@ -172,7 +172,7 @@ if [[ ! -x "$out/usr/lib/systemd/systemd" || ! -L "$out/sbin" || ! -L "$out/usr/
   echo "P44_INIT_MERGED_USR_SYMLINK_OR_EXEC_MISSING" >&2
   exit 1
 fi
-if ! chroot "$out" /sbin/init --version > "$dest/p44-init-version.txt" 2>&1; then
+if ! chroot "$out" /usr/lib/systemd/systemd --version > "$dest/p44-init-version.txt" 2>&1; then
   echo "P44_INIT_CHROOT_EXEC_FAILED (native disposable runner)" >&2
   sed -n "1,12p" "$dest/p44-init-version.txt" >&2
   exit 1
