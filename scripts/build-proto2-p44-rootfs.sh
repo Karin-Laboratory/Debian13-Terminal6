@@ -17,7 +17,7 @@ out="$dest/rootfs"
 # No private firmware, templates, host keys, passwords, device serials or
 # calibration. This archive is a portable ROOTFS, not a signed/bootable P25.
 debootstrap --arch=arm64 --variant=minbase \
-  --include=systemd-sysv,systemd-resolved,iw,openssh-server,openssh-client,dropbear-bin,iproute2,udev,kmod,ca-certificates,iputils-ping,dbus,util-linux,python3-minimal \
+  --include=systemd-sysv,systemd-resolved,iw,openssh-server,openssh-client,dropbear-bin,iproute2,udev,kmod,ca-certificates,iputils-ping,dbus,util-linux,python3-minimal,wireless-regdb \
   trixie "$out" https://deb.debian.org/debian
 printf '%s\n' terminal6-debian > "$out/etc/hostname"
 cat > "$out/etc/fstab" <<'FSTAB'
