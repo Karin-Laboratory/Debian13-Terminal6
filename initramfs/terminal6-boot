@@ -1,0 +1,66 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Read-only P43 OS selector for the signed P25's independent initramfs.
+# /config/boot/boot.conf: default=... next=... autoboot=0|1 timeout=seconds
+# /config/boot/entries/OS.conf: kernel=... dtb=... initrd=... cmdline=...
+set -eu
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+die() { echo "TERMINAL6_LOADER_BOOT_BLOCKED:$1" >&2; exit 2; }
+[ -f /config/boot/boot.conf ] || die CONFIG_MISSING
+mountpoint -q /userdata || die P43_NOT_MOUNTED
+read_field() {
+  file="$1"; key="$2"; result=
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in "$key="*) result="${line#*=}";; esac
+  done < "$file"
+  printf '%s' "$result"
+}
+OS="$1"
+if [ "$OS" = auto ]; then
+  [ "$(read_field /config/boot/boot.conf autoboot)" = 1 ] || die AUTO_DISABLED
+  DELAY="$(read_field /config/boot/boot.conf timeout)"
+  case "$DELAY" in ''|*[!0-9]*) DELAY=15;; esac
+  [ "$DELAY" -le 120 ] || DELAY=120
+  sleep "$DELAY"
+  [ ! -e /run/terminal6-hold ] || die OPERATOR_HELD
+  OS="$(read_field /config/boot/boot.conf next)"
+  [ -n "$OS" ] || OS="$(read_field /config/boot/boot.conf default)"
+fi
+case "$OS" in ''|*[!a-zA-Z0-9_-]*) die INVALID_OS_NAME ;; esac
+ENTRY="/config/boot/entries/$OS.conf"
+[ -f "$ENTRY" ] || die OS_ENTRY_MISSING
+# Treat entry paths as strictly relative to P43, not arbitrary device paths.
+resolve() {
+  p="$1"
+  case "$p" in ''|/*|*..*|*//*|*' '*|*'\t'*) return 1;; esac
+  case "$p" in terminal6/*) ;; *) return 1;; esac
+  real="/userdata/$p"
+  [ -f "$real" ] && [ ! -L "$real" ] || return 1
+  printf '%s' "$real"
+}
+KERNEL="$(resolve "$(read_field "$ENTRY" kernel)")" || die KERNEL_NOT_ALLOWED
+DTB="$(resolve "$(read_field "$ENTRY" dtb)")" || die DTB_NOT_ALLOWED
+INITRD="$(read_field "$ENTRY" initrd)"
+APPEND="$(read_field "$ENTRY" cmdline)"
+[ -n "$APPEND" ] || die EMPTY_CMDLINE
+if [ -n "$INITRD" ]; then
+  INITRD="$(resolve "$INITRD")" || die INITRD_NOT_ALLOWED
+  kexec --kexec-syscall --load "$KERNEL" --dtb="$DTB" --initrd="$INITRD" --append="$APPEND" || die KEXEC_LOAD_FAIL
+else
+  kexec --kexec-syscall --load "$KERNEL" --dtb="$DTB" --append="$APPEND" || die KEXEC_LOAD_FAIL
+fi
+[ "$(cat /sys/kernel/kexec_loaded)" = 1 ] || die KEXEC_NOT_LOADED
+# Consume one-shot next after successful load but before irreversible execute.
+if [ "$OS" = "$(read_field /config/boot/boot.conf next)" ]; then
+  sed -i 's/^next=.*/next=/' /config/boot/boot.conf || die NEXT_CLEAR_FAILED
+fi
+sync
+# The current root is initramfs, so P43 and P26 can be quiesced for handoff.
+umount /userdata || die P43_BUSY
+if mountpoint -q /config; then
+  mount -o remount,ro /config || die P26_REQUIRES_RO
+fi
+echo "TERMINAL6_LOADER_KEXEC_START_OS:$OS"
+kexec -e
+die KEXEC_EXEC_RETURNED

@@ -1,0 +1,95 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Terminal 6 v1.0 RAM-only rescue P25. Never formats, flashes or alters bootctl.
+set -eu
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+mkdir -p /proc /sys /dev /dev/pts /run /config /userdata /etc/dropbear /root/.ssh
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mount -t devpts devpts /dev/pts || :
+exec </dev/console >/dev/console 2>&1
+echo TERMINAL6_LOADER_INIT_STARTED
+# PARTNAME discovery survives mmc0/mmc1 changes. Do not mount stock B.
+find_part() {
+  wanted="$1"
+  for f in /sys/class/block/*/uevent; do
+    [ -f "$f" ] || continue
+    if grep -qx "PARTNAME=$wanted" "$f"; then
+      dev="${f%/uevent}"; dev="/dev/${dev##*/}"
+      [ -b "$dev" ] && { echo "$dev"; return 0; }
+    fi
+  done
+  return 1
+}
+P26=
+i=0
+while [ "$i" -lt 20 ]; do
+  P26="$(find_part rootfs_a || :)"
+  [ -z "$P26" ] || break
+  i=$((i+1)); sleep 1
+done
+# Re-use a preexisting P26 only when it is ext4. Never auto-format or repair.
+if [ -n "$P26" ] && [ "$(blkid -s TYPE -o value "$P26" 2>/dev/null || :)" = ext4 ]; then
+  if mount -t ext4 -o rw,noatime "$P26" /config; then
+    echo TERMINAL6_LOADER_P26_EXT4_MOUNTED
+  fi
+fi
+if ! mountpoint -q /config; then
+  echo TERMINAL6_LOADER_P26_UNAVAILABLE_RAM_RESCUE
+fi
+if mountpoint -q /config; then
+  mkdir -p /config/dropbear /config/root-ssh
+  if [ ! -e /config/shadow ]; then printf 'root::0:0:99999:7:::\n' > /config/shadow; fi
+  rm -f /etc/shadow
+  ln -s /config/shadow /etc/shadow
+  # Only P26-backed authenticated identity survives power cycle.
+  mount --bind /config/root-ssh /root/.ssh
+  SSHKEY=/config/dropbear/dropbear_ed25519_host_key
+else
+  printf 'root::0:0:99999:7:::\n' > /etc/shadow
+  SSHKEY=/etc/dropbear/dropbear_ed25519_host_key
+fi
+[ -s "$SSHKEY" ] || dropbearkey -t ed25519 -f "$SSHKEY" >/dev/null 2>&1
+chmod 600 "$SSHKEY"
+# Bind strictly to the configured isolated LAN2 IPv4. Never wildcard bind.
+CIDR=192.168.1.1/24
+if mountpoint -q /config && [ -s /config/management-ip ]; then
+  candidate="$(cat /config/management-ip)"
+  case "$candidate" in
+    *[!0-9./]*|'') echo TERMINAL6_LOADER_INVALID_CIDR_KEEP_DEFAULT ;;
+    *) CIDR="$candidate" ;;
+  esac
+fi
+IP="${CIDR%/*}"
+i=0
+while [ "$i" -lt 20 ] && [ ! -d /sys/class/net/lan2 ]; do
+  i=$((i+1)); sleep 1
+done
+if [ -d /sys/class/net/lan2 ]; then
+  ip link set lan2 up || :
+  ip addr add "$CIDR" dev lan2 || :
+  if ip -4 addr show dev lan2 | grep -q "$IP"; then
+    # -B permits blank-password SSH for firstboot or P26 loss; PHY isolation
+    # is an explicit owner requirement, not something this init can prove.
+    dropbear -E -B -r "$SSHKEY" -p "$IP:22" || echo TERMINAL6_LOADER_SSH_FAILED
+    echo TERMINAL6_LOADER_ISOLATED_SSH_STARTED
+  fi
+else
+  echo TERMINAL6_LOADER_LAN2_UNAVAILABLE_UART_ONLY
+fi
+# P43 is read-only to protect stock data; never require it for SSH rescue.
+P43="$(find_part user_data || :)"
+if [ -n "$P43" ] && [ "$(blkid -s TYPE -o value "$P43" 2>/dev/null || :)" = ext4 ]; then
+  mount -t ext4 -o ro,noload "$P43" /userdata || :
+fi
+# Auto-boot is optional, never attempted on virgin or corrupt P26.
+if mountpoint -q /config && [ -f /config/boot/boot.conf ]; then
+  /sbin/terminal6-boot auto &
+fi
+echo TERMINAL6_LOADER_READY
+while :; do
+  sh </dev/console >/dev/console 2>&1 || :
+  sleep 1
+done
