@@ -13,9 +13,9 @@
 
 ## ビルド設計
 1. 公開SHAピン留めLinux v6.18.63＋MT6990 OSS networking stagingを使い、`terminal6-lean`から最小 profileを派生。PCI/USB/無線を無効化し`CONFIG_KEXEC=y`を加えた`-t6-minimal-loader-v10` ABI。
-2. ネイティブARM64上で`scripts/build-loader-initramfs.sh`により BusyBox、Dropbear、dropbearkey、kexec-toolsとELF依存をRAMルートへ静的収集。起動後に固定鍵はなく、P26がなければRAM host keyを生成。
+2. ネイティブARM64上で`scripts/build-loader-initramfs.sh`により BusyBox、Dropbear、dropbearkey、kexec-tools、および**BusyBoxに無いutil-linux blkid/mountpoint本体と依存ELF**をinitramfsへ同梱。`tests/smoke-loader-initramfs.sh`がARM64の隔離chrootで実行検査し、ext4/SquashFS/破損/未存在を識別する。起動後に固定鍵はなく、P26がなければRAM host keyを生成。
 3. `scripts/build-linux-6.18.sh`に`KERNEL_PROFILE=terminal6-lean`、独立initramfsを渡す。
-4. 公式publicドナー由来のAndroid boot v2 packerと標準AOSP DT tableで、32MiBのunsigned P25を組立て。端末固有素材/秘密鍵は使用しない。
+4. 公式publicドナー由来のAndroid boot v2 packerと標準AOSP DT tableで、32MiBのunsigned P25を組立て。**DTBは非公開ARM64製造CIでC号機起動実績済みP25をSHA固定で検証して抽出した実績版FDTを採用**。公開の実験用FDTは差分監査用に限定し、非公開FDT/端末情報を公開Gitへコミットしない。C号機での新最小カーネルとの互換性は別ゲート。
 5. 別経路verifyで全32MiB SHA、gzip kernel、DT table、Embedded initramfs role、0 padding、署名用後尾余白を独立検査。
 6. **非公開** build runnerでcandidate imageとSHA receiptをDraft Releaseへ保存し、再取得・全長SHA照合する。CIの完走とSHAが得られるまで、署名直前完成とは記録しない。
 
@@ -30,7 +30,7 @@ timeout=15
 kernel=terminal6/debian/Image
 dtb=terminal6/debian/board.dtb
 initrd=terminal6/debian/initrd.img
-cmdline=console=ttyS0,115200n1 root=... 
+cmdline=console=ttyS0,115200n8 root=... 
 ```
 OSはP43の専用ディレクトリに展開する。次回だけ起動先`next`はkexec_load成功後、`kexec -e`前に消費。P25上のUARTまたはSSHで`touch /run/terminal6-hold`すれば待機後のautobootを停止。失敗時に自動rollbackは行わない。
 
@@ -42,3 +42,13 @@ OSはP43の専用ディレクトリに展開する。次回だけ起動先`next`
 - **未達 5：** kexec移行時のP26/P43アンマウント・デバイスquiesceの実機安全性。モデム/PCIeの現象をブラックリストの恒久仕様にはしない。
 
 **備考**：これは仕様確定v1.0に基づいた試作であり、製造CI PASSだけで署名・実機導入承認を求めない。
+
+## 2026-11-21 再製造修正と署名前監査方針
+
+旧版 `fc4da7fa1a283d70badf8ec9cca866b2a81fd1c04c68774aa455f33f1fc82fe5` はBusyBoxの`blkid/mountpoint`アプレット欠落で **DO_NOT_SIGN**。この旧実物を上書きせず、次回CIでは別SHAの新candidateを製造する。
+
+- 実物helperの動作確認は`tests/smoke-loader-initramfs.sh`で**デバイスに触れず**オフラインfixtureを使用。
+- `console=ttyS0,115200n8`を実機成功版に合わせる。
+- 非公開CIで比較するDTB: 実績 `a6bef90e18c0a16934e6c4196fea60408a1fed08b6ef9b62c7fbe5d7c5632d91`、旧実験 `94a789069858be6c35df60ae940c4a476ab3cba5b7fdd2049093b5a3af34f551`。差分はUART/MMC/95MHz clock/MT7531/SGMII1/DRAM reserved memory/PSCI等の**機能条件**を中心に検証。実績版の再利用は同一新カーネルの起動保証ではない。
+- G3のslot A `retry=0,success=1`正規API実装とreadback、実機起動・SSH・第2段OS起動はなお未達。PASSを偽装しない。
+- 新候補を署名する前に、現行C号機のP44 ext4オフラインスナップショット・純正B復旧導線も再検証する。
