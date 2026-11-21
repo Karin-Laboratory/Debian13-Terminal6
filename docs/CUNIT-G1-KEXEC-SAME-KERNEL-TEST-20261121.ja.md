@@ -79,3 +79,23 @@ python3 -m py_compile scripts/cunit-kexec-g1.py
 ```
 
 > このブランチは検証用の実装PRであり、2026-11-21確定の共通P25/P26/P43仕様をmainへ反映済みと称しない。既存Debian憲章v1.4との衝突は別の設計変更PRとして扱う。
+
+## 追記：所有者によるC号機RAM stage実機試験（2026-11-21）
+
+**結果：`inspect=PASS`、`stage=PASS`。これらは所有者がC号機のシェルから貼り付けた実測ログに基づく。GitHubのホスト上で実機試験したことにはしない。**
+
+- 転送済みスクリプト `/root/cunit-kexec-g1.py` SHA256：`e26361d92368b6fb0e963962d41d5bc79fb601f18903b22e46b66c39dc634573`
+- `inspect`: `HOST_PASS kernel=6.18.63-debian-t6-proto2 FDT_bytes=177338`
+- 実機P25 `/dev/mmcblk1p25` SHA256：`74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e`。PR #41の起動実績版と**一致**。
+- P25内のgzip ARM64 Image展開：**18,921,480 bytes**、SHA256 `141b6750698cb362169cc150974b3464577d6ab5fa98aa941449fc3990c8ad00`。
+- 実機FDT：**177,338 bytes**、SHA256 `814a6cdba3d8c9aa8a2ce787a48aece35cddb94475deb4a466d36f90fddaa14a`。
+- `stage`結果：`STAGE_PASS: RAM only; no kexec syscall, no reboot`、結果保存場所 `/run/terminal6-kexec-g1/`。
+- 現在のC号機には`git`がなく、隔離LANで外向きネットワークアクセスなし。スクリプトはraspi4で取得し、既存の厳格なSSHホスト鍵検証を使ってC号機へ転送した。
+
+### 次の安全な操作
+
+`kexec-tools`はDebian trixie arm64の公式パッケージを**raspi4で取得し、C号機へscp転送**。C号機では`dpkg-deb -x`で`/root/g1-kexec-bin/`へ**展開のみ**行う（`dpkg -i`や`apt install`によるsystemd/reboot hook変更を避ける）。`ldd`と`kexec --version`を確認後、既存スクリプトの`load`でRAMロード試験。`kexec -e`は別工程。ロード成功の時点でも第2段起動は未確認。
+
+参考：Debian trixie arm64 `kexec-tools` パッケージは `1:2.0.29-2+b1`、`/usr/sbin/kexec` を収録（https://packages.debian.org/trixie/arm64/kexec-tools/filelist）。ダウンロードはDebian公式ミラーから行う。
+
+**ゲート判定（この追記時点）：** G1 P25全量照合 PASS / Image抽出 PASS / RAM `kexec_load` NOT_TESTED / 第2段Linux起動 NOT_TESTED。G2/G3/G4は未実施。
