@@ -19,8 +19,8 @@ class OfflineStageTests(unittest.TestCase):
     def test_arm64_image_magic(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "Image"
-            p.write_bytes(bytes(56) + b"ARMd")
-            self.assertEqual(m.verify_arm64_image(p), 60)
+            p.write_bytes(bytes(56) + b"ARMd" + bytes(4))
+            self.assertEqual(m.verify_arm64_image(p), 64)
             p.write_bytes(bytes(64))
             with self.assertRaises(ValueError):
                 m.verify_arm64_image(p)
