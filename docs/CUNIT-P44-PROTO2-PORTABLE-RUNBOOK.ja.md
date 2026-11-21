@@ -166,3 +166,20 @@ This addendum supersedes the earlier runtime-persistence `NOT_TESTED` note for t
 **未達：** 新ZIPの実機インストール、Wi-Fi PHY、stock B firmware実ファイルの位置、EEPROM 8/8、OTP、RF、misc成功フラグの実機受入はいずれもNOT_TESTED。先代ZIPでのDebian再起動・認証SSH PASSはこの新ZIPの実測ではない。
 
 **境界：** 今回はC号機アクセス、署名、P25/P44/P26/stock B/misc書込み、slot切替、再起動、RFを行っていない。次のC号機受入は①系統と排他調整し、必要な個別承認と現行P44の整合性ある保全後に方式Bで実施する。
+
+
+## 2026-11-21 owner-authorized acceptance with new P44 candidate — LK-stage FAIL
+
+This entry records the later owner-authorized test of the new Wi-Fi P44 candidate. It supersedes the earlier “not tested” state for this specific ZIP only. It does not change the separate successful results for the previous P44.
+
+- Inputs: signed P25 SHA256 `74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e` (33,554,432 bytes) and P44-install.zip SHA256 `57058163645c0acfe7b9f5f760d7a2dc8af78fca33a81604a8d37d23c5815d3b` (187,389,339 bytes), source commit `fcacb9244336807a209b171b34af43cb17678231`. Private Release asset ID 775606937 and the signed P25 asset were checked against their exact hashes and the package manifest before use.
+- C-unit was confirmed on stock B by UART, with `bootslot=b`; the physical console identified the stock 1.00.10 firmware. P44 was identified as PARTNAME `rootfs_data`, 2,684,321,792 bytes, and unmounted before formatting.
+- P44 alone was initialized as ext4 and populated from the package's rootfs and modules tar files using Method B. The installer recorded module verification and clean unmount. A subsequent read-only `e2fsck -fn` completed all five passes with no reported filesystem errors. The rootfs, systemd init, firstboot service and Wi-Fi service files were present.
+- During extraction, GNU tar reported POSIX ACL restoration “Operation not supported” under stock-B Linux 5.4.238. The P44 filesystem is clean, but ACL restoration is **NOT_VERIFIED**; verify/repair this metadata using an ACL-capable Debian environment before claiming complete attribute fidelity. Stock-B timestamps also made archive mtimes appear future-dated.
+- `boot_a` already matched the exact signed P25 SHA, so it was not rewritten. The stock `quec_bootctrl -s` interface previously source-verified on this C-unit set a finite A trial (A priority 0f/retry 03/success 00; B priority 0e/retry 00/success 01). The readback matched before the single trial reboot.
+- UART capture showed Preloader selecting A. The first failure was before Linux: LK's `mrdump_debug_kinfo_fdt_setup` logged `fdt_add_subnode failed offset=0xfffffffe`, then `ASSERT FAILED at platform/mediatek/common/aee/mrdump_setup.c:167` and halted. No Linux, initramfs, P44 mount, or Debian userspace was reached. Watchdog/finite retry handling retried A and then automatically selected B.
+- **G1 Debian boot: FAIL at LK/FDT before Linux. G2 Debian LAN/authenticated SSH: NOT_TESTED. G3 Wi-Fi PHY/OTP/EEPROM: NOT_TESTED. G4 Debian storage/restart persistence: NOT_TESTED.** The slot-A success service/authorization marker was not used; A success was not set.
+- Final device state was stock B: `bootslot=b`, B `success=1`, ping and strict-key SSH recovered. Boot A still had the exact requested signed P25; boot B remained unchanged. P44 contains the new candidate, is ext4-clean, and is unmounted while B runs. P26, P43, GPT, LK, OEM/NV and calibration were not written.
+- UART and install logs, exact device hashes, and detailed state snapshots remain in the private raspi4 evidence directory. No UART raw log, host-key fingerprint, private key, or device-specific identity is included in this public record.
+
+Next work should diagnose the LK FDT/mrdump assertion against the exact boot-proven P25 before any further slot-A reboot. Separately correct or explicitly account for ACL restoration, then obtain fresh authorization before another finite trial if needed.
