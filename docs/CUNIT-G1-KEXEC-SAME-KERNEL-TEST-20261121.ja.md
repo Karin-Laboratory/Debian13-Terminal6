@@ -255,3 +255,25 @@ sudo bash -c '
 C号機Debian`/dev/ttyS0`から`printf '\r\nG1-UART-V2-TEST-123456\r\n' > /dev/ttyS0`を実行後、raspi4が**62 bytes**を記録し、`CUNIT-UART-TEST-20261121`および`G1-UART-V2-TEST-123456`を完全受信した。**UART収録ゲートPASS。**
 
 `kexec`前の残ゲート：現行C号機slot A/カーネル、`/sys/kernel/kexec_loaded=1`を再確認、rootfs P44を`sync`して可能な場合はro再マウント、手動復旧確認。**実際のWi-Fi blacklist第2段`kexec -e`はこの記録時点で未実施。** 元のpstore tarはraspi4にSHA保存済み。UART受信ターミナルは開いたまま保持。
+
+## 追記：UART v2ログにLK通常起動とDebian P44ログインを観測、G1再実行は未確認（2026-11-21）
+
+所有者が貼り付けた長い端末履歴に、UART受信マーカー`G1-UART-V2-TEST-123456`に続き、`~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log`を`tail -n 150`した内容が含まれていた。**LK/ATF通常ブート**、`boot_linux_fdt`と`LK finished --> jump to linux kernel 64Bit`、続くカーネル・initramfs・systemdのログを確認。
+
+```text
+dump_cmdline: ... init=/etc/preinit root=/dev/mmcblk0p26 ... bootslot=a
+DEBIAN13_T6_INITRAMFS_STARTED
+DEBIAN13_T6_ROOT_DEVICE=/dev/mmcblk0p44
+DEBIAN13_T6_SWITCH_ROOT_P44
+[    8.080895] ... DEBIAN13_T6_MANAGEMENT_HARDWARE_READY
+[T6-WIFI-PHY] FAIL=DRIVER_ALREADY_LOADED_WITHOUT_PHY
+[FAILED] Failed to start terminal6-boot-success...
+Debian GNU/Linux 13 terminal6-debian ttyS0
+terminal6-debian login:
+```
+
+**判定注意**：これはDebianがslot AからLK経由で正常起動し、P44へ移行してシリアルのログイン画面へ到達した証拠。LK出力のcmdlineには`module_blacklist=mt7996e`も`modprobe.blacklist=mt7996e`も含まれない。今回のユーザー端末履歴には**`G1-KEXEC-EXEC-START`マーカーも、`mount -o remount,ro /`の結果も、今回の`kexec -e`実行結果も記載されていない**。従って、Wi-Fi-blacklist付きG1第2段起動成功とすることはできず、実行状態は未確認。そもそも`tail -n150`だけではUARTファイル全体の前半は不明である。
+
+**追加観察**：`terminal6-wifi-phy`は`DRIVER_ALREADY_LOADED_WITHOUT_PHY`で失敗、`terminal6-boot-success`失敗も表示。Wi-Fi driverの再試験結果として混同しないこと。この範囲ではkernel panicは見られない。
+
+次にraspi4側でログ全体に`G1-KEXEC-EXEC-START`・`Kernel panic`・`module_blacklist`が含まれるかを検索し、C号機で`/sys/kernel/kexec_loaded`・`/proc/cmdline`・実稼働rootfsを再確認して、`kexec -e`を実行済みかを分離する。**現在の成功範囲：RAMロードPASS、UARTキャプチャPASS、通常Debian slot AログインPASS。第2段kexec実行は未確認。**
