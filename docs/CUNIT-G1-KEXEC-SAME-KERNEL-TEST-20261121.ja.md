@@ -238,3 +238,20 @@ Offending ECDSA key in /home/masataka/.ssh/known_hosts:4
 - **第2段への制御移行`kexec -e`はまだ未実施**。stage2 Linux起動の成否を推定しない。
 
 次の安全ゲート：raspi4のUARTを**実際に記録していることをマーカーで検証**（`/dev/ttyUSB0`を二重に読まない）、バックアップ確認、書込みsync/可能ならrootfs ro、実験者の明示判断後に`kexec -e`。元のpstoreは`~/cunit-g1/pstore-after-g1.tar`として保存・SHA `7f3f439514019998331150f1427f1fe27d464c793371d84175c717af72c03a62`。
+
+## 追記：Wi-Fi blacklist再試験用UART受信・保存PASS（2026-11-21）
+
+raspi4で既存の`sudo cat /dev/ttyUSB0 | tee ...`が0バイトになっていた。プロセスがUARTを開いている間に別コマンドから`stty -F`を実行しても、再確認時に`speed 9600 baud`へ戻った。所有者は旧監視を終了し、次のように**同一オープンFDを保持した状態で115200bpsを設定して記録**する方式へ切り替えた：
+
+```sh
+sudo bash -c '
+  exec 3<>/dev/ttyUSB0
+  stty 115200 cs8 -cstopb -parenb -ixon -ixoff -crtscts raw -echo <&3
+  stty -a <&3 | head -n 1 >&2
+  cat <&3
+' | tee ~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log
+```
+
+C号機Debian`/dev/ttyS0`から`printf '\r\nG1-UART-V2-TEST-123456\r\n' > /dev/ttyS0`を実行後、raspi4が**62 bytes**を記録し、`CUNIT-UART-TEST-20261121`および`G1-UART-V2-TEST-123456`を完全受信した。**UART収録ゲートPASS。**
+
+`kexec`前の残ゲート：現行C号機slot A/カーネル、`/sys/kernel/kexec_loaded=1`を再確認、rootfs P44を`sync`して可能な場合はro再マウント、手動復旧確認。**実際のWi-Fi blacklist第2段`kexec -e`はこの記録時点で未実施。** 元のpstore tarはraspi4にSHA保存済み。UART受信ターミナルは開いたまま保持。
