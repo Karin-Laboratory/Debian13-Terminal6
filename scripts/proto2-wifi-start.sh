@@ -77,33 +77,59 @@ fi
 complete_source() {
   base=$1
   [ -d "$base" ] && [ ! -L "$base" ] || return 1
-  for name in mt7996_wa_mt6990.bin mt7996_wm_mt6990.bin \
-              mt7996_dsp_mt6990.bin mt7996_rom_patch_mt6990.bin; do
-    file=$base/$name
-    [ -f "$file" ] && [ ! -L "$file" ] && [ -s "$file" ] || return 1
-    bytes=$(wc -c < "$file" | tr -d ' ')
-    [ "$bytes" -le 16777216 ] || return 1
+  # Vendor builds use either MT6990-specific or upstream basename files.
+  # Never mix the two naming sets from different directories/releases.
+  for candidate_flavor in mt6990 generic; do
+    complete=1
+    for suffix in wa wm dsp rom_patch; do
+      if [ "$candidate_flavor" = mt6990 ]; then
+        file=$base/mt7996_${suffix}_mt6990.bin
+      else
+        file=$base/mt7996_${suffix}.bin
+      fi
+      if [ ! -f "$file" ] || [ -L "$file" ] || [ ! -s "$file" ]; then
+        complete=0; break
+      fi
+      bytes=$(wc -c < "$file" | tr -d ' ')
+      if [ "$bytes" -gt 16777216 ]; then complete=0; break; fi
+    done
+    if [ "$complete" -eq 1 ]; then
+      flavor=$candidate_flavor
+      return 0
+    fi
   done
+  return 1
 }
-stock_fw=$stock/lib/firmware/mediatek/mt7996
-p26_fw=$p26/lib/firmware/mediatek/mt7996
-private_fw=/var/lib/terminal6/owner-firmware/mt7996
 src=
-if complete_source "$stock_fw"; then
-  src=$stock_fw
-  log FIRMWARE_SOURCE_THIS_UNIT_STOCK_B
-elif [ "$p26_mounted" -eq 1 ] && complete_source "$p26_fw"; then
-  src=$p26_fw
-  log FIRMWARE_SOURCE_THIS_UNIT_STOCK_A
-elif complete_source "$private_fw"; then
+flavor=
+for base in "$stock/lib/firmware/mediatek/mt7996" \
+            "$stock/lib/firmware/mediatek" \
+            "$stock/usr/lib/firmware/mediatek/mt7996"; do
+  if complete_source "$base"; then
+    src=$base
+    log FIRMWARE_SOURCE_THIS_UNIT_STOCK_B
+    break
+  fi
+done
+if [ -z "$src" ] && [ "$p26_mounted" -eq 1 ]; then
+  for base in "$p26/lib/firmware/mediatek/mt7996" "$p26/lib/firmware/mediatek"; do
+    if complete_source "$base"; then
+      src=$base
+      log FIRMWARE_SOURCE_THIS_UNIT_STOCK_A
+      break
+    fi
+  done
+fi
+private_fw=/var/lib/terminal6/owner-firmware/mt7996
+if [ -z "$src" ] && complete_source "$private_fw"; then
   [ "$(stat -c '%u:%a' "$private_fw")" = '0:700' ] || fail PRIVATE_FIRMWARE_PERMISSIONS
   [ -f "$private_fw/SHA256SUMS" ] && [ ! -L "$private_fw/SHA256SUMS" ] || fail PRIVATE_FIRMWARE_MANIFEST
   (cd "$private_fw" && sha256sum -c SHA256SUMS) >/dev/null || fail PRIVATE_FIRMWARE_SHA
   src=$private_fw
   log FIRMWARE_SOURCE_OWNER_PRIVATE
-else
-  fail FIRMWARE_SOURCE_NOT_FOUND_NO_P26_FORMAT_ASSUMPTION
 fi
+[ -n "$src" ] || fail FIRMWARE_SOURCE_NOT_FOUND_NO_P26_FORMAT_ASSUMPTION
+log "FIRMWARE_BASENAME_SET=$flavor"
 
 for pair in \
   mt7996_wa_mt6990.bin:mt7996_wa.bin \
@@ -112,6 +138,9 @@ for pair in \
   mt7996_rom_patch_mt6990.bin:mt7996_rom_patch.bin; do
     old=$(printf %s "$pair" | cut -d: -f1)
     new=$(printf %s "$pair" | cut -d: -f2)
+    if [ "$flavor" = generic ]; then
+      old=$(printf %s "$old" | sed 's/_mt6990\.bin$/.bin/')
+    fi
     cp "$src/$old" "$stage/$new" || fail FIRMWARE_STAGE
     case "$new" in
       mt7996_wa.bin|mt7996_wm.bin|mt7996_rom_patch.bin)
