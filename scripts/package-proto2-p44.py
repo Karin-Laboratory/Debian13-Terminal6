@@ -5,7 +5,9 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import posixpath
 import re
+import struct
 import zipfile
 import tarfile
 
@@ -81,6 +83,91 @@ def verify_modules_tar(path: Path):
         raise ValueError("missing ABI-matched cfg80211/mac80211 for fresh P44")
 
 
+
+def _rootfs_resolve(entries, path):
+    """Resolve symlinks within the rootfs, including intermediate /sbin and /lib."""
+    original = path.lstrip("/")
+    pending = original.split("/")
+    prefix = []
+    for _ in range(64):
+        if not pending:
+            name = "/".join(prefix)
+            member = entries.get(name)
+            return name, member
+        component = pending.pop(0)
+        if component in ("", "."):
+            continue
+        if component == "..":
+            if prefix:
+                prefix.pop()
+            continue
+        name = "/".join(prefix + [component])
+        member = entries.get(name)
+        if member is None:
+            return name, None
+        if member.issym() or member.islnk():
+            link = member.linkname
+            if member.islnk():
+                destination = link
+            elif link.startswith("/"):
+                destination = link
+            else:
+                destination = posixpath.join(posixpath.dirname(name), link)
+            destination = posixpath.normpath("/" + destination.lstrip("/")).lstrip("/")
+            prefix = []
+            pending = destination.split("/") + pending
+        else:
+            prefix.append(component)
+    raise ValueError("P44_INIT_LINK_LOOP " + original)
+
+
+def verify_bootable_proto2_rootfs(path: Path):
+    """Reject a rootfs missing executable ARM64 PID1 or its ELF interpreter.
+
+    This is an archive/build safety gate, NOT proof the actual installed P44
+    contains the same files or that the P25 switch_root handoff succeeds.
+    """
+    with tarfile.open(path, "r:gz") as archive:
+        entries = {
+            member.name.removeprefix("./").rstrip("/"): member
+            for member in archive
+        }
+        resolved, init = _rootfs_resolve(entries, "/sbin/init")
+        if init is None or not init.isfile() or not (init.mode & 0o111):
+            raise ValueError("P44_INIT_MISSING_OR_NOT_EXECUTABLE")
+        stream = archive.extractfile(init)
+        if stream is None:
+            raise ValueError("P44_INIT_CANNOT_READ_ELF")
+        binary = stream.read()
+        if len(binary) < 64 or binary[:6] != b"\x7fELF\x02\x01":
+            raise ValueError("P44_INIT_NOT_ELF64_LITTLE_ENDIAN")
+        if struct.unpack_from("<H", binary, 18)[0] != 183:
+            raise ValueError("P44_INIT_NOT_AARCH64")
+        phoff = struct.unpack_from("<Q", binary, 32)[0]
+        entsize = struct.unpack_from("<H", binary, 54)[0]
+        count = struct.unpack_from("<H", binary, 56)[0]
+        if not 56 <= entsize <= 256 or count > 128 or phoff + entsize * count > len(binary):
+            raise ValueError("P44_INIT_ELF_PROGRAM_HEADER_INVALID")
+        interpreter = None
+        for number in range(count):
+            at = phoff + number * entsize
+            if struct.unpack_from("<I", binary, at)[0] == 3:
+                off = struct.unpack_from("<Q", binary, at + 8)[0]
+                size = struct.unpack_from("<Q", binary, at + 32)[0]
+                if not 1 <= size <= 512 or off + size > len(binary):
+                    raise ValueError("P44_INIT_ELF_INTERPRETER_INVALID")
+                interpreter = binary[off:off + size].rstrip(b"\x00").decode("ascii")
+                break
+        if not interpreter or not interpreter.startswith("/"):
+            raise ValueError("P44_INIT_ELF_INTERPRETER_MISSING")
+        ld_path, loader = _rootfs_resolve(entries, interpreter)
+        if loader is None or not loader.isfile() or not (loader.mode & 0o111):
+            raise ValueError("P44_INIT_INTERPRETER_MISSING_OR_NOT_EXECUTABLE")
+        if not resolved.startswith("usr/"):
+            raise ValueError("P44_INIT_OUTSIDE_EXPECTED_USR_TREE")
+        return {"init_path": resolved, "interpreter_path": ld_path}
+
+
 def verify_owner_neutral_rootfs(path: Path):
     """Check the actual tar archive, not merely builder source code."""
     required = {
@@ -124,6 +211,7 @@ def verify_owner_neutral_rootfs(path: Path):
     missing = required - found
     if missing:
         raise ValueError("missing portable P44 firstboot/wifi entries: " + repr(sorted(missing)))
+    verify_bootable_proto2_rootfs(path)
 
 def package(rootfs: Path, modules: Path, p25: Path, kernel_release: Path, output: Path, source: str):
     for name, path in (("rootfs", rootfs), ("modules", modules), ("p25", p25), ("release", kernel_release)):
