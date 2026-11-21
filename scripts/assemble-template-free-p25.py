@@ -141,8 +141,10 @@ def build(stage: Path, profile_path: Path, image_path: Path, initramfs_path: Pat
     dtb = require_file(dtb_path, 3000000)
     if len(kernel) < 64 or kernel[56:60] != b"ARM\x64":
         raise ValueError("kernel is not an ARM64 Image")
-    if kernel.count(cpio) != 1 or b"rootfs_data" not in gzip.decompress(cpio):
-        raise ValueError("Debian P44 initramfs is not embedded exactly once")
+    marker = (b"TERMINAL6_LOADER_INIT_STARTED" if "t6_loader=1" in profile["cmdline"]
+              else b"rootfs_data")
+    if kernel.count(cpio) != 1 or marker not in gzip.decompress(cpio):
+        raise ValueError("expected role-specific initramfs missing or duplicated")
     if len(dtb) < 40 or dtb[:4] != b"\xd0\x0d\xfe\xed":
         raise ValueError("raw DTB FDT magic missing")
     if struct.unpack_from(">I", dtb, 4)[0] != len(dtb):
