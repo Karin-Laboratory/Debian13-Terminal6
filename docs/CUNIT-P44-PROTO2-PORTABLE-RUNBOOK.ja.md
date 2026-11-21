@@ -1,6 +1,6 @@
 # Terminal 6 Debian 13: proto2 P44 owner-neutral candidate
 
-**Status: SOURCE CANDIDATE ONLY. NOT a manufactured ZIP or validated hardware release.**
+**Status (2026-11-21): PRIVATE P44 CANDIDATE ZIP MANUFACTURED, INDEPENDENT READBACK PASS. HARDWARE NOT TESTED; NO PUBLIC BINARY RIGHTS CLEARED.**
 
 Governing source: design charter v1.4 in docs/architecture/P25-FOUNDATION-POLICY.ja.md. Method B only: manually install using existing Linux commands after a separate, SHA-exact owner authorization. No dedicated installer. No device writes or RF actions are authorized by this source change.
 
@@ -12,7 +12,7 @@ Kernel release: 6.18.63-debian-t6-proto2.
 
 The exact signed P25 is retained in the PRIVATE SBAT6A archive:
 https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/releases/tag/untagged-027373efd2705b1e227c
-Asset DEBIAN13-CUNIT-420FF1B8-SIGNED-UNTESTED-p25.img, ID 770875187, GitHub-reported size 33,554,432 bytes, exact SHA as above. This executor has NOT read/downloaded the actual image bytes. Independently rehash them before any pairing.
+Asset DEBIAN13-CUNIT-420FF1B8-SIGNED-UNTESTED-p25.img, ID 770875187, GitHub-reported size 33,554,432 bytes, exact SHA as above. The private ARM64 manufacture run [#44859746336](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44859746336) downloaded this asset by ID and independently hashed its complete 32MiB bytes: PASS. No flashing or signing occurred.
 
 PR #25's 6.18.63-t6-public-capable is DIFFERENT. Never mix modules from that build with the boot-proven P25. This SHA is not independent evidence of generic signed P25 redistributability or other-unit boot.
 
@@ -22,6 +22,10 @@ https://github.com/Karin-Laboratory/Chappie-Memory/releases/tag/terminal6-wifi-s
 - mt76.ko: 26ffb6bd648a8fa91b424bbcf890710f8695d679d45b372e2e7ba05b68449c2f
 - mt76-connac-lib.ko: 9f2df583cc73c738f7a186f1ef16faffcb6919bdf915f4ec9cf09a3df1fa05a6
 - mt7996e.ko: c87f66f6573d5a4c3d1e829009fc42baf3223f1b0b958c4fc8a549b135e0fecd
+
+The private 3-module Release was downloaded in [Chappie-Memory CI #44858892370](https://github.com/Karin-Laboratory/Chappie-Memory/actions/runs/44858892370), byte-hashed PASS, then transferred privately with a second independent verification in [manufacture CI #44859746336](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44859746336).
+
+The earlier 105-module KVM archive (asset 770074645, SHA256 `442014649e3e384535919fad40e19d2993464f20f1059c77fa4741c017a66abb`) was independently SHA-verified but **does not contain** cfg80211/mac80211. The correct same-release-name 6.18.63-debian-t6-proto2 framework modules were found in historic private Wi-Fi P44 ZIP asset 770849098, SHA256 `3eef462793a97f9f8be14376cd05f96f6acab58049af8495f58360a10a51bdd7`; their vermagic and packaging were independently checked. Source run [#44859147392](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44859147392).
 
 Historical 2026-11-15 hardware result: an earlier installed P44 used per-unit OTP cal-free data (46 bytes on C), uploaded all 8 EEPROM pages and registered a PHY. It does NOT establish that this new candidate boots.
 
@@ -48,31 +52,40 @@ Owner setup:
 
 If P44 is empty or broken, P25 does not provide an unauthenticated rescue service. Use UART or individually authenticated rescue only.
 
-## Non-device manufacture
+## Non-device manufacture and retained candidate receipt
 
-0. On a trusted workstation with gh access to BOTH private repositories and zstd installed, run:
-   bash scripts/fetch-proto2-private-baseline.sh /absolute/new-baseline-private-dir
-   This independently hashes the exact signed P25 and 105-module baseline archive, safely unpacks into a private workspace, and prints the signed image path and the KERNEL_BASE_TREE path. No device action is performed. The archive's actual layout and executable modinfo validation are still required.
+The owner-private Draft Release now contains the exact SHA-reverified candidate ZIP, its relative-path SHA256SUMS and a sanitized machine-readable build receipt:
 
-1. On a trusted workstation with credentials to the PRIVATE GitHub Release, run:
-   bash scripts/prepare-proto2-wifi-modules.sh /absolute/new-private-dir /absolute/KERNEL_BASE_TREE_PRINTED_ABOVE
-   This downloads 3 modules and SHA256SUMS, pins hashes/metadata, requires the same-proto2 cfg80211/mac80211 module tree, and creates private modules.tar. The private bytes are not available in this GitHub-only executor; this has NOT been executed here.
-2. On an isolated disposable native ARM64 Debian builder with network access/debootstrap, run as root:
-   bash scripts/build-proto2-p44-rootfs.sh /absolute/new-rootfs-dir
-   This creates a Debian P44 rootfs tar, not a raw partition image. No private firmware or EEPROM is embedded.
-3. After independently obtaining a binary signed P25 whose exact size and SHA match the pin, run:
-   python3 scripts/package-proto2-p44.py --rootfs ROOTFS_TAR_GZ --modules MODULES_TAR --p25 EXACT_SIGNED_P25_IMG --kernel-release KERNEL_RELEASE_FILE --output P44-install.zip --source EXACT_40_HEX_SOURCE_COMMIT
-   The packager refuses any other P25 SHA and module mismatch. It creates a ZIP transport container and never writes a block device.
+https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/releases/tag/untagged-277acdede20c8efeb442
+
+- `P44-install.zip`: **178,516,940 bytes**, SHA256 `9aded7613ffc262060501d633dd2d27600a544b5fd7d35a6bdbeb25ff9b28f09`.
+- `SHA256SUMS`: ZIP checksum file with portable relative path, SHA256 `78bb436f69bbaa99285d1edd21c886a25ddd04d889c392b06cd04d5fc40144f6`.
+- `BUILD-RECEIPT.json`: sanitized build summary, SHA256 `47eb1b47283b0f1b28bb2c4f0bd3e5b0294ef595c71293d0974011f5e1da42b0`.
+- P25 SHA256 fixed to `74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e`. **No P25 bytes are embedded in P44 ZIP**.
+- Exact public source revision used by this ZIP: `36021c563f0b5eb1a618c707b47e65dd2e19b1c1`. Later branch improvements to the private-input fetch helper are not included in that source pin; do not claim this ZIP is identical to the latest branch state.
+- Manufacture and independent post-upload full binary readback: [private run #44859746336](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44859746336), SUCCESS.
+
+To manufacture a new (non-device) candidate under Method B on a trusted ARM64 host with private GitHub access:
+
+1. `bash scripts/fetch-proto2-private-baseline.sh /absolute/new-baseline-private-dir` obtains and verifies the signed P25, older 105-module archive for evidence, and historic Wi-Fi P44 ZIP for the actual cfg80211/mac80211 framework module tree. It prints `SIGNED_P25` and `KERNEL_BASE_TREE`.
+2. `bash scripts/prepare-proto2-wifi-modules.sh /absolute/new-private-modules-dir /absolute/verified-KERNEL_BASE_TREE` downloads exactly the three private successful MT76 modules, checks SHA and module vermagic, and creates `modules.tar`. An independently SHA-verified private local third argument is supported for approved cross-repository transport.
+3. `sudo bash scripts/build-proto2-p44-rootfs.sh /absolute/new-rootfs-dir` creates the owner-neutral Debian13 ARM64 tar archive. Run the owner-identity scanner on it before packaging.
+4. As root or with verified read access to the root-owned tar, run `python3 scripts/package-proto2-p44.py --rootfs ROOTFS_TAR_GZ --modules MODULES_TAR --p25 EXACT_SIGNED_P25_IMG --kernel-release KERNEL_RELEASE_FILE --output P44-install.zip --source EXACT_40_HEX_SOURCE_COMMIT`. This refuses mismatched signed P25 SHA, kernel release, module trio hash, missing cfg80211/mac80211 and serialized owner secrets.
+5. Independently reopen and SHA-check the ZIP, store privately, download from that saved Release, independently SHA-check and byte-compare before claiming retention PASS.
+
+The private candidate ZIP is a **transport package, not a raw P44 image**, and must not be installed over an occupied P44. No publicly distributable signed P25, OEM binary or universal hardware support has been authorized.
 
 Before initial install, use charter v1.4 Method B and independently prove P44 is EMPTY ext4 (except lost+found). Extract its tar files with root numeric ownership, symlinks, modes, ACLs and xattrs. Never overwrite an existing running P44. For a future C-unit migration, preserve and independently rehash the entire old P44 image, P25, boot-control state, and stock-B/UART recovery route; obtain separate approval for writes and reboot. Never call static tests device PASS.
 
-## Evidence ledger at authoring
+## Evidence ledger (2026-11-21)
 
-- Historical C-unit proto2 boot / wired LAN / SSH / KVM: PASS for older P44 only.
-- Historical private Wi-Fi module SHA / per-unit OTP / 8-page ACK / PHY: PASS for older P44 only.
-- Source implementation: DRAFT, host tests and CI require independent verification.
-- Downloading actual binary Release assets from this executor: BLOCKED / NOT_TESTED.
-- ARM64 rootfs manufacture, actual SHA-verified modules.tar, new ZIP: NOT_TESTED (required builder and signed P25 image unavailable).
-- New firstboot handshake, Wi-Fi PHY and OTP on live hardware: NOT_TESTED.
-- Different unit EEPROM layout and 6 GHz regulatory/RF: NOT_TESTED or BLOCKED.
-- OEM firmware rights, existing signed boot image redistribution and exact per-unit acceptance: BLOCKED pending independent checks.
+- Historical C-unit P25 boot / wired LAN / SSH / KVM: **HISTORICAL PASS** for existing old P44 only.
+- Historical November 15 per-device EEPROM/OTP/PHY and STA links: **HISTORICAL PASS**, not attributable to this manufactured ZIP.
+- Downloaded exact signed P25, 105 archive, historic Wi-Fi P44 archive: **SHA PASS** in private CI.
+- Three Wi-Fi success modules, same-kernel framework, complete private modules.tar: **SHA / vermagic / packaging PASS**; full kernel internal ABI remains a hardware gate.
+- Owner-neutral Debian13 ARM64 rootfs manufactured and scanned for credentials/calibration: **CI PASS**.
+- New private P44-install.zip: **MANUFACTURE / INTERNAL SHA / INDEPENDENT PRIVATE RELEASE READBACK PASS**, CI #44859746336.
+- New firstboot no-password SSH connection, credential switch and reboot persistence: **NOT_TESTED** on device.
+- New P44 Wi-Fi PHY, OTP 46 bytes, EEPROM 8/8 ACK and 2.4/5/6 GHz RF: **NOT_TESTED** on device.
+- Unit-independent stock filename/board layouts, signed P25 and OEM redistributability: **BLOCKED / NOT_TESTED**.
+- P25 writes, P44 writes, slot control, reboot and RF in this workflow: **NOT PERFORMED**.
