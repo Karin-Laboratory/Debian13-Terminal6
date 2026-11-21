@@ -205,3 +205,57 @@ Next work should diagnose the LK FDT/mrdump assertion against the exact boot-pro
 - 現時点でP44を再フォーマット・再展開する理由はない。ACLはLK停止の原因でなく、Debian側で後から修復できる可能性が高い。
 
 **試験結果:** 署名済みP25入力SHA・FDT静的検査PASS、ZIP入力SHA・ACL対象の特定PASS、ACL対応Linuxでの復元PASS、private GitHubレポート保存PASS。**C号機でのLK ASSERT根本原因はUNRESOLVED、再起動/PHY/SSHは今回NOT_TESTED。**
+
+
+## 2026-11-22：② 電源サイクル後のP44 switch_root→PID1失敗（新規第一ブロッカー）
+
+**実機の事実。** C号機に実機起動済みの② signed P25
+\`74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e\`
+を①と交互運用中の \`boot_a\` に適用し、C号機・raspi4の32MiB独立読戻し一致後、有限A試験1回だけ実施。
+今回は LK/FDT ASSERT **再現せず**、\`pre alloc phandle failed\` 警告後に
+Linux \`6.18.63-debian-t6-proto2\` と initramfs へ到達し、
+\`DEBIAN13_T6_SWITCH_ROOT_P44\` が出た。その直後に \`/sbin/init\` 実行不能を示す割り込み混在UART出力、
+\`Attempted to kill init! exitcode=0x00000100\`、自動B復帰となった。
+**最初の未達はP44への引継ぎ/PID1実行**。Debian userspace、LAN2/SSH、Wi-FiはNOT_TESTED。
+電源サイクルの因果効果は不明。FDT原因追跡は所有者指示で引き続き \`ON_HOLD / ROOT_CAUSE_UNRESOLVED\`。
+
+- [PR #41実機結果](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/41#issuecomment-7069277683)
+- [意図的P44更新なしの正確な範囲](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/41#issuecomment-7069306132)
+- [非公開Chappie-Memory Draft PR #27](https://github.com/Karin-Laboratory/Chappie-Memory/pull/27)
+- raspi4 UART原本：\`/home/masataka/private/cunit-pr41-p25-swap-retest-20261122/\`（原本314094 bytes、SHA256 \`112203da8fac6bcc3f0be0877ea9a4b3b2509699b28d72a8c4ae8724bc417233\`）。生ログ・個体認証情報を公開リポジトリへ複写しない。
+
+**オフラインで確認済みの重要な反証。** 保存済みP44の旧ZIP \`9aded761…f09\` と新ZIP
+\`57058163…3b\` を、非公開Releaseから厳密SHA照合して比較したところ、**両方とも**
+\`/sbin -> usr/sbin\`、\`/usr/sbin/init -> ../lib/systemd/systemd\`、
+実行可能なAArch64 ELF64 \`/usr/lib/systemd/systemd\` と
+\`PT_INTERP=/lib/ld-linux-aarch64.so.1\` の実体が揃っている。
+[非公開read-only監査のレポート](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/blob/research/pr41-switch-root-init-audit-20261122/research/reports/pr41-p44-init-offline-audit-20261122.json)。
+**ZIPが正しいことと実機P44の展開後内容が正しいことは別**。
+\`e2fsck -fn\` PASSは、個々のファイル・依存ライブラリ・ELF実行可能性の保証ではない。
+
+### 今回のソース修正（実機未適用）
+
+- \`build-proto2-p44-rootfs.sh\`：ネイティブARM64 rootfsを最終tar化する前に
+  \`chroot "$out" /sbin/init --version\` を実行し、統合/usr symlink・動的ローダ等が壊れたビルドを拒否する。
+- \`package-proto2-p44.py\`：実際のrootfs tar内で\`/sbin/init\`までの中間symlink、
+  AArch64 ELF64、ELF \`PT_INTERP\` の存在と実行権限を独立確認し、
+  欠損ならZIP製造を拒否する。
+- \`tests/test_proto2_p44.py\`：正常なsymlink鎖とmissing init/interpreterのnegative fixturesを追加。
+
+この修正は**配布候補の起動前検証強化**であり、既存C号機P44の故障を直した証拠ではない。
+署名、再製造された新ZIP、P44再展開、実機書込み、再起動は別ゲート。
+
+### 次に必要な最小実機切り分け（読み取り専用・別途操作承認）
+
+純正B稼働中、C号機の\`rootfs_data\`をPARTNAMEで照合し、既知の読み取り専用
+\`mount -t ext4 -o ro,noload\` で一時マウントした場合にのみ、次の内容を確認。
+元のP44を修復・再展開・init実行しない。
+
+1. \`/sbin\`、\`/usr/sbin/init\`、\`/usr/lib/systemd/systemd\` の実体・symlink・権限
+2. \`/lib/ld-linux-aarch64.so.1\` のsymlink鎖・実体・実行権限と、systemdのARM64 ELF interpreter
+3. \`/etc/os-release\`、\`/etc/systemd/system/default.target\`、\`/usr/lib/aarch64-linux-gnu\` 等の必要ファイル
+4. 保存済み新ZIPのrootfs tarと、**実際にインストールされた**P44の該当ファイルのSHA/モード/リンク先を比較
+5. 旧成功UARTと今回のUARTで、\`switch_root\`呼び出し直前のmount/execエラー断片を時刻近傍から抽出し、\`ENOENT\`、\`EACCES\`、\`ENOEXEC\`、missing loader、別の終了コードのどれかを確認。文字列を継ぎ足して「完全な一行」と偽造しない
+6. P44に起動試行由来の変更があった可能性を維持し、未マウント/ro確認後に安全にumountする
+
+切り分け結果が得られるまでは、**原因を「/sbin/init欠落」と断定せず、P44丸ごとの再フォーマット・再展開やP25再署名を開始しない**。所有者が①②の交互実機試験を継続中であることを守り、C号機は純正B稼働のまま安全に引き渡す。
