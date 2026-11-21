@@ -48,7 +48,11 @@ def check(p25: bytes, image: bytes, bare_dtb: bytes, cpio: bytes,
     if p25[1660:PAGE] != bytes(PAGE-1660):
         fail("nonzero boot header padding")
     if image[56:60] != b"ARM\x64" or image.count(cpio) != 1:
-        fail("source Image or P44 initramfs identity mismatch")
+        fail("source Image or embedded initramfs identity mismatch")
+    marker = (b"TERMINAL6_LOADER_INIT_STARTED" if "t6_loader=1" in profile["cmdline"]
+              else b"rootfs_data")
+    if marker not in gzip.decompress(cpio):
+        fail("role-specific initramfs entrypoint marker missing")
     if not bare_dtb.startswith(FDT) or struct.unpack_from(">I", bare_dtb, 4)[0] != len(bare_dtb):
         fail("source FDT invalid")
     kstart = PAGE
