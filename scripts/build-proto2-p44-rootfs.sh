@@ -173,7 +173,8 @@ if [[ ! -x "$out/usr/lib/systemd/systemd" || ! -L "$out/sbin" || ! -L "$out/usr/
   exit 1
 fi
 if ! chroot "$out" /sbin/init --version > "$dest/p44-init-version.txt" 2>&1; then
-  echo "P44_INIT_CHROOT_EXEC_FAILED (inspect p44-init-version.txt privately)" >&2
+  echo "P44_INIT_CHROOT_EXEC_FAILED (native disposable runner)" >&2
+  sed -n "1,12p" "$dest/p44-init-version.txt" >&2
   exit 1
 fi
 grep -q '^systemd ' "$dest/p44-init-version.txt" || {
