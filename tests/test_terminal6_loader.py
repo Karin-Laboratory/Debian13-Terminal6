@@ -28,7 +28,8 @@ class LoaderSourceTests(unittest.TestCase):
 
     def test_kernel_profile_essential_and_exclusions(self):
         s = (ROOT / "scripts/configure-terminal6-lean.sh").read_text()
-        self.assertIn("scripts/config --enable KEXEC", s)
+        self.assertIn("--enable KEXEC", s)
+        self.assertIn("--enable SUSPEND", s)
         self.assertIn("--disable PCI", s)
         self.assertIn("--disable WIRELESS", s)
         self.assertIn("--disable USB_SUPPORT", s)
