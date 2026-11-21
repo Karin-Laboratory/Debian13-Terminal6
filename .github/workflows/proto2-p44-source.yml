@@ -1,0 +1,27 @@
+name: proto2 P44 source safety gates
+on:
+  pull_request:
+    paths:
+      - 'scripts/build-proto2-p44-rootfs.sh'
+      - 'scripts/p44-firstboot.sh'
+      - 'scripts/proto2-wifi-start.sh'
+      - 'scripts/prepare-proto2-wifi-modules.sh'
+      - 'scripts/package-proto2-p44.py'
+      - 'tests/test_proto2_p44.py'
+      - '.github/workflows/proto2-p44-source.yml'
+  workflow_dispatch:
+jobs:
+  source-only:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax only, no device commands
+        run: |
+          bash -n scripts/build-proto2-p44-rootfs.sh scripts/prepare-proto2-wifi-modules.sh
+          sh -n scripts/proto2-wifi-start.sh scripts/p44-firstboot.sh
+      - name: Python gates
+        run: |
+          python3 -m py_compile scripts/package-proto2-p44.py tests/test_proto2_p44.py
+          python3 -m unittest discover -s tests -p test_proto2_p44.py -v
