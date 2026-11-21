@@ -10,6 +10,10 @@ The boot-proven C-unit signed P25 is 33,554,432 bytes and has SHA256
 74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e.
 Kernel release: 6.18.63-debian-t6-proto2.
 
+The exact signed P25 is retained in the PRIVATE SBAT6A archive:
+https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/releases/tag/untagged-027373efd2705b1e227c
+Asset DEBIAN13-CUNIT-420FF1B8-SIGNED-UNTESTED-p25.img, ID 770875187, GitHub-reported size 33,554,432 bytes, exact SHA as above. This executor has NOT read/downloaded the actual image bytes. Independently rehash them before any pairing.
+
 PR #25's 6.18.63-t6-public-capable is DIFFERENT. Never mix modules from that build with the boot-proven P25. This SHA is not independent evidence of generic signed P25 redistributability or other-unit boot.
 
 The private, previously hardware-tested three-module Release is:
@@ -47,8 +51,8 @@ If P44 is empty or broken, P25 does not provide an unauthenticated rescue servic
 ## Non-device manufacture
 
 1. On a trusted workstation with credentials to the PRIVATE GitHub Release, run:
-   bash scripts/prepare-proto2-wifi-modules.sh /absolute/new-private-dir
-   This downloads 3 modules and SHA256SUMS, pins hashes/metadata and creates private modules.tar. The private bytes are not available in this GitHub-only executor; this has NOT been executed here.
+   bash scripts/prepare-proto2-wifi-modules.sh /absolute/new-private-dir /absolute/verified-proto2-kernel-module-tree
+   This downloads 3 modules and SHA256SUMS, pins hashes/metadata, requires the same-proto2 cfg80211/mac80211 module tree, and creates private modules.tar. The private bytes are not available in this GitHub-only executor; this has NOT been executed here.
 2. On an isolated disposable native ARM64 Debian builder with network access/debootstrap, run as root:
    bash scripts/build-proto2-p44-rootfs.sh /absolute/new-rootfs-dir
    This creates a Debian P44 rootfs tar, not a raw partition image. No private firmware or EEPROM is embedded.
