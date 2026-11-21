@@ -164,6 +164,24 @@ StandardError=journal+console
 WantedBy=multi-user.target
 UNIT
 
+# Fail closed if the *actual native ARM64 rootfs* cannot exec its own init.
+# The P25 initramfs uses /sbin/init after switch_root; a missing merged-/usr
+# link, ELF interpreter, or dynamic library would otherwise panic PID 1.
+# "--version" is intentionally NOT a PID 1 boot; this is only an ABI gate.
+if [[ ! -x "$out/usr/lib/systemd/systemd" || ! -L "$out/sbin" || ! -L "$out/usr/sbin/init" ]]; then
+  echo "P44_INIT_MERGED_USR_SYMLINK_OR_EXEC_MISSING" >&2
+  exit 1
+fi
+if ! chroot "$out" /sbin/init --version > "$dest/p44-init-version.txt" 2>&1; then
+  echo "P44_INIT_CHROOT_EXEC_FAILED (inspect p44-init-version.txt privately)" >&2
+  exit 1
+fi
+grep -q '^systemd ' "$dest/p44-init-version.txt" || {
+  echo "P44_INIT_CHROOT_WRONG_OUTPUT" >&2
+  exit 1
+}
+echo "P44_INIT_NATIVE_ARM64_CHROOT_EXEC_PASS"
+
 # Do not ship builder machine identity or dbus machine identifier.
 : > "$out/etc/machine-id"
 rm -f "$out/var/lib/dbus/machine-id"
