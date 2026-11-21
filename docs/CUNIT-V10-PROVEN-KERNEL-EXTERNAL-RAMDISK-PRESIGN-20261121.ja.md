@@ -50,3 +50,16 @@ private源バイト、署名資材、端末固有データを公開しない。�
 - 最終ステータス：**UNSIGNED_MANUFACTURE_AND_PRIVATE_READBACK_PASS**。新署名＝**NOT_EXECUTED**、LK非ゼロramdisk実行＝**NOT_TESTED**、物理DDR/予約メモリ互換性＝**NOT_TESTED**、C号機G1–G5＝**NOT_TESTED**。署名許可は発行していない。
 
 製造時にkernel本体を新規buildしていないため、これは成功版のソース再現製造という意味ではなく、**実機成功バイナリの再利用に基づく新しい未署名P25製造**である。機能の証拠と起動の証拠は分ける。
+
+
+## オーナー個別承認に基づく署名完了（2026-11-21）
+
+- **署名を許可されたunsigned P25 SHA-256:** `54a62dfb4ff4bfb7fb6fbebeae7fe7882375fc0d4822ba38ea2b96d94487847a`、33,554,432B。
+- **生成されたsigned P25 SHA-256:** `d259237b1527bfd5702b3ca3193f35f58f80b0b0c9ea67e828d23d3b6bc3d42f`、33,554,432B。
+- [保護署名Actions #44900013136](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44900013136)：署名前のSHA・構造照合PASS、self-hosted保護署名器による一度限りの署名PASS、**別プロセスによるRSA-PSS/ROOT→IMAGE証明書チェーン、署名対象body不変性、署名後サイズとSHA・レシート照合PASS**。ただし**最終ジョブ全体はFAIL**。原因はself-hostedランナーに`gh`コマンドがなく、Release保存処理でexit 127となったため。署名の失敗ではない。
+- 再署名をせずに、元の保護領域の署名済み実物を再照合するアーカイブ専用ジョブを構築。[非公開アーカイブActions #44900303417](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44900303417) は**SUCCESS**。original unsignedとのbody比較、完全SHA、独立暗号レシートの検証後、GitHub Draft Releaseへアップロードし、両assetを**独立再ダウンロード・バイト比較・SHA一致PASS**。
+- **非公開Draft Release ID `453649816`**、tag `debian13-cunit-signed-54a62dfb-44900013136`。署名済みP25 asset ID `775390358`、独立暗号receipt asset ID `775390633`。
+- 再取得したレシートのSHA256は `d14e518e3e2e4130e32442dec9c291f0aaedcbf81cfb27d8585967b089bfd359`。出力先は非公開 `Karin-Laboratory/SBAT6A-Offline-Archive` のみ。署名鍵は保護runnerから持ち出していない。
+- 新P25の実機LK起動、外部ramdiskロードアドレス`0x04000000`、ローダーinit、P26、LAN2、SSH、kexec切替、Bからの復旧は**今回の署名実行では試験していない**。**実機書込み・slot変更・再起動は一切行っていない**。
+
+**状態：`SIGNED_AND_INDEPENDENT_CRYPTO_READBACK_PASS / HARDWARE_BOOT_NOT_TESTED`。** この署名許可を新しいslot A書込み・実機起動許可とみなさない。以前の失敗P25署名 `886614ed...` との混同、LK外部ramdiskの未検証を隠す記載は禁止。
