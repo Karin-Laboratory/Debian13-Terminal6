@@ -1,0 +1,23 @@
+name: proto2 P44 mounted PID1 non-mutating audit tests
+on:
+  push:
+    branches: [codex/pr41-p44-pid1-handoff-audit-20261122]
+    paths:
+      - .github/workflows/proto2-p44-pid1-audit.yml
+      - scripts/audit-proto2-p44-pid1.py
+      - tests/test_proto2_pid1_audit.py
+permissions:
+  contents: read
+jobs:
+  synthetic-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Syntax and root-scoped path resolution tests
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/audit-proto2-p44-pid1.py tests/test_proto2_pid1_audit.py
+          python3 -m unittest discover -s tests -p 'test_proto2_pid1_audit.py' -v
+          echo 'P44_PID1_READONLY_DIAGNOSTIC_SOURCE_TESTS_PASS'
