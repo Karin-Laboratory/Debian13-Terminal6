@@ -20,7 +20,7 @@ SHA
 cmp "$out/EXPECTED-SHA256SUMS" "$out/download/SHA256SUMS" || { echo "manifest mismatch" >&2; exit 1; }
 (cd "$out/download" && sha256sum -c SHA256SUMS)
 for name in mt76 mt76-connac-lib mt7996e; do
-  [[ "$(modinfo -F name "$out/download/$name.ko")" == "$name" ]] || exit 1
+  [[ "$(modinfo -F name "$out/download/$name.ko" | tr _ -)" == "$name" ]] || exit 1
   [[ "$(modinfo -F vermagic "$out/download/$name.ko")" == "$kernel "* ]] || exit 1
 done
 dest="$out/stage/lib/modules/$kernel/updates/terminal6-mt76"
