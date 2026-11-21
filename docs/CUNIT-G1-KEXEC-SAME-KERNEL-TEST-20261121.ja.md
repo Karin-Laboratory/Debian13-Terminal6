@@ -148,3 +148,19 @@ kexec-tools 2.0.29
 **判定：G1ユーザー空間実行ファイル準備PASS、`kexec_load`未実行、`kexec -e`未実行。** `tar`の未来タイムスタンプ警告はC号機の時計が約4日遅れている影響で、パッケージSHA検証・展開は正常に完了した。
 
 次は同一シェルで`export LD_LIBRARY_PATH=/root/g1-kexec-lib/usr/lib/aarch64-linux-gnu`、`export PATH=/root/g1-kexec-bin/usr/sbin:$PATH`を設定し、`python3 /root/cunit-kexec-g1.py load`を実行。結果に応じてロード方法やドライバ再初期化の検証を切り分ける。ロードしても自動的には起動しない。
+
+## 追記：C号機 kexec RAMロード正常終了（2026-11-21）
+
+所有者のC号機シェルの実機ログで次の結果を観測：
+
+```text
+LOADING_INTO_RAM_ONLY; this will NOT transfer control
+Can't open (/proc/kcore).
+Can't get the symbol of _text to calculate page_offset.
+KEXEC_LOAD_PASS: loaded but second-stage boot NOT tested; use UART for separately approved kexec -e
+LOAD_EXIT_CODE=0
+```
+
+`kexec --kexec-syscall --load` は終了コード0で完了したため**G1 RAMロード試験PASS（ツール終了コード）**。ソース上の`/proc/kcore` / `_text`情報解析警告は非致命扱いで残っており、次に`/sys/kernel/kexec/loaded`（互換パス`/sys/kernel/kexec_loaded`）が`1`であることを独立確認する。該当表示の独立確認ができるまでは、異常なくロードされたことの別証拠にはしない。
+
+第2段カーネルへの制御移行（`kexec -e`）・Linux起動・P44のマウント・SSH復帰はいずれも**NOT_TESTED**。再起動せず装置への永続書込みも無し。独立復旧導線（raspi4 UART、純正slot B）を確認してから、所有者操作で有限回の`kexec -e`試験に進む。
