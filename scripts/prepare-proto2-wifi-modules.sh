@@ -2,16 +2,27 @@
 # SPDX-License-Identifier: MIT
 # PRIVATE manufacture input only. Does not touch P25, P44 or a live device.
 set -euo pipefail
-[[ $# -eq 2 && "$1" = /* && ! -e "$1" && "$2" = /* && -d "$2" && ! -L "$2" ]] || { echo "usage: $0 /absolute/new-private-output-dir /absolute/verified-proto2-kernel-module-tree" >&2; exit 2; }
-for c in gh sha256sum tar modinfo depmod; do command -v "$c" >/dev/null || exit 2; done
+[[ ( $# -eq 2 || $# -eq 3 ) && "$1" = /* && ! -e "$1" && "$2" = /* && -d "$2" && ! -L "$2" ]] || { echo "usage: $0 /absolute/new-private-output-dir /absolute/verified-proto2-kernel-module-tree [absolute/private-verified-success-trio-dir]" >&2; exit 2; }
+for c in sha256sum tar modinfo depmod; do command -v "$c" >/dev/null || exit 2; done
 repo=Karin-Laboratory/Chappie-Memory
 tag=terminal6-wifi-success-20261115
 kernel=6.18.63-debian-t6-proto2
-[[ "$(gh repo view "$repo" --json isPrivate --jq .isPrivate)" == true ]] || { echo "private Release required" >&2; exit 1; }
 out="$1"
 mkdir -m 0700 "$out" "$out/download"
-gh release download "$tag" --repo "$repo" --dir "$out/download" \
-  --pattern 'mt76.ko' --pattern 'mt76-connac-lib.ko' --pattern 'mt7996e.ko' --pattern 'SHA256SUMS'
+if [[ $# -eq 3 ]]; then
+  local_trio="$3"
+  [[ "$local_trio" = /* && -d "$local_trio" && ! -L "$local_trio" ]] || exit 2
+  # Used only after an independently SHA-verified transfer between private repos.
+  for name in mt76.ko mt76-connac-lib.ko mt7996e.ko SHA256SUMS; do
+    [[ -f "$local_trio/$name" && ! -L "$local_trio/$name" ]] || exit 1
+    cp -- "$local_trio/$name" "$out/download/$name"
+  done
+else
+  command -v gh >/dev/null || { echo "gh missing" >&2; exit 2; }
+  [[ "$(gh repo view "$repo" --json isPrivate --jq .isPrivate)" == true ]] || { echo "private Release required" >&2; exit 1; }
+  gh release download "$tag" --repo "$repo" --dir "$out/download" \
+    --pattern 'mt76.ko' --pattern 'mt76-connac-lib.ko' --pattern 'mt7996e.ko' --pattern 'SHA256SUMS'
+fi
 cat >"$out/EXPECTED-SHA256SUMS" <<'SHA'
 26ffb6bd648a8fa91b424bbcf890710f8695d679d45b372e2e7ba05b68449c2f  mt76.ko
 9f2df583cc73c738f7a186f1ef16faffcb6919bdf915f4ec9cf09a3df1fa05a6  mt76-connac-lib.ko
