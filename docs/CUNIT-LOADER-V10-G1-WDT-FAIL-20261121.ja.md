@@ -41,3 +41,23 @@
 - ソース修正候補には別コミット／別SHA／差分理由／追加のhost-sideテスト／可逆的な復旧計画が必須。成功版へのロールバック資産と純正B、現行C号機P44バックアップ状況を再確認する。
 - 新たな署名、boot_a書込み、slot切替、有限起動試験は**具体的候補と前提を示して別途所有者承認が必要**。
 - Linux early outputが確認できてからMMC/P26→LAN2→SSHを順に受入。最後にP43→kexec→Debianへ。G1前の`kexec`議論で根本の最初の失敗を覆い隠さない。
+
+
+## オフライン実物比較の追加結果（2026-11-21、非公開CI PASS）
+
+[非公開CI #44897886553](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44897886553) が過去の起動成功 **signed proto2 P25** と今回の失敗 **unsigned v1.0 P25** の実物をprivate Draft Releaseから不変asset IDで取得し、事前SHA-256を全量検証。boot-v2 header / AArch64 Image / DTB sectionを読み取り専用で比較した。**P25を書き換えたり署名し直したものではない**。
+
+- Android boot-v2のkernel_addr=0、dtb_addr=32505856、ramdisk_addr=16777216、header-version=2、page-size=2048は一致。DTB section SHA256も両方 `49fc129e2dd7ccc2d2ed4c0c4cac461e33566e2dda164f4ec06d5577baa4286a` で**同一**。
+- ARM64 Image `text_offset=0`、`flags=10` も一致。**異なるのはカーネル本体**：起動成功版 Image 18,921,480 bytes／失敗候補 11,905,032 bytes、gzip長も違う。Image headerの`image_size`値も異なる。DTB格納位置の差は、gzip長に伴うセクション移動。
+- Cmdlineは一致しない。両者とも`console=ttyS0,115200n8`、`rootwait`。**成功版には`keep_bootcon`があり、新候補にはない**。新候補には`earlycon=`と`rdinit=/init`があり、成功版にはない。表示されなかった原因をこの差分だけで断定しない。
+- 別の[非公開CI #44898016592](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44898016592) が両Image内の実物 `IKCFG_ST/IKCFG_ED` カーネル設定を独立抽出して比較、**IKCONFIG_COMPARISON_PASS**。成功版は4776設定キー、失敗候補は2054設定キー、設定値/存在の差は**3546キー**。最小化で起動周辺が大幅に変わっていたことが確認できた。
+- 主要初期条件のうち`CONFIG_ARM64_4K_PAGES=y`、`CONFIG_ARM64_VA_BITS=39`、`CONFIG_ARM_GIC_V3=y`、`CONFIG_ARM_PSCI_FW=y`、`CONFIG_SERIAL_8250_CONSOLE=y`、`CONFIG_SERIAL_EARLYCON=y`、`CONFIG_MMC_MTK=y`、`CONFIG_KEXEC=y` は両者一致。未搭載の設定もあり、これらが真因ではないと証明したわけではない。
+- 注意すべき差：`CONFIG_RANDOMIZE_BASE` は成功版y／候補n、`CONFIG_ARM64_PAN` は成功版y／候補n。`CONFIG_PINCTRL_MTK` は成功版に明示キーなし／候補y。機能差自体は確認したが、**特定の差分がwatchdogの原因と確定したのではない**。特に`CONFIG_INITRAMFS_SOURCE`の一時ビルドパス差を故障原因としない。
+
+### 開発に反映する設計修正の方向
+
+**tinyconfigで11.9MBまで極端に削った新Imageを、同じ起動実績FDTを載せたから安全として再署名するのは禁止。** まず **19MB級の起動成功proto2 Imageの実際のソース・patch manifest・Kconfig・toolchainを再現** する。可能な限り起動実績のあるearly boot/MMC/DTBの組合せを保持し、ローダーのinitramfsや管理機能のみを段階的に移す。
+
+- 現時点の証拠では、kernel config差分と`keep_bootcon`差は**調査優先度が高いが根因未確定**。
+- 具体的な新候補は、起動成功版と修正候補のKconfig差分・DTB byte identity・Image header・再現可能なsource inputsを**別々にreceipt化**し、不要な差があれば製造/署名前にfail closed。
+- 新SHAについても、署名・slot A試験の個別承認まではオフライン検証だけを行う。
