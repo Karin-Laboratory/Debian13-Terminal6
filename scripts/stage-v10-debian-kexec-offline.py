@@ -6,7 +6,6 @@ Never contacts a device and never modifies its input artifacts.
 import argparse
 import hashlib
 import json
-import re
 import shutil
 import struct
 import zipfile
@@ -63,7 +62,7 @@ def verify_p44(path):
 def verify_arm64_image(path):
     with path.open("rb") as f:
         header = f.read(64)
-    if len(header) < 64 or header[56:60] != b"ARM\\x64":
+    if len(header) < 64 or header[56:60] != b"ARMd":
         raise ValueError("not an ARM64 raw Linux Image (Image header magic)")
     return path.stat().st_size
 
