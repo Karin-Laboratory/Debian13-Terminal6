@@ -120,3 +120,16 @@ After the first finite A trial had successfully reached Debian/P44, the owner se
 - Current hardware state after this addendum: stock slot B, P44 intact but not mounted, with authenticated B SSH available. The A trial was not made permanent. No further reboot or RF transmission occurred.
 - Full UART logs, misc images and device-specific fingerprints remain in private raspi4 evidence; they are not included in this public document.
 
+
+
+## Owner-approved persistence retest — 2026-11-21 JST
+
+This addendum supersedes the earlier runtime-persistence `NOT_TESTED` note for the firstboot SSH credentials.
+
+- Starting from verified stock slot B, a finite A trial was reselected with A=(priority 0f, retry 03, success 00, up_type 00) and B=(priority 0e, retry 00, success 01, up_type 00). The full 512KiB misc readback matched the previously verified finite-A image before reboot; B success remained 1.
+- UART capture was already active before the single owner-approved reboot. It recorded Preloader B selecting A, `bootslot=a`, A retry 03 / success 00, `DEBIAN13_T6_SWITCH_ROOT_P44`, and the Debian serial login.
+- **Post-reboot P44/SSH runtime PASS:** the device returned Debian `6.18.63-debian-t6-proto2`, mounted `rootfs_data` as ext4 read-write root, and accepted strict-host-key-verified public-key SSH from the physically isolated management link. Ping passed 3/3. The authenticated key and host-key fingerprints matched the prior private evidence; firstboot completion/authentication markers remained present, `ssh.service` was active, and the firstboot service was disabled. Root's password state was locked; a no-authentication SSH attempt was rejected.
+- eMMC remained at actual 94,999,965 Hz, HS400, 8-bit, 1.8V, CQE disabled. The post-boot MMC/ext4/I/O error scan was empty. The exact signed boot_a P25 SHA remained `74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e`; boot_b's live SHA matched its preserved backup.
+- The post-boot misc image was 524,288 bytes, SHA256 `9119a411b6ca28e05b48a6b4dbba25a1d452cf3ed04d312496748c4f9ea7ee33`, matching the earlier after-A-boot snapshot. A's retry field advanced to 04; A success remained 00 and B success remained 01. A was **not** made permanent. Current state is slot A running as a finite trial; a later restart is expected to fall back to stock B unless boot policy is separately changed.
+- Wi-Fi remains **FAIL/BLOCKED** at the known `rootfs_a` SquashFS prerequisite; no PHY registered and no RF transmission occurred. This retest did not rerun the KVM guest or storage write test.
+- Raw UART and device-specific evidence remain in the private raspi4 directory `/home/masataka/private/cunit-p44-acceptance-20261121/`; no private logs, keys, or device-specific host-key fingerprints are published. No further reboot or P44/P25/GPT write was performed.
