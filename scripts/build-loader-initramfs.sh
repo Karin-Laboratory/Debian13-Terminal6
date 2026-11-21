@@ -19,7 +19,7 @@ done
 # A distro's busybox-static may NOT compile blkid/mountpoint. They must
 # be real util-linux ARM64 executables rather than dead BusyBox symlinks.
 for applet in sh ash mount umount cat grep sed ip sleep ls mkdir cp rm ln chmod sync printf sha256sum stat test reboot passwd touch; do
-  if ! /bin/busybox --list | grep -qx "$applet"; then
+  if ! /bin/busybox --list | grep -x "$applet" >/dev/null; then
     echo "INITRAMFS_REQUIRED_BUSYBOX_APPLET_MISSING: $applet" >&2
     exit 42
   fi
