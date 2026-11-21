@@ -50,8 +50,12 @@ If P44 is empty or broken, P25 does not provide an unauthenticated rescue servic
 
 ## Non-device manufacture
 
+0. On a trusted workstation with gh access to BOTH private repositories and zstd installed, run:
+   bash scripts/fetch-proto2-private-baseline.sh /absolute/new-baseline-private-dir
+   This independently hashes the exact signed P25 and 105-module baseline archive, safely unpacks into a private workspace, and prints the signed image path and the KERNEL_BASE_TREE path. No device action is performed. The archive's actual layout and executable modinfo validation are still required.
+
 1. On a trusted workstation with credentials to the PRIVATE GitHub Release, run:
-   bash scripts/prepare-proto2-wifi-modules.sh /absolute/new-private-dir /absolute/verified-proto2-kernel-module-tree
+   bash scripts/prepare-proto2-wifi-modules.sh /absolute/new-private-dir /absolute/KERNEL_BASE_TREE_PRINTED_ABOVE
    This downloads 3 modules and SHA256SUMS, pins hashes/metadata, requires the same-proto2 cfg80211/mac80211 module tree, and creates private modules.tar. The private bytes are not available in this GitHub-only executor; this has NOT been executed here.
 2. On an isolated disposable native ARM64 Debian builder with network access/debootstrap, run as root:
    bash scripts/build-proto2-p44-rootfs.sh /absolute/new-rootfs-dir
