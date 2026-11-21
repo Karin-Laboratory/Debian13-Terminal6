@@ -1,0 +1,81 @@
+# C号機 G1: 既存署名済みP25から同一ARM64 Imageを取り出し、kexec_loadを実証する（2026-11-21）
+
+> **今回の対象はG1の前半。** 現在実行中のDebian `6.18.63-debian-t6-proto2` が持つ `CONFIG_KEXEC=y` を利用する。P25/P26/GPT/misc/slot Bへの書込みや実機再起動を**このスクリプトは行わない**。G1の実際の第2段起動は、別途UART監視と手動操作が必須。
+
+## 現時点のC号機実測（所有者の端末出力）
+
+- `uname -r`: `6.18.63-debian-t6-proto2`、`bootslot=a`、実際のrootfsは `/dev/mmcblk1p44` (ext4)。
+- `CONFIG_KEXEC=y`, `CONFIG_KEXEC_CORE=y`, `# CONFIG_KEXEC_FILE is not set`, `/proc/sys/kernel/kexec_load_disabled=0`。したがって利用候補は `kexec_load` (legacy syscall)。
+- `/sys/firmware/fdt` は 177,338 bytes。`kexec-tools`は未インストール、`/boot`および`/lib/modules/.../`から生のARM64 `Image`は発見できなかった。
+- P25 `/dev/mmcblk1p25`=32MiB、P26 `/dev/mmcblk1p26`=128MiB SquashFS（マウントなし）、P43=453MiB ext4、P44=2.5GiB ext4（使用中）。
+- `lan2@eth1` は `192.168.3.1/24`、TCP/22でOpenSSH待受。`/dev/watchdog`は存在（自動復旧は仕様外）。
+- C号機のシステム時計は `2026-11-17` を指している。パッケージ導入の前に時刻同期の正常性を確認する。
+- PR #41が記載する**署名済み起動実績P25**の全長32MiB SHA-256: `74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e`。**端末P25がこの値と一致する保証はまだない**。スクリプトが全量照合し、異なれば停止する。
+
+## 実行順序
+
+```sh
+# 既存Debianのroot shell。作業ブランチのスクリプトを取得して実行。
+git clone --branch codex/cunit-g1-kexec-ram-stage-20261121 --single-branch \
+  https://github.com/Karin-Laboratory/Debian13-Terminal6.git /root/cunit-g1
+cd /root/cunit-g1
+
+# A. 何も変更しない環境確認
+python3 scripts/cunit-kexec-g1.py inspect
+
+# B. P25を読み取り、既知のSHAと全量一致した場合のみ
+#    Android boot v2からARM64 Imageを復元。/runのRAMへ保存。
+python3 scripts/cunit-kexec-g1.py stage
+
+# ここで署名済みP25のSHAとImageサイズ/ハッシュを控える。
+# boot_a、P26、GPT、miscを変更せず、/run以外の新規データは作らない。
+```
+
+> 初回に`git`がなければ、外部PCからスクリプト単体を転送する。スクリプトは標準Python3ライブラリのみを使う。`/dev/disk/by-partlabel/boot_a`がなければ`--p25=/dev/mmcblk1p25`を明示するが、**必ずPARTLABELで対象を再照合**する。
+
+```sh
+# C. 時刻とパッケージ取得環境を診断（時刻が4日ずれている点に注意）
+date -u
+timedatectl status || true
+ip route
+# 時刻同期と通信を確立してから、必要なら:
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y kexec-tools
+
+# D. オーナーがUART/復旧導線を確認後、RAMへカーネルをロード。
+#    実行しても第2段カーネルへは飛ばない。
+python3 scripts/cunit-kexec-g1.py load
+
+# E. ロード状態を消したい場合
+python3 scripts/cunit-kexec-g1.py unload
+```
+
+**重要**：パッケージ導入によって`kexec`が通常のシステム再起動に使用される設定になっていないことも確認する。今回のスクリプトには`-e`、`--exec`、再起動、`dd`、`mkfs`、`sgdisk`、`reboot`の処理を入れていない。`--load`が成功しても**G1は部分PASS**であり、第2段の起動実証ではない。
+
+## なぜこの方法か
+
+既存の公開製造コードのAndroid boot-v2作成経路は、ARM64 `Image` をgzip圧縮してP25へ収録する。対応する開発版ではinitramfsをカーネルへ組み込む設計になっている。したがって本スクリプトは署名済みP25のSHAを厳格照合した後、Android boot v2ヘッダー、gzip、ARM64 magicを検査して`Image`を抽出する。**稼働中の実機P25が同じ形式であることは未確認**のため、形式が異なるときには原因を調査して停止する。
+
+`kexec --kexec-syscall --load ... --dtb=... --append=...` を選ぶのは、現在のカーネルで`CONFIG_KEXEC_FILE`が無効だから。DTBには現在稼働中の`/sys/firmware/fdt`をコピーして使用する。bootargsは現行`/proc/cmdline`を使用するが、`root=/dev/mmcblk0p26`が現在のP44と一致しないのは**既存initramfsの引継ぎ処理**によるものと見られる。第2段でも同じ引継ぎが動くかが実機検証対象。
+
+## 実際の`kexec`ジャンプ前に必要な条件
+
+1. P25の実物全量SHA一致、G1ツールの`stage`がPASS、`load`がPASS。
+2. P25・P44の復元可能なバックアップと、slot Bの手動起動方法・UARTログ収集経路が使用可能であること。
+3. kernel/DTB/initramfsの由来と互換性を確認。`kexec`の第2段はLKの初期化を飛ばすため、eMMC、GIC、clock/reset、予約メモリ、LANの再初期化に失敗し得る。
+4. `kexec -e`は**UART監視付きの別工程**として行い、実際のLinux起動・P44のマウント・SSH復帰でG1完了と判定する。ユーザー操作による明示的な第2段起動と復旧措置が必要。
+
+## 次のゲート
+
+- **G2**: 現在P26がマウントされていないことは確認済み。ただしLKが起動時にP26の形式やハッシュを参照するかは未実証。G1完了後、原本保存のうえP26 ext4化を試す。**現時点ではP26を書き換えない。**
+- **G3**: `misc` P1のブート制御方式が不明。所有者は試験進行を許可したが、実際の構造を調べる前に推測のバイト列を書かない。G1とは別にread-only解析を先行する。
+- **G4**: Watchdog自動復旧は不採用。失敗したらUART／手動再起動／純正Bから戻す。slot Bが存在することと実際に復旧できることを混同しない。
+
+## オフライン単体試験
+
+```sh
+python3 -m unittest discover -s tests -p test_cunit_kexec_g1.py -v
+python3 -m py_compile scripts/cunit-kexec-g1.py
+```
+
+> このブランチは検証用の実装PRであり、2026-11-21確定の共通P25/P26/P43仕様をmainへ反映済みと称しない。既存Debian憲章v1.4との衝突は別の設計変更PRとして扱う。
