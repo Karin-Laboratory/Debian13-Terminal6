@@ -193,7 +193,7 @@ class Proto2SourceTests(unittest.TestCase):
 
     def test_native_builder_checks_real_init_chroot_execution(self):
         rootfs = read("scripts/build-proto2-p44-rootfs.sh")
-        self.assertIn('chroot "$out" /sbin/init --version', rootfs)
+        self.assertIn('chroot "$out" /usr/lib/systemd/systemd --version', rootfs)
         self.assertIn("P44_INIT_NATIVE_ARM64_CHROOT_EXEC_PASS", rootfs)
 
     def test_wrong_p25_rejected_without_zip(self):
