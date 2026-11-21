@@ -4,6 +4,8 @@
 本ブランチは、現行C号機の起動実績P25 `74c1c98b...` と本線のP44 ZIPを**改変せず**、署名直前の未署名P25を独立製造する作業用。製造してもLKでの署名済起動は証明されない。実機に`dd`せず、署名をしない。
 
 ## 原則
+
+- **設計意図の補足（非公開・閲覧権限が必要）：** [最小P25＋kexec方式の技術判断と注意点](https://github.com/Karin-Laboratory/Chappie-Memory/blob/main/terminal6/SoftBank-Air6-%E6%9C%80%E5%B0%8FP25-kexec%E6%96%B9%E5%BC%8F%E3%81%AE%E6%8A%80%E8%A1%93%E5%88%A4%E6%96%AD%E3%81%A8%E6%B3%A8%E6%84%8F%E7%82%B9-20261121.md)。LK改造案・純正Linux＋kexec-mod案との比較、kexec後段の正確な責任範囲、eMMC/DTB/watchdogなどの残存ハードウェア状態、署名と信頼境界を整理した実装参照資料。**仕様変更や実機PASSの根拠にはしない。**
 - 非公開確定仕様 `Karin-Laboratory/Chappie-Memory/terminal6/SoftBank-Air6-共通ローダー確定仕様-v1.0-20261121.md` に従う。公開Debian憲章v1.4には未反映で、互換性を主張しない。
 - P25は単独initramfs（rootfs_data/P44への強制切替なし）。内蔵: UART、eMMC PARTNAME検出、ext4、管理LAN2、SSH、kexec、OS選択スクリプト。
 - P26 rootfs_a はext4なら設定/SSHホスト鍵/認証情報を保存。空または現行SquashFSなら**フォーマットしない**。RAM上だけの無認証root SSHを管理LAN2固定IPv4に開くため、**絶対に物理隔離のないネットワークへ接続しないこと**。SSH初回登録は`passwd root`または`authorized_keys`、P26がext4のときのみ永続化を想定。
