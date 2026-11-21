@@ -202,3 +202,26 @@ Offending ECDSA key in /home/masataka/.ssh/known_hosts:4
 既存UART `cat /dev/ttyUSB0` PID 21540に対応する`~/cunit-g1/g1-kexec-uart.log`は所有者確認時点で空であり、起動前からのログが得られていない可能性がある。次回は**実行前から独立したUART監視**を確認し、実機変更なしの純正B read-only調査（`/proc/cmdline`、`dmesg`、`/sys/fs/pstore`の有無、起動制御APIの読取り）を先行。**現時点ではboot control、P25/P26、slot A/B、P44を変更しない。**
 
 次回実機実験の重要点：`kexec`前の現行cmdline `init=/etc/preinit root=/dev/mmcblk0p26` と、実際のP44 rootfs `/dev/mmcblk1p44` が異なる。現行内蔵initramfsが`rootfs_data`を識別して後段へ移行できるか、残存デバイス初期化の影響に注意。ブート時pstore/ramoopsが取得できるなら原因を切り分ける。
+
+## 追記：純正slot BのpstoreからDebian panicを発見（2026-11-21）
+
+所有者が純正B `root@SBA6D` の`/sys/fs/pstore/`を読取り、`console-ramoops-0`（3857 bytes）、`dmesg-ramoops-0`（6753 bytes）、`dmesg-ramoops-1`（6794 bytes）に次の**Linux 6.18.63-debian-t6-proto2**の例外・panicを観測した。private原本自体を公開repoへ転記せず、障害分析に必要な抜粋のみ記録する。
+
+```text
+[    6.358779] Internal error: synchronous external abort: 0000000096000010 [#1] SMP
+[    6.383694] CPU: 3 UID: 0 PID: 1748 Comm: (udev-worker) ... 6.18.63-debian-t6-proto2 #2
+[    6.418100] pc : mt76_mmio_rmw+0xc/0x40 [mt76]
+[    6.422598] lr : mt7996_reg_map_l1+0x5c/0xa0 [mt7996e]
+[    6.517081] mt76_mmio_rmw+0xc/0x40 [mt76]
+[    6.521568] __mt7996_reg_remap_addr+0x120/0x1a0 [mt7996e]
+[    6.531451] mt7996_mmio_probe+0xf4/0x198 [mt7996e]
+[    6.536385] mt7996_pci_probe+0xd8/0x5e0 [mt7996e]
+[    6.727158] Kernel panic - not syncing: synchronous external abort: Fatal exception in interrupt
+[    6.823178] Rebooting in 1 seconds..
+```
+
+**診断**：Debian 6.18.63カーネルの起動後約6.36秒でudevがPCIe Wi-Fiドライバ`mt7996e`をロードし、`mt76`のMMIOレジスタ読取り中にsynchronous external abortを起こしたことが確定。このpanicと再起動は、kexec試験後に純正Bが起動した時系列に**整合**するが、pstoreの時刻はC号機の誤ったシステム時計の影響があり、今回のkexecと**一対一対応することは未証明**。第2段起動成功は現段階では「強い状況証拠」であり、G1 full boot PASSとしない。`pstore: backend (ramoops) writing error (-28)` は後段のpstore保存容量不足であり、panicの本体原因ではない。
+
+**次の仮説検証（実機実行は別途安全管理のもと）**：起動時のコマンドラインに `module_blacklist=mt7996e modprobe.blacklist=mt7996e` を一時的に付加し、kernel module loadとユーザー空間の自動probeをともに抑制する（Linuxカーネルの `module_blacklist` はloadable modulesの禁止、`modprobe.blacklist` はmodprobe側で自動ロード抑制）。Wi-FiなしでP44 DebianがSSHまで達するか検証する。P25やP44の永続ファイルは変更せず、`kexec --load`に渡すRAM内の一時cmdlineだけを変更。**再試験前に残存pstore原本をraspi4へ取得し、UARTログ取得の稼働を確認すること**。もし成功すればWi-Fi probeが少なくとも今回観測されたpanicの直接要因であることが支持される。成功しなければ、PCIe/reset/clock/DTB初期化・rootfs等も追加で調査する。
+
+現段階で`retry=0,success=1`、P26 ext4化、P25再署名を行わない。純正Bは現に起動しており、次の手動試験の独立復旧経路として保護する。
