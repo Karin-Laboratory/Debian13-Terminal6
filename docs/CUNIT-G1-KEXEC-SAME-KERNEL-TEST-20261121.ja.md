@@ -419,3 +419,19 @@ G1第3回の実機試験で`initcall_blacklist=ccci_util_init module_blacklist=m
 証拠UARTログの今回保存時点の所有者実測SHA256は`ee7b026f48f79e03692ac66aaef98ad73e2cc97662585907f1f0467249ca7018`。このファイルは追記し続けるログのため、後から別の値になる可能性があり、SHAはスナップショット時点として記録。
 
 Linux 6.18公式docs（https://www.kernel.org/doc/html/v6.18/admin-guide/kernel-parameters.html）で、`pci=noaer`はAER無効化、`pcie_ports=compat`はより広いPCIe native port servicesの無効化と確認。次回は**切り分けを優先しAERのみ**を暫定的に無効化：現行`pci=pcie_bus_safe`を`pci=pcie_bus_safe,noaer`へ置換し、`initcall_blacklist=ccci_util_init module_blacklist=mt7996e modprobe.blacklist=mt7996e`を第2段の一時cmdlineに付与。C号機で`CONFIG_PCIEAER=y`などkernel configを事前確認し、RAM-only stage/load後にUART・P44保全の実行ゲートを設ける。**PCIeリンク自体を修復するものではなく診断用回避策**。第4回の実際のkexecは未実施。P25/P26/P44/slot制御へ永続変更なし。
+
+## 設計俯瞰レビュー：ブラックリスト追加の打切り条件と共通ローダー本来の検証経路（2026-11-21）
+
+所有者から「屋上屋ではないか」と設計上の懸念。非公開の共通ローダー確定仕様v1.0（`Karin-Laboratory/Chappie-Memory/terminal6/SoftBank-Air6-共通ローダー確定仕様-v1.0-20261121.md`）を再確認した。**本来の構成**は署名済み・最小機能P25（UART/eMMC/ext4/隔離LAN/SSH/kexec）を独立管理環境として起動し、その直後にP43上等の別OSカーネルへkexecする方式。P26は設定、P43はOS格納、P44はオプション。P25はWi-Fi/PCIe/モデム等を起動管理の必須要件としない。
+
+**現在のG1実験の構成**は、既存署名済みP25を使って**フル機能Debian 13＋P44 rootfsまで起動した後**、同じP25から抽出したARM64 ImageをkexecでRAMロードして**同じDebian**を再起動している。これは「kexec syscall→第2段Linux entryが可能か」を最小変更で確かめる有用な実証だが、**最終共通ローダーの起動経路ではない**。すでに動いているmodem/PCIe/Wi-Fi関連SoCを温状態で引き継ぐため、initcall_blacklist、module_blacklist、pci=noaerを継ぎ足すほど、新OSの健全なハードウェア初期化・デバイスリセット要件を満たしているか分からなくなる。Linux kexecは通常のブートローダー/ファームウェアのハードウェア初期化を経由しない。各障害を**独立に回避できた事実**と、**基礎原因の修正済み**を混同しない。
+
+同様に、今回の後段はP25と**同一Imageバイナリ**。この実績はLinuxがP25から抽出されたraw Imageへジャンプする能力を示すが、**別にビルドした未署名カーネル＋rootfsの交換実用性と署名不要配布体験までは未証明**。
+
+**推奨する一旦停止／再設計ゲート**：
+1. 現在の第4回`pci=pcie_bus_safe,noaer`、CCCI/Wi-Fi除外を付加して`kexec_loaded=1`までは確認済み。**この時点で一旦`kexec -e`を保留**し、ロード成功と実行未実施を区別する。試験予定なしなら`kexec --unload`でRAM登録解除可能。
+2. C号機の通常起動成功カーネルを起点に**最小P25カーネル＋initramfs設計**を検討。CCCI、PCIe、Wi-FiはP25に不要なので原則probe対象から外す（DTノード状態、Kconfig、ドライバ組込みをコード/実機で確認し、推測で無効化しない）。eMMC、UART、LAN、SSH、kexecに必須のデバイスだけにする。**P26/P43/P44なしでもP25だけでシェルと救援SSHに到達**することを独立検証。
+3. 第2段も、まずUART/eMMC/有線LANのみの**意図的に最小な別ビルドのunsigned ARM64 kernel**で起動・SSH到達を検証。後でWi-Fi/モデム等を各独立ゲートで有効化。旧Linuxのデバイスquiesce・filesystem安全停止・hardware reset整合を別々に実証。
+4. 恒久的に3種以上のblacklistや`pci=noaer`が必要なまま本線へ採用しない。診断用引数を配布用既定値に転記しない。次のkexec試験は技術検証として意味がある場合のみ個別に行い、設計の見直しを妨げない。
+
+**評価**：署名済みP25と未署名後段の分離思想そのものは合理的だが、現在の「フルDebian→同じカーネルでkexec→Debian」連続試験から最終製品の安定性を類推しない。現行公開Debian憲章v1.4との不整合も解消が必要だが、設計憲章本文を所有者承認なしに変更しない。
