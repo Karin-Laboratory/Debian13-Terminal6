@@ -181,7 +181,19 @@ grep -q '^systemd ' "$dest/p44-init-version.txt" || {
   echo "P44_INIT_CHROOT_WRONG_OUTPUT" >&2
   exit 1
 }
+# P25 switch_root launches /sbin/init, not the canonical systemd ELF path.
+# Exercise precisely that guest-rooted symlink/ELF-interpreter entrypoint too.
+if ! chroot "$out" /sbin/init --version > "$dest/p44-switchroot-init-version.txt" 2>&1; then
+  echo "P44_INIT_EXACT_SWITCH_ROOT_ENTRYPOINT_EXEC_FAILED" >&2
+  sed -n "1,12p" "$dest/p44-switchroot-init-version.txt" >&2
+  exit 1
+fi
+grep -q '^systemd ' "$dest/p44-switchroot-init-version.txt" || {
+  echo "P44_INIT_EXACT_ENTRYPOINT_WRONG_OUTPUT" >&2
+  exit 1
+}
 echo "P44_INIT_NATIVE_ARM64_CHROOT_EXEC_PASS"
+echo "P44_INIT_SWITCHROOT_ENTRYPOINT_CHROOT_PASS_NOT_PID1_PROOF"
 
 # Do not ship builder machine identity or dbus machine identifier.
 : > "$out/etc/machine-id"
