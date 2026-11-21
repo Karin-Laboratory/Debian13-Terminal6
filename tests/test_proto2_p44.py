@@ -4,6 +4,7 @@
 import importlib.util
 import io
 import pathlib
+import hashlib
 import tarfile
 import tempfile
 import unittest
@@ -30,6 +31,68 @@ class Proto2SourceTests(unittest.TestCase):
         self.assertLess(script.index("mount --bind"), script.index('insmod "$mods/mt7996e.ko"'))
         self.assertNotIn("rmmod ", script)
         self.assertNotIn("iw reg set", script)
+
+    def test_wifi_p26_ext4_is_not_a_fatal_prerequisite(self):
+        script = read("scripts/proto2-wifi-start.sh")
+        self.assertIn("ROOTFS_A_NOT_SQUASHFS_SKIPPED", script)
+        self.assertIn("FIRMWARE_SOURCE_THIS_UNIT_STOCK_B", script)
+        self.assertIn("FIRMWARE_SOURCE_OWNER_PRIVATE", script)
+        self.assertIn("PRIVATE_FIRMWARE_SHA", script)
+        self.assertIn("FIRMWARE_SOURCE_NOT_FOUND_NO_P26_FORMAT_ASSUMPTION", script)
+        self.assertIn("blkid -p -o value -s TYPE", script)
+        self.assertNotIn("ROOTFS_A_RO_MOUNT", script)
+        self.assertLess(script.index('mount -t squashfs -o ro "$(part rootfs_b)"'),
+                        script.index('if [ "$(blkid'))
+        self.assertIn('umount "$stock"', script)
+
+    def test_slot_a_success_misc_patch_is_exact_and_idempotent(self):
+        mod = self._slot_module()
+        before = bytearray(b"\x5a" * mod.MISC_BYTES)
+        before[mod.CTRL_OFFSET:mod.CTRL_OFFSET + 10] = bytes.fromhex("0f040000000e00010000")
+        after, changed = mod.patch_misc(bytes(before))
+        self.assertTrue(changed)
+        self.assertEqual(after[mod.CTRL_OFFSET:mod.CTRL_OFFSET + 10],
+                         bytes.fromhex("0f000100000e00010000"))
+        self.assertEqual([i for i in range(len(before)) if before[i] != after[i]],
+                         [mod.CTRL_OFFSET + 1, mod.CTRL_OFFSET + 2])
+        again, changed = mod.patch_misc(after)
+        self.assertFalse(changed)
+        self.assertEqual(again, after)
+
+    def test_slot_a_success_unknown_layout_fails_closed(self):
+        mod = self._slot_module()
+        data = bytearray(mod.MISC_BYTES)
+        data[mod.CTRL_OFFSET:mod.CTRL_OFFSET + 10] = bytes.fromhex("0f040000000e00010000")
+        for offset, value in ((mod.CTRL_OFFSET, 0x00),
+                              (mod.CTRL_OFFSET + 5, 0x0f),
+                              (mod.CTRL_OFFSET + 7, 0x00),
+                              (mod.CTRL_OFFSET + 1, 0x00)):
+            mutated = bytearray(data)
+            mutated[offset] = value
+            with self.assertRaises(RuntimeError):
+                mod.patch_misc(bytes(mutated))
+        with self.assertRaises(RuntimeError):
+            mod.patch_misc(bytes(data[:4096]))
+
+    @staticmethod
+    def _slot_module():
+        spec = importlib.util.spec_from_file_location(
+            "proto2_slot_a_success", ROOT / "scripts/proto2-slot-a-success.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_slot_a_success_service_requires_owner_arming(self):
+        rootfs = read("scripts/build-proto2-p44-rootfs.sh")
+        validator = read("scripts/proto2-slot-a-success.py")
+        self.assertIn("terminal6-slot-a-success.service", rootfs)
+        self.assertIn("ConditionPathExists=/etc/terminal6/authorize-slot-a-success", rootfs)
+        self.assertIn("ALLOW_CUNIT_PROTO2_SLOT_A_SUCCESS_V1", validator)
+        self.assertIn("CURRENT_BOOT_EEPROM_ACK_MISSING", validator)
+        self.assertIn("CURRENT_BOOT_OTP_ACK_MISSING", validator)
+        self.assertIn("UNEXPECTED_BOOT_A_SHA", validator)
+        self.assertIn("SLOT_A_SUCCESS_READY_DRY_RUN_ONLY", validator)
+        self.assertNotIn("enable terminal6-slot-a-success.service", rootfs)
 
     def test_private_modules_exactly_pinned(self):
         script = read("scripts/prepare-proto2-wifi-modules.sh")
