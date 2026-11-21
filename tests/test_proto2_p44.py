@@ -9,6 +9,7 @@ import struct
 import tarfile
 import tempfile
 import unittest
+import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -113,6 +114,67 @@ class Proto2SourceTests(unittest.TestCase):
         self.assertIn("base_required", package_source)
         self.assertIn("missing ABI-matched cfg80211/mac80211", package_source)
 
+    def test_modules_archive_preserves_merged_usr_lib_symlink(self):
+        module = packager()
+        original = module.MODULE_SHAS.copy()
+        fixture_payloads = {
+            "mt76.ko": b"fixture mt76",
+            "mt76-connac-lib.ko": b"fixture connac",
+            "mt7996e.ko": b"fixture mt7996e",
+        }
+        module.MODULE_SHAS = {name: hashlib.sha256(data).hexdigest()
+                              for name, data in fixture_payloads.items()}
+        try:
+            with tempfile.TemporaryDirectory() as temp:
+                root = pathlib.Path(temp)
+                archive = root / "modules.tar"
+                entries = {
+                    f"lib/modules/{module.KERNEL}/kernel/net/wireless/cfg80211.ko": b"cfg80211",
+                    f"lib/modules/{module.KERNEL}/kernel/net/mac80211/mac80211.ko": b"mac80211",
+                    **{f"lib/modules/{module.KERNEL}/updates/terminal6-mt76/{name}": data
+                       for name, data in fixture_payloads.items()},
+                    f"lib/modules/{module.KERNEL}/modules.dep": b"",
+                    f"lib/modules/{module.KERNEL}/updates/terminal6-mt76/SHA256SUMS":
+                        "".join(f"{module.MODULE_SHAS[n]}  {n}\n" for n in fixture_payloads).encode(),
+                }
+                stage = root / "stage"
+                for name, data in entries.items():
+                    path = stage / name
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(data)
+                subprocess.run(["tar", "--transform=s,^lib,usr/lib,",
+                                "-cf", str(archive), "-C", str(stage), "lib"],
+                               check=True, capture_output=True, text=True)
+                module.verify_modules_tar(archive)
+
+                target = root / "rootfs"
+                (target / "usr/lib").mkdir(parents=True)
+                (target / "usr/lib/aarch64-linux-gnu").mkdir()
+                loader = target / "usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1"
+                loader.write_bytes(b"ELF loader fixture")
+                (target / "usr/lib/ld-linux-aarch64.so.1").symlink_to(
+                    "aarch64-linux-gnu/ld-linux-aarch64.so.1")
+                (target / "lib").symlink_to("usr/lib")
+                subprocess.run(["tar", "-xf", str(archive), "-C", str(target)],
+                               check=True, capture_output=True, text=True)
+                self.assertTrue((target / "lib").is_symlink())
+                self.assertTrue((target / "lib/ld-linux-aarch64.so.1").is_file())
+                self.assertTrue((target / f"lib/modules/{module.KERNEL}/modules.dep").is_file())
+
+                legacy = root / "legacy.tar"
+                with tarfile.open(legacy, "w") as tar:
+                    item = tarfile.TarInfo("lib")
+                    item.type = tarfile.DIRTYPE
+                    item.mode = 0o755
+                    tar.addfile(item)
+                    item = tarfile.TarInfo(f"lib/modules/{module.KERNEL}/modules.dep")
+                    item.size = 0
+                    tar.addfile(item, io.BytesIO(b""))
+                with self.assertRaisesRegex(ValueError, "preserve merged-/usr"):
+                    module.verify_modules_tar(legacy)
+        finally:
+            module.MODULE_SHAS = original
+
     def test_firstboot_owner_neutral(self):
         rootfs = read("scripts/build-proto2-p44-rootfs.sh")
         first = read("scripts/p44-firstboot.sh")
@@ -214,7 +276,7 @@ class Proto2SourceTests(unittest.TestCase):
                 module.package(rootfs, mods, p25, release, root / "P44.zip", "a" * 40)
             self.assertFalse((root / "P44.zip").exists())
 
-    def test_unapproved_module_tar_rejected(self):
+    def test_legacy_lib_modules_tar_rejected(self):
         module = packager()
         with tempfile.TemporaryDirectory() as temp:
             path = pathlib.Path(temp) / "modules.tar"
@@ -223,7 +285,7 @@ class Proto2SourceTests(unittest.TestCase):
                 entry = tarfile.TarInfo("lib/modules/6.18.63-debian-t6-proto2/updates/terminal6-mt76/evil.ko")
                 entry.size = len(blob)
                 file.addfile(entry, io.BytesIO(blob))
-            with self.assertRaisesRegex(ValueError, "unapproved module"):
+            with self.assertRaisesRegex(ValueError, "preserve merged-/usr"):
                 module.verify_modules_tar(path)
 
 if __name__ == "__main__":

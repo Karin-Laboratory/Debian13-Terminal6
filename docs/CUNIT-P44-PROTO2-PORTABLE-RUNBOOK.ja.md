@@ -245,17 +245,83 @@ Linux \`6.18.63-debian-t6-proto2\` と initramfs へ到達し、
 この修正は**配布候補の起動前検証強化**であり、既存C号機P44の故障を直した証拠ではない。
 署名、再製造された新ZIP、P44再展開、実機書込み、再起動は別ゲート。
 
-### 次に必要な最小実機切り分け（読み取り専用・別途操作承認）
+### 読み取り専用実機切り分けの結果（2026-11-22）
 
-純正B稼働中、C号機の\`rootfs_data\`をPARTNAMEで照合し、既知の読み取り専用
-\`mount -t ext4 -o ro,noload\` で一時マウントした場合にのみ、次の内容を確認。
-元のP44を修復・再展開・init実行しない。
+純正B稼働中のC号機で、PARTNAME `rootfs_data`、2,684,321,792 bytes、ext4を照合した。
+起動状態は `bootslot=b`、rootは `/dev/mmcblk0p39`、Linux 5.4.238、B success=1。
+厳格な既知host keyによるSSHと隔離管理リンクのpingが成功し、保存済みboot_b SHAも
+前回の記録と一致した。P44は開始時未マウントだった。P44を次のコマンドだけで
+一時マウントし、調査後にアンマウントした。終了時にmount tableから対象mountが
+消えていることを再確認した。
 
-1. \`/sbin\`、\`/usr/sbin/init\`、\`/usr/lib/systemd/systemd\` の実体・symlink・権限
-2. \`/lib/ld-linux-aarch64.so.1\` のsymlink鎖・実体・実行権限と、systemdのARM64 ELF interpreter
-3. \`/etc/os-release\`、\`/etc/systemd/system/default.target\`、\`/usr/lib/aarch64-linux-gnu\` 等の必要ファイル
-4. 保存済み新ZIPのrootfs tarと、**実際にインストールされた**P44の該当ファイルのSHA/モード/リンク先を比較
-5. 旧成功UARTと今回のUARTで、\`switch_root\`呼び出し直前のmount/execエラー断片を時刻近傍から抽出し、\`ENOENT\`、\`EACCES\`、\`ENOEXEC\`、missing loader、別の終了コードのどれかを確認。文字列を継ぎ足して「完全な一行」と偽造しない
-6. P44に起動試行由来の変更があった可能性を維持し、未マウント/ro確認後に安全にumountする
+\`mount -t ext4 -o ro,noload /dev/mmcblk0p44 /tmp/cunit-p44-init-ro\`
 
-切り分け結果が得られるまでは、**原因を「/sbin/init欠落」と断定せず、P44丸ごとの再フォーマット・再展開やP25再署名を開始しない**。所有者が①②の交互実機試験を継続中であることを守り、C号機は純正B稼働のまま安全に引き渡す。
+#### 実機P44のPID 1実行パス
+
+- `/sbin -> usr/sbin`、`/sbin/init -> ../lib/systemd/systemd`。
+  よってrootfs内のリンク鎖は `/usr/lib/systemd/systemd` に到達し、リンク先ファイルは
+  root:root、mode 0755、133,584 bytes、SHA256
+  `46044b7912af7f7087837554b186ca3ddb640c0f6646cf5e625be5078d5db80d`。
+- systemdはELF64 little-endian AArch64で、ELF `PT_INTERP` は
+  `/lib/ld-linux-aarch64.so.1`。systemd本体と必要な共有ライブラリは実機P44内に存在し、
+  読取り時点のP44 mount optionsにも `noexec` はなかった。
+- P44の `/lib` はsymlinkではなく実ディレクトリ（root:root、0755）で、
+  `/lib/ld-linux-aarch64.so.1` は欠落。一方、実体
+  `/usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1` は存在し0755、201,344 bytes、
+  SHA256 `8839358cf3489b3399256c8ad6daff5147e61023cc3dd584966dfb3eb1928035`。
+  `/usr/lib/ld-linux-aarch64.so.1` のsymlink自体も正常。
+- `/usr/lib/aarch64-linux-gnu/systemd/` のsystemd依存ライブラリ、libapparmor、
+  libselinux、libcは存在し、P44内のリンク・実体を解決できた。
+  `/etc/os-release -> ../usr/lib/os-release` も正常で、内容はDebian 13.8。
+  systemd本体、`/etc/systemd/system.conf`、`journald.conf`のSHAは下記private証拠に記録。
+
+したがって `/sbin/init` のsymlink自体は正しく、systemdバイナリも存在する。しかし
+カーネルがsystemdをexecする際、ELF interpreterとして要求される絶対パス
+\`/lib/ld-linux-aarch64.so.1\` がP44 root内で解決できない。この欠落はexec時のENOENTを
+直接説明する。systemdのmain自体は起動しておらず、動的ライブラリの実行時ロードにも
+到達していない。これは「systemdが起動後に異常終了」ではなく、**PID 1のexec段階で
+loaderが見つからず起動失敗した**という判定である。
+
+#### rootfs/modulesアーカイブ差分と原因
+
+保存済みの旧ZIP SHA256 `9aded7613ffc262060501d633dd2d27600a544b5fd7d35a6bdbeb25ff9b28f09` と
+新ZIP SHA256 `57058163645c0acfe7b9f5f760d7a2dc8af78fca33a81604a8d37d23c5815d3b` を
+asset IDから再取得して検証した。両rootfs tarは正しいmerged-/usr構造
+(`lib -> usr/lib`、`usr/lib/ld-linux-aarch64.so.1`、systemd init鎖)を含む。
+一方、両modules tarの内容はトップレベル `lib/modules/...`。方式Bの実機deploy scriptは
+rootfs tarを先に展開し、その後modules tarを同じP44 rootへ展開する。後者のトップレベル
+`lib/` directory entryが先の `lib -> usr/lib` symlinkを実ディレクトリへ置き換え、
+modulesだけを残してinterpreterへの `/lib` 経路を隠す。実機で観測した
+「`/lib`が実ディレクトリ」「`/lib/ld-linux-aarch64.so.1`欠落」「`/usr/lib`側の
+loaderは存在」という組合せは、この展開順・アーカイブ構造と一致する。
+
+**根本原因：P44 package/deployment bug、確度 HIGH / 強く確定。** 署名済みP25の
+switch-root実装やsystemdの壊れを示す証拠はない。UART原本SHA256
+`112203da8fac6bcc3f0be0877ea9a4b3b2509699b28d72a8c4ae8724bc417233`の出力はCPU間で
+interleaveしている。保存原文には `DEBIAN13_T6_SWITCH_ROOT_P44`、init実行失敗の
+断片とkernel panic `Attempted to kill init! exitcode=0x00000100` があるが、断片を
+連結して完全なエラー行とは扱わない。実際のP25はAndroid boot header上
+`ramdisk_size=0`で、gzip展開したkernel Image内にもswitch-root marker/scriptの
+可読文字列は見つからなかった。従ってスクリプトの正確な行・呼出し形式は現存の取得物から
+未確定だが、実機rootfsのELF interpreter欠落だけで、記録されたPID 1 exec ENOENTを説明できる。
+
+#### 修正と未実機検証事項
+
+\`scripts/prepare-proto2-wifi-modules.sh\`はmodule archiveを
+\`usr/lib/modules/...\`として作るよう変更した。
+\`scripts/package-proto2-p44.py\`は同じ場所を検証し、トップレベル `lib/`を含む旧形式を拒否する。
+GNU tarでrootfsの `lib -> usr/lib` symlinkへ修正版modules archiveを展開する回帰テストを追加し、
+loader経路とmodule配置が共存すること、および旧 `lib/modules` layoutの拒否を確認する。
+このソース修正は候補ZIPの再製造・署名・実機適用をしていない。現在のP44も変更していない。
+
+private原本・詳細ハッシュはraspi4の
+\`/home/masataka/private/cunit-pr41-init-ro-20261122/\` とUART原本保存先に限定する。
+P44は調査後にアンマウント済み。C号機はslot Bのまま、再起動・slot切替・書込みなし。
+共通LK/FDT ASSERTは本件と独立し、`ON_HOLD / ROOT_CAUSE_UNRESOLVED`。
+
+次の②試験前に、修正版ソースから**新SHAのP44 ZIP**を製造し、そのZIPを独立検証する。
+P25は変更しない。新ZIP適用時はまずread-only path checkまたは同等のpackage acceptanceで
+`/lib -> usr/lib`と `/lib/ld-linux-aarch64.so.1` の解決を検証する。C号機P44の修復・再展開、
+P25署名・実機投入、再起動は別途承認が必要。
+
+本原因の修正はソース・オフラインテストまでであり、実機P44へ適用していない。次回試験は新ZIPの独立製造検証後、別途承認された場合に限る。C号機は純正B稼働のまま安全に引き渡す。

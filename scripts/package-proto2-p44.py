@@ -29,9 +29,12 @@ MODULE_SHAS = {
 }
 
 def verify_modules_tar(path: Path):
-    prefix = f"lib/modules/{KERNEL}/updates/terminal6-mt76/"
-    base = f"lib/modules/{KERNEL}/kernel/"
-    meta = f"lib/modules/{KERNEL}/modules."
+    # Debian's merged-/usr layout requires module archives under usr/lib.
+    # A top-level lib/ entry overwrites the rootfs's /lib -> usr/lib symlink
+    # when the runbook extracts modules.tar after rootfs.tar.gz.
+    prefix = f"usr/lib/modules/{KERNEL}/updates/terminal6-mt76/"
+    base = f"usr/lib/modules/{KERNEL}/kernel/"
+    meta = f"usr/lib/modules/{KERNEL}/modules."
     base_required = {base + "net/wireless/cfg80211.ko",
                      base + "net/mac80211/mac80211.ko"}
     base_found = set()
@@ -42,6 +45,8 @@ def verify_modules_tar(path: Path):
             name = entry.name.removeprefix("./")
             if name.startswith("/") or ".." in name.split("/"):
                 raise ValueError("unsafe modules tar path")
+            if name == "lib" or name.startswith("lib/"):
+                raise ValueError("modules tar must preserve merged-/usr /lib symlink: " + name)
             if entry.isdir():
                 continue
             if not entry.isfile():

@@ -54,6 +54,12 @@ mkdir -p "$out/stage/lib/modules/$kernel"
 cp -a "$base" "$out/stage/lib/modules/$kernel/kernel"
 depmod -b "$out/stage" "$kernel"
 (cd "$out/stage" && find "lib/modules/$kernel" -type f -print0 | sort -z | xargs -0 sha256sum) > "$out/MODULE-TREE-SHA256SUMS"
-tar --numeric-owner --owner=0 --group=0 -cf "$out/modules.tar" -C "$out/stage" lib
+# Debian uses merged-/usr: the target rootfs has /lib -> usr/lib.  Keep the
+# archive rooted at usr/lib so extracting it after rootfs.tar.gz cannot replace
+# that symlink with a real top-level lib directory (which would hide the ELF
+# interpreter at /lib/ld-linux-aarch64.so.1 and make execve(PID1) return ENOENT).
+tar --numeric-owner --owner=0 --group=0 \
+  --transform='s,^lib,usr/lib,' \
+  -cf "$out/modules.tar" -C "$out/stage" lib
 sha256sum "$out/modules.tar"
 echo "PRIVATE_MODULES_TAR_READY_NOT_PUBLIC_RELEASE"
