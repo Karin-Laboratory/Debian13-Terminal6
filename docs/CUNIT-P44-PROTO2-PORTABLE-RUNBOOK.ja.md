@@ -183,3 +183,25 @@ This entry records the later owner-authorized test of the new Wi-Fi P44 candidat
 - UART and install logs, exact device hashes, and detailed state snapshots remain in the private raspi4 evidence directory. No UART raw log, host-key fingerprint, private key, or device-specific identity is included in this public record.
 
 Next work should diagnose the LK FDT/mrdump assertion against the exact boot-proven P25 before any further slot-A reboot. Separately correct or explicitly account for ACL restoration, then obtain fresh authorization before another finite trial if needed.
+
+## 2026-11-22: LK/FDT ASSERT・P44 ACL警告のオフライン原因切分け（実機未操作）
+
+**参照:** [private structural audit CI #44942998796](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44942998796) (SUCCESS), private [sanitized JSON](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/blob/research/cunit-lk-fdt-acl-20261122/research/reports/cunit-lk-fdt-acl-20261122.json). 入力はSHA固定の既存C号機署名済みP25 `74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e` と新P44 ZIP `57058163645c0acfe7b9f5f760d7a2dc8af78fca33a81604a8d37d23c5815d3b`。実機・RF・slot/miscを一切変更していない。
+
+### LKの `fdt_add_subnode` エラーについて
+
+- UARTの `offset=0xfffffffe` は符号付き32-bitでは `-2`。標準libfdtで `-FDT_ERR_EXISTS`、すなわち「同名の子ノードが既に存在するため追加できない」。`-FDT_ERR_NOSPACE` (通常 `-3`) とは異なる。
+- P25 32MiBの直接埋込FDTを1個抽出。オフセット `9302080`、148,753 bytes、SHA256 `a6bef90e18c0a16934e6c4196fea60408a1fed08b6ef9b62c7fbe5d7c5632d91`。851 nodes、静的な同名子ノード重複 **0件**。
+- P25 FDTには `/mrdump_ext_rst` が存在するが、これがASSERTの直接対象とは証明されていない。**LK実行時の変更後FDTやLK自身の別FDTは今回検査していない**。
+- 過去の①ローダーのオフライン検査 [#44909084128](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44909084128) が記録したFDT SHAと同一。既知起動成功P25と今回失敗時のP25はバイト固定で、P44をロードする前にLK ASSERTしたため、Wi-FiやP44 ACLをこのLK停止の直接原因と断定できない。
+- **未解明：** C号機のLK mrdump処理が追加する具体的な親・子ノード名、追加処理の順番/多重呼出し、Linux開始前のFDT状態、今回と以前の成功時のLK起動条件差。必ず最初の失敗からのUARTシーケンスと以前の成功ログを並べ、保存済みLKコード／AEE文字列・呼出し系をread-only解析する。推定だけでP25署名、DTB改変やLK書込みをしない。
+
+### POSIX ACL実際の影響と復元
+
+- 新ZIPの `rootfs.tar.gz` (145,289,562 bytes) を全走査。**9,743 tar entries中、ACLを持つのは `./var/log/journal` の1個だけ**。ここに `SCHILY.acl.access`、`SCHILY.acl.default` と対応する2つのPOSIX ACL xattrがある。ほかのファイルのACLメタデータを復元した証拠は不要だが、uid/mode/xattrの完全性は別途保証が必要。
+- private ARM64 Linux hostで `setfacl`→`getfacl -n` のprobe PASS。`tar --numeric-owner --acls --xattrs --xattrs-include='*'` でrootfsを**一時ディレクトリに全量展開 PASS**。`/var/log/journal` のaccess/default ACLに GID 4 の `r-x` が存在することを`getfacl -pn`で確認。
+- 純正B側の `Operation not supported` はこのACL復元要求に関する警告と整合する。ただしstock Bの ext4 ACL構成・マウント状態は未調査であり、カーネル設定が原因と断定しない。元のP44内容は現在ext4-clean、未マウントで保存されている。
+- **次回Debianが起動した後の最小修復案（まだ未実行）:** P44 ext4がrwでACL対応していることを確認してから、`setfacl -m g:4:r-x,d:g:4:r-x /var/log/journal` を実行し、`getfacl -pn /var/log/journal` でaccess/default両方のGID 4を検証。必要ならアーカイブの完全なACLと比較して修正する。Debian側の`acl`コマンド導入・`systemd-tmpfiles`による所有者・モード・ACLの再設定有無も監査する。
+- 現時点でP44を再フォーマット・再展開する理由はない。ACLはLK停止の原因でなく、Debian側で後から修復できる可能性が高い。
+
+**試験結果:** 署名済みP25入力SHA・FDT静的検査PASS、ZIP入力SHA・ACL対象の特定PASS、ACL対応Linuxでの復元PASS、private GitHubレポート保存PASS。**C号機でのLK ASSERT根本原因はUNRESOLVED、再起動/PHY/SSHは今回NOT_TESTED。**
