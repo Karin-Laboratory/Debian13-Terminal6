@@ -324,3 +324,20 @@ Wi-Fi blacklist付きの`kexec -e`を実行する直前のUART marker `G1-KEXEC-
 UART v2ファイル`~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log`のユーザー実測SHA256 `400881f4093b38bcdbe2e8d50dbca688aa3104b42bbc20d4244b29759a6bd684`、size 100,894 bytes。録画は`G1-KEXEC-EXEC-START`が6行目、DABTは7行目、panicは49行目、rebootは51行目と連続している。証拠ログ原本はユーザーのraspi4に保持。
 
 次の**非破壊診断ゲート**：現行slot A Debianで`zcat /proc/config.gz | grep -E '^(CONFIG_KALLSYMS=|CONFIG_KEXEC=)'`、`grep -w ccci_util_init /proc/kallsyms`、`cat /sys/kernel/kexec_loaded`を実測する。`initcall_blacklist=ccci_util_init`はLinux公式カーネル引数でinitcallのみをスキップするが、config/symbol確認後、モデム不動などの副作用を前提に**隔離実験のRAMロード第2段だけ**での一時的検証候補。P25、P26、P44、ブート制御フラグ、純正Bは変更しない。通常OSのCCCI無効化は提案しない。
+
+## 追記：CCCI initcallシンボル確認PASS（2026-11-21）
+
+所有者がC号機 Debian slot Aに戻り、以下を読み取り専用で確認：
+
+```text
+CONFIG_KALLSYMS=y
+CONFIG_KEXEC=y
+ffffffc080f3c244 t ccci_util_init
+6.18.63-debian-t6-proto2
+/sys/kernel/kexec_loaded = 0
+bootslot=a
+```
+
+よって前回DABTの`ccci_util_init`は実カーネル内に存在。Linuxの`initcall_blacklist=`は起動時に指定されたinitcall関数の実行をスキップする正式なデバッグ機構。次回実験では新しいRAMステージ専用directoryを作り、`initcall_blacklist=ccci_util_init module_blacklist=mt7996e modprobe.blacklist=mt7996e`を**第2段kexecに渡す一時cmdlineだけ**に付加する（stock A/BのP25その他には一切永続的変更なし）。
+
+**ただし**symbolの存在だけでは、initcall関数のスキップがCCCIの他の依存初期化を安全にする保証はなく、モデム・PCIe・rootfsが正常稼働することも保証しない。次回はload PASSとUART/P44保全を先に確認し、段階的に実行判断する。
