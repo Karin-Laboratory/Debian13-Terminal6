@@ -124,3 +124,27 @@ BLOCKED: ... returned non-zero exit status 127
 `libxentoollog.so.1`, `libxencall.so.1`, `libxenevtchn.so.1`, `libxengnttab.so.1`, `libxenforeignmemory.so.1`, `libxendevicemodel.so.1`。
 
 `kexec --version`は`libxentoollog.so.1`ロードエラーで失敗。**G1は依然BLOCKED（ランタイム依存不足）、`kexec_load` syscalls未実施。** 次回はDebian security repoの同バージョンで `libxentoollog1`, `libxencall1`, `libxenevtchn1`, `libxengnttab1`, `libxenforeignmemory1`, `libxendevicemodel1` と間接依存 `libxentoolcore1`, `libxenhypfs1`, `libxenstore4` を同時に取得して隔離領域へ展開。再度 `ldd` と `--version` を検証し、未解決ならそこでSTOP。その他の装置書込み・`kexec -e`なし。
+
+## 追記：Xen依存ライブラリ解決とkexec-tools起動PASS（2026-11-21）
+
+所有者がraspi4から9種のDebian arm64/Xen補助パッケージを隔離LANのC号機に転送し、`sha256sum -c SHA256SUMS`ですべてPASSを確認。各パッケージを`dpkg-deb -x`で`/root/g1-kexec-lib`へ展開し、`LD_LIBRARY_PATH=/root/g1-kexec-lib/usr/lib/aarch64-linux-gnu`として動的リンクを解決。
+
+実機出力：
+
+```text
+./libxencall1.deb: OK
+./libxendevicemodel1.deb: OK
+./libxenevtchn1.deb: OK
+./libxenforeignmemory1.deb: OK
+./libxengnttab1.deb: OK
+./libxenhypfs1.deb: OK
+./libxenstore4.deb: OK
+./libxentoolcore1.deb: OK
+./libxentoollog1.deb: OK
+ALL LIBRARIES RESOLVED
+kexec-tools 2.0.29
+```
+
+**判定：G1ユーザー空間実行ファイル準備PASS、`kexec_load`未実行、`kexec -e`未実行。** `tar`の未来タイムスタンプ警告はC号機の時計が約4日遅れている影響で、パッケージSHA検証・展開は正常に完了した。
+
+次は同一シェルで`export LD_LIBRARY_PATH=/root/g1-kexec-lib/usr/lib/aarch64-linux-gnu`、`export PATH=/root/g1-kexec-bin/usr/sbin:$PATH`を設定し、`python3 /root/cunit-kexec-g1.py load`を実行。結果に応じてロード方法やドライバ再初期化の検証を切り分ける。ロードしても自動的には起動しない。
