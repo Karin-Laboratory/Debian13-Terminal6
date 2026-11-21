@@ -17,7 +17,7 @@ out="$dest/rootfs"
 # No private firmware, templates, host keys, passwords, device serials or
 # calibration. This archive is a portable ROOTFS, not a signed/bootable P25.
 debootstrap --arch=arm64 --variant=minbase \
-  --include=systemd-sysv,systemd-resolved,iw,openssh-server,openssh-client,dropbear-bin,iproute2,udev,kmod,ca-certificates,iputils-ping,dbus \
+  --include=systemd-sysv,systemd-resolved,iw,openssh-server,openssh-client,dropbear-bin,iproute2,udev,kmod,ca-certificates,iputils-ping,dbus,util-linux,python3-minimal \
   trixie "$out" https://deb.debian.org/debian
 printf '%s\n' terminal6-debian > "$out/etc/hostname"
 cat > "$out/etc/fstab" <<'FSTAB'
@@ -140,6 +140,30 @@ StandardError=journal+console
 [Install]
 WantedBy=multi-user.target
 UNIT
+# NOT enabled on fresh installs. An owner must separately authorize the
+# C-unit's misc operation after acceptance; this never changes stock B.
+install -m 0755 "$root/scripts/proto2-slot-a-success.py" \
+  "$out/usr/local/sbin/terminal6-proto2-slot-a-success"
+mkdir -p -m 0700 "$out/etc/terminal6"
+cat > "$out/etc/systemd/system/terminal6-slot-a-success.service" <<'UNIT'
+[Unit]
+Description=Mark validated C-unit Debian slot A successful (stock B preserved)
+After=local-fs.target systemd-networkd.service ssh.service terminal6-proto2-wifi.service
+ConditionPathExists=/var/lib/terminal6/firstboot-complete
+ConditionPathExists=/etc/terminal6/authorize-slot-a-success
+ConditionKernelVersion=6.18.63-debian-t6-proto2
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/terminal6-proto2-slot-a-success --commit
+Restart=no
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
 # Do not ship builder machine identity or dbus machine identifier.
 : > "$out/etc/machine-id"
 rm -f "$out/var/lib/dbus/machine-id"
