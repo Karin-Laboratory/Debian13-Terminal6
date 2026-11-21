@@ -362,3 +362,28 @@ LOAD_EXIT_CODE=0
 ```
 
 すなわち**CCCIスキップ＋Wi-Fiドライバブラックリスト付きの第2段RAMロードPASS**。これらのboot argsは第2段の初期化完了まで有効かは未検証。次はUARTを実際に受信していることを検証してから手動`kexec -e`。**この記録時点では第3回の実行・再起動は未実施**。P25/P26/P44/ブート制御は変更していない。
+
+## 追記：CCCI blacklistでinitramfs/P44切替到達、1.392秒の別panic（2026-11-21）
+
+G1第3回の実機試験で`initcall_blacklist=ccci_util_init module_blacklist=mt7996e modprobe.blacklist=mt7996e`を付加した第2段Linuxを`kexec -e`で実行。raspi4 UARTログ`~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log`（当時の前半ログを引き継いで追記記録）の検索出力から、次を確認。
+
+```text
+1935:G1-CCCI-SKIP-UART-READY
+1937:G1-CCCI-SKIP-KEXEC-START
+1946:DEBIAN13_T6_INITRAMFS_STARTED
+1947:DEBIAN13_T6_ROOT_DEVICE=/dev/mmcblk0p44
+1948:DEBIAN13_T6_MANAGEMENT_SERVICE_STAGED
+1949:DEBIAN13_T6_SWITCH_ROOT_P44
+1987:[    1.392774] Kernel panic - not syncing: synchronous external abort: Fatal exception
+1993:[    2.707143] Rebooting in 1 seconds..
+3857:DEBIAN13_T6_INITRAMFS_STARTED
+3858:DEBIAN13_T6_ROOT_DEVICE=/dev/mmcblk0p44
+3859:DEBIAN13_T6_MANAGEMENT_SERVICE_STAGED
+3860:DEBIAN13_T6_SWITCH_ROOT_P44
+3869:[    8.001384] ... DEBIAN13_T6_SGMII1_BEFORE=0x31120008
+3870:[    8.020622] ... DEBIAN13_T6_MANAGEMENT_HARDWARE_READY
+```
+
+**G1進捗**：CCCI initcallをスキップした結果、直前の起動0.26秒のtranslation faultを回避し、**第2段Linuxがinitramfs実行とP44へのswitch_root開始まで到達**。ただし`switch_root`完了/P44 userspace起動完了を実証したわけではない。**1.39秒で別のsynchronous external abort**を起こしてリセット。後段3857以降のDebianログはリセット後のslot A経由通常ブートと解釈可能なので混同しない。
+
+**次の必須情報**：第3回パニックのUARTセグメント`nl -ba ~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log | sed -n '1930,2005p'`を取得し、該当のPC/LR/Call trace/ESRを特定するまでは、次のinitcall skipを推測で追加しない。再試験なし・書込みなしの解析フェーズ。
