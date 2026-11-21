@@ -225,3 +225,16 @@ Offending ECDSA key in /home/masataka/.ssh/known_hosts:4
 **次の仮説検証（実機実行は別途安全管理のもと）**：起動時のコマンドラインに `module_blacklist=mt7996e modprobe.blacklist=mt7996e` を一時的に付加し、kernel module loadとユーザー空間の自動probeをともに抑制する（Linuxカーネルの `module_blacklist` はloadable modulesの禁止、`modprobe.blacklist` はmodprobe側で自動ロード抑制）。Wi-FiなしでP44 DebianがSSHまで達するか検証する。P25やP44の永続ファイルは変更せず、`kexec --load`に渡すRAM内の一時cmdlineだけを変更。**再試験前に残存pstore原本をraspi4へ取得し、UARTログ取得の稼働を確認すること**。もし成功すればWi-Fi probeが少なくとも今回観測されたpanicの直接要因であることが支持される。成功しなければ、PCIe/reset/clock/DTB初期化・rootfs等も追加で調査する。
 
 現段階で`retry=0,success=1`、P26 ext4化、P25再署名を行わない。純正Bは現に起動しており、次の手動試験の独立復旧経路として保護する。
+
+## 追記：再試験 Wi-Fi blacklist付きkexecロードPASS（2026-11-21）
+
+純正Bへ復帰後、所有者が`quec_bootctrl -F`でC号機をslot A Debianへ戻し、Debianで同一P25を再度RAMステージングした。以下は**所有者の実機ログ**。
+
+- `uname -r = 6.18.63-debian-t6-proto2`、`bootslot=a`、ルート `/dev/mmcblk0p44 ext4`。
+- `python3 /root/cunit-kexec-g1.py inspect` PASS：P25期待SHA `74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e`、live FDT `177338 bytes`／`0ca607db163edd3422d6d526d457dfa3069b2c79b2300bd6539d34c6ec9d1806`。
+- `stage` PASS：Image SHA `141b6750698cb362169cc150974b3464577d6ab5fa98aa941449fc3990c8ad00`、18,921,480 bytes。`/run/terminal6-kexec-g1`にRAM上のみ展開。
+- 第2段に渡す一時cmdlineを`$(cat /proc/cmdline) module_blacklist=mt7996e modprobe.blacklist=mt7996e`に変更し、`kexec --kexec-syscall --load Image --dtb=live.dtb --append="$CMDLINE"`実行。`Can't open (/proc/kcore)`および`Can't get the symbol of _text`警告は出たが**終了コード0**。
+- **`/sys/kernel/kexec_loaded = 1`**：Wi-Fi blacklist付き第2段イメージがカーネルにロードされたことを確定。
+- **第2段への制御移行`kexec -e`はまだ未実施**。stage2 Linux起動の成否を推定しない。
+
+次の安全ゲート：raspi4のUARTを**実際に記録していることをマーカーで検証**（`/dev/ttyUSB0`を二重に読まない）、バックアップ確認、書込みsync/可能ならrootfs ro、実験者の明示判断後に`kexec -e`。元のpstoreは`~/cunit-g1/pstore-after-g1.tar`として保存・SHA `7f3f439514019998331150f1427f1fe27d464c793371d84175c717af72c03a62`。
