@@ -48,19 +48,63 @@ mkdir -p "$work"; chmod 0700 "$work"
 mkdir "$work/attempt" 2>/dev/null || fail ALREADY_ATTEMPTED_THIS_BOOT
 mkdir -m 0700 "$work/p26" "$work/stock" "$work/firmware"
 p26=$work/p26; stock=$work/stock; stage=$work/firmware
+p26_mounted=0
 cleanup() {
   mounted "$stock" && umount "$stock" || :
   mounted "$p26" && umount "$p26" || :
 }
 trap cleanup EXIT HUP INT TERM
-mount -t squashfs -o ro "$(part rootfs_a)" "$p26" || fail ROOTFS_A_RO_MOUNT
+
+# P26/rootfs_a is NOT guaranteed SquashFS. On boot-tested C-unit it is
+# empty ext4 "terminal6-config"; never modify or presume firmware exists.
 mount -t squashfs -o ro "$(part rootfs_b)" "$stock" || fail ROOTFS_B_RO_MOUNT
 oem=$stock/lib/firmware/MT7990_EEPROM.bin
 [ -f "$oem" ] && [ ! -L "$oem" ] || fail OWN_EEPROM_MISSING
 [ "$(wc -c < "$oem" | tr -d ' ')" = 7680 ] || fail OWN_EEPROM_SIZE
 [ "$(od -An -N2 -tx1 "$oem" | tr -d ' \n')" = 9079 ] || fail OWN_EEPROM_ID
-src=$p26/lib/firmware/mediatek/mt7996
-[ -d "$src" ] && [ ! -L "$src" ] || fail OWN_P26_FIRMWARE_DIR
+
+# Probe rootfs_a read-only. A non-SquashFS P26 is skipped, not mounted.
+a_dev=$(part rootfs_a)
+if [ "$(blkid -p -o value -s TYPE "$a_dev" 2>/dev/null || :)" = squashfs ]; then
+  mount -t squashfs -o ro "$a_dev" "$p26" || fail ROOTFS_A_SQUASHFS_MOUNT
+  p26_mounted=1
+else
+  log ROOTFS_A_NOT_SQUASHFS_SKIPPED
+fi
+
+# Prefer this unit's stock-B firmware, then real SquashFS A, then optional
+# separately owner-provisioned private files. NO OEM bytes ship in the ZIP.
+complete_source() {
+  base=$1
+  [ -d "$base" ] && [ ! -L "$base" ] || return 1
+  for name in mt7996_wa_mt6990.bin mt7996_wm_mt6990.bin \
+              mt7996_dsp_mt6990.bin mt7996_rom_patch_mt6990.bin; do
+    file=$base/$name
+    [ -f "$file" ] && [ ! -L "$file" ] && [ -s "$file" ] || return 1
+    bytes=$(wc -c < "$file" | tr -d ' ')
+    [ "$bytes" -le 16777216 ] || return 1
+  done
+}
+stock_fw=$stock/lib/firmware/mediatek/mt7996
+p26_fw=$p26/lib/firmware/mediatek/mt7996
+private_fw=/var/lib/terminal6/owner-firmware/mt7996
+src=
+if complete_source "$stock_fw"; then
+  src=$stock_fw
+  log FIRMWARE_SOURCE_THIS_UNIT_STOCK_B
+elif [ "$p26_mounted" -eq 1 ] && complete_source "$p26_fw"; then
+  src=$p26_fw
+  log FIRMWARE_SOURCE_THIS_UNIT_STOCK_A
+elif complete_source "$private_fw"; then
+  [ "$(stat -c '%u:%a' "$private_fw")" = '0:700' ] || fail PRIVATE_FIRMWARE_PERMISSIONS
+  [ -f "$private_fw/SHA256SUMS" ] && [ ! -L "$private_fw/SHA256SUMS" ] || fail PRIVATE_FIRMWARE_MANIFEST
+  (cd "$private_fw" && sha256sum -c SHA256SUMS) >/dev/null || fail PRIVATE_FIRMWARE_SHA
+  src=$private_fw
+  log FIRMWARE_SOURCE_OWNER_PRIVATE
+else
+  fail FIRMWARE_SOURCE_NOT_FOUND_NO_P26_FORMAT_ASSUMPTION
+fi
+
 for pair in \
   mt7996_wa_mt6990.bin:mt7996_wa.bin \
   mt7996_wm_mt6990.bin:mt7996_wm.bin \
@@ -68,7 +112,6 @@ for pair in \
   mt7996_rom_patch_mt6990.bin:mt7996_rom_patch.bin; do
     old=$(printf %s "$pair" | cut -d: -f1)
     new=$(printf %s "$pair" | cut -d: -f2)
-    [ -f "$src/$old" ] && [ ! -L "$src/$old" ] && [ -s "$src/$old" ] || fail P26_FIRMWARE_MISSING
     cp "$src/$old" "$stage/$new" || fail FIRMWARE_STAGE
     case "$new" in
       mt7996_wa.bin|mt7996_wm.bin|mt7996_rom_patch.bin)
@@ -82,7 +125,7 @@ for name in mt7996_eeprom.bin mt7996_eeprom_2i5i6i.bin \
 done
 chmod 0600 "$stage"/*
 umount "$stock" || fail STOCK_UNMOUNT
-umount "$p26" || fail P26_UNMOUNT
+[ "$p26_mounted" -eq 0 ] || umount "$p26" || fail P26_UNMOUNT
 trap - EXIT HUP INT TERM
 
 # A RAM bind covers existing P44 firmware WITHOUT deleting original files.
