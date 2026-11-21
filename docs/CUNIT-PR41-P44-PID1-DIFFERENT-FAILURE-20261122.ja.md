@@ -59,3 +59,14 @@ python3 scripts/audit-proto2-p44-pid1.py \
 **成功判定は`installed_P44=PID1_AND_INTERPRETER_BYTE_MATCH_PASS`まで。** すべてのDT_NEEDED共有ライブラリ、ACL、cgroupとsystemd実行時要件、実機のP25 mount/switch_rootの成否を証明しない。ZIPと一致したら生UARTの`switch_root`近傍を時系列で比較し、`ENOENT`/`EACCES`/`ENOEXEC`、noexec、PID1実行後のstderrなどから未達を決める。実機P44とZIPが異なる場合のみ、差分と所有者許可に基づく**最小修正**を別途検討する。
 
 今回、実機への読取り・書込み、P44修復、P25署名、boot control更新、電源操作、Wi-Fi/RF動作は実施しない。
+
+## 2026-11-22 製造・検査 最終結果
+
+**修正ソースの検証は全ゲートPASS。実機P44修復は未実施。**
+
+- [公開新CI #44952266800](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/44952266800)：**SUCCESS**。8件のread-only／異常系Pythonテスト、旧PR #41ソーステスト全件、ネイティブDebian ARM64新規debootstrap、canonical systemd `--version`・`/sbin/init`互換モード引数処理・新P44 tar製造までPASS。
+- [既存P44 source workflow #44952271276](https://github.com/Karin-Laboratory/Debian13-Terminal6/actions/runs/44952271276)：**SUCCESS**。source-only安全試験、ネイティブARM64 rootfs生成、owner-neutral tar検証PASS。
+- [非公開既存P44実物ZIP監査 #44952019666](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/44952019666)：**SUCCESS**。保存済み候補 `570581636...` の全量SHA、非公開 ZIP→一時展開rootfsのPID1/ELF/loader一致、native dynamic loader・`/sbin/init`コマンドの実行パス検証PASS。
+- [開発Draft PR #45](https://github.com/Karin-Laboratory/Debian13-Terminal6/pull/45)、[非公開監査Draft PR #193](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/pull/193)。
+
+上記はいずれも**本番C号機のP44現物のファイル一致、systemdがPID1として起動し続けること、FDT、LAN、SSHの正常性を証明しない**。署名済みP25を再署名する理由もない。P44の初期化・再展開を含む新しい配布イメージはまだ製造・適用していない。原因特定後に必要な最小変更だけを別ゲートで行う。
