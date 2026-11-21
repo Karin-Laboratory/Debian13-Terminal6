@@ -277,3 +277,19 @@ terminal6-debian login:
 **追加観察**：`terminal6-wifi-phy`は`DRIVER_ALREADY_LOADED_WITHOUT_PHY`で失敗、`terminal6-boot-success`失敗も表示。Wi-Fi driverの再試験結果として混同しないこと。この範囲ではkernel panicは見られない。
 
 次にraspi4側でログ全体に`G1-KEXEC-EXEC-START`・`Kernel panic`・`module_blacklist`が含まれるかを検索し、C号機で`/sys/kernel/kexec_loaded`・`/proc/cmdline`・実稼働rootfsを再確認して、`kexec -e`を実行済みかを分離する。**現在の成功範囲：RAMロードPASS、UARTキャプチャPASS、通常Debian slot AログインPASS。第2段kexec実行は未確認。**
+
+## 追記：Wi-Fi blacklist付きG1実行後、起動0.502秒でkernel panic（2026-11-21）
+
+所有者のraspi4 UART収録ファイル`~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log`（100,894 bytes）を`grep -nE 'G1-KEXEC|kexec|module_blacklist|Kernel panic|Rebooting'`した結果：
+
+```text
+6:G1-KEXEC-EXEC-START
+49:[    0.502183] Kernel panic - not syncing: Oops: Fatal exception
+51:[    0.531370] Rebooting in 1 seconds..
+```
+
+直後、raspi4からC号機 `192.168.3.1` のslot A SSHホスト鍵で再接続成功。C号機の現在の状態は`uname -r = 6.18.63-debian-t6-proto2`、`/sys/kernel/kexec_loaded=0`、`bootslot=a`、`/dev/mmcblk0p44 ext4 rw,noatime`で、**resetを経たslot A Linux通常復帰と整合**。なお`kexec_loaded=0`単体はkexecの成功/失敗を判別しない。Wi-Fi blacklist付き第2段ロードは直前の実機試験でPASS、今回の第2段Debian継続稼働はFAIL。
+
+**重要**：panicは起動後0.502秒で、前回の`mt7996e` init時刻6.358秒より早い。今回の例外を前回と同原因と断定しない。UARTファイル全文の行7〜51のexception/Oops/traceを取得し、kexecへの制御移行地点とPC/LR/Call traceを分析するまで原因UNKNOWN。末尾にLK/ATF通常ブート、P44 Debianログインプロンプトがあるため、**その通常起動成功をkexec第2段起動成功と混同しない**。
+
+取得指示：raspi4で`nl -ba ~/cunit-g1/g1-kexec-wifi-blacklist-uart-v2.log | sed -n '1,110p'`、ログ全体のSHA256、必要ならソースファイルをread-onlyコピーして保管。再試験の前に原因を切り分ける。
