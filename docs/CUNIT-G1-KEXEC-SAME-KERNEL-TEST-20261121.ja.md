@@ -99,3 +99,19 @@ python3 -m py_compile scripts/cunit-kexec-g1.py
 参考：Debian trixie arm64 `kexec-tools` パッケージは `1:2.0.29-2+b1`、`/usr/sbin/kexec` を収録（https://packages.debian.org/trixie/arm64/kexec-tools/filelist）。ダウンロードはDebian公式ミラーから行う。
 
 **ゲート判定（この追記時点）：** G1 P25全量照合 PASS / Image抽出 PASS / RAM `kexec_load` NOT_TESTED / 第2段Linux起動 NOT_TESTED。G2/G3/G4は未実施。
+
+## 追記：kexec-toolsの実機実行依存不足（2026-11-21）
+
+所有者がDebian trixie arm64 `kexec-tools` を `dpkg-deb -x` で /root/g1-kexec-bin/ に展開。実際の `ldd` と `--version` で以下を観測：
+
+```text
+libxenctrl.so.4.20 => not found
+kexec: error while loading shared libraries: libxenctrl.so.4.20
+BLOCKED: ... returned non-zero exit status 127
+```
+
+**判定：G1 RAM kexec_load は未到達（BLOCKED_BY_USERSPACE_DEPENDENCY）。カーネル拒否・DTB不適合・kexec失敗の証拠ではない。** `file` コマンド未導入も確認したが重要ではない。
+
+公式Debian trixie arm64の `libxenmisc4.20` に `/usr/lib/aarch64-linux-gnu/libxenctrl.so.4.20` が含まれる（[Debianファイル一覧](https://packages.debian.org/trixie/arm64/libxenmisc4.20/filelist)）。2026-11-21の公式パッケージは `4.20.4+63-g7abfd2bce2-0+deb13u1`（[ダウンロード](https://packages.debian.org/trixie/arm64/libxenmisc4.20/download)）。SHA256 `0210f704762f70408420191458ee6814f284ca911b1df451bd1dbfffcae10390`。SSH/raspi4経由でパッケージを転送、**別ディレクトリへ展開してLD_LIBRARY_PATHでローカル検証**。このパッケージにはXen関連の依存ライブラリがさらに複数あるため、必ず `ldd` で次の不足を確認してから`load`を再試行する。Xen hypervisor自体をインストールする必要はない。
+
+検証作業によって `P25`、`P26`、`GPT`、`misc` を書き換えない。後段実行`kexec -e`を行わない。
