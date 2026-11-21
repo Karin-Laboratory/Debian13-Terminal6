@@ -50,6 +50,51 @@ def verify_modules_tar(path: Path):
     if seen != set(MODULE_SHAS):
         raise ValueError("incomplete 3-module proto2 set")
 
+
+def verify_owner_neutral_rootfs(path: Path):
+    """Check the actual tar archive, not merely builder source code."""
+    required = {
+        "etc/systemd/system/terminal6-firstboot.service",
+        "etc/systemd/system/terminal6-authcheck.service",
+        "etc/ssh/sshd_config.d/60-terminal6-secure.conf",
+        "etc/systemd/system/ssh.service.d/10-terminal6-provisioned.conf",
+        "etc/modprobe.d/terminal6-proto2-wifi.conf",
+        "usr/local/sbin/terminal6-proto2-wifi-start",
+        "usr/local/sbin/terminal6-p44-firstboot",
+    }
+    found = set()
+    with tarfile.open(path, "r:gz") as tar:
+        for entry in tar:
+            name = entry.name.removeprefix("./")
+            if name.startswith("/") or ".." in name.split("/"):
+                raise ValueError("unsafe path in rootfs tar")
+            if name.startswith("root/.ssh/") or name.startswith("etc/dropbear/dropbear_"):
+                raise ValueError("owner credential or host key in rootfs")
+            if name.startswith("etc/ssh/ssh_host_"):
+                raise ValueError("shared SSH host identity in rootfs")
+            if name in {"var/lib/terminal6/firstboot-complete",
+                        "var/lib/terminal6/firstboot-auth-verified"}:
+                raise ValueError("preprovisioned firstboot marker")
+            if name.startswith("lib/firmware/mediatek/mt7996/") and "eeprom" in name.lower():
+                raise ValueError("embedded device calibration data")
+            if name == "etc/machine-id" and (not entry.isfile() or entry.size):
+                raise ValueError("shared machine-id")
+            if name == "etc/shadow":
+                if not entry.isfile():
+                    raise ValueError("invalid root shadow")
+                stream = tar.extractfile(entry)
+                if stream is None:
+                    raise ValueError("unreadable root shadow")
+                roots = [line for line in stream.read().decode().splitlines()
+                         if line.startswith("root:")]
+                if len(roots) != 1 or roots[0].split(":")[1] != "":
+                    raise ValueError("root must have no preset password")
+            if name in required:
+                found.add(name)
+    missing = required - found
+    if missing:
+        raise ValueError("missing portable P44 firstboot/wifi entries: " + repr(sorted(missing)))
+
 def package(rootfs: Path, modules: Path, p25: Path, kernel_release: Path, output: Path, source: str):
     for name, path in (("rootfs", rootfs), ("modules", modules), ("p25", p25), ("release", kernel_release)):
         if not path.is_file() or not path.stat().st_size:
@@ -59,6 +104,7 @@ def package(rootfs: Path, modules: Path, p25: Path, kernel_release: Path, output
     if digest(p25) != P25_SIGNED_SHA:
         raise ValueError("SIGNED P25 hash differs from C-unit boot-proven SHA")
     verify_modules_tar(modules)
+    verify_owner_neutral_rootfs(rootfs)
     if not re.fullmatch(r"[0-9a-f]{40}", source):
         raise ValueError("source must be exact 40-char commit ID")
     if output.exists():
