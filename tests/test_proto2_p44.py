@@ -38,6 +38,9 @@ class Proto2SourceTests(unittest.TestCase):
         for sha in module.MODULE_SHAS.values():
             self.assertIn(sha, script)
         self.assertIn("--json isPrivate", script)
+        private = read("scripts/fetch-proto2-private-baseline.sh")
+        self.assertIn("442014649e3e384535919fad40e19d2993464f20f1059c77fa4741c017a66abb", private)
+        self.assertIn("74c1c98b31cdba54f71d16f1983fbeff347bb334c5ae7d7f1353cd57f734936e", private)
         self.assertNotIn("MT7990_EEPROM.bin", script)
         self.assertIn("net/wireless/cfg80211.ko", script)
         self.assertIn("net/mac80211/mac80211.ko", script)
