@@ -39,6 +39,12 @@ class Proto2SourceTests(unittest.TestCase):
             self.assertIn(sha, script)
         self.assertIn("--json isPrivate", script)
         self.assertNotIn("MT7990_EEPROM.bin", script)
+        self.assertIn("net/wireless/cfg80211.ko", script)
+        self.assertIn("net/mac80211/mac80211.ko", script)
+        self.assertIn("depmod -b", script)
+        package_source = read("scripts/package-proto2-p44.py")
+        self.assertIn("base_required", package_source)
+        self.assertIn("missing ABI-matched cfg80211/mac80211", package_source)
 
     def test_firstboot_owner_neutral(self):
         rootfs = read("scripts/build-proto2-p44-rootfs.sh")
