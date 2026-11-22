@@ -1,0 +1,38 @@
+name: EasyMesh host checks
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/easymesh/**'
+      - 'patches/prplmesh/**'
+      - 'tests/test_*easymesh*.py'
+      - 'tests/test_render_platform_db.py'
+      - 'tests/test_cunit_management_ssh_probe.py'
+      - 'scripts/cunit_management_ssh_probe.py'
+      - 'docs/integration/CUNIT-WIFI-STAGE6-20261116.ja.md'
+      - 'docs/easymesh/**'
+      - '.github/workflows/easymesh-host-tests.yml'
+  push:
+    branches:
+      - 'feat/cunit-easymesh-20261115'
+
+permissions:
+  contents: read
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Syntax and whitespace checks
+        run: |
+          python3 -m py_compile packaging/easymesh/*.py tests/*.py
+          sh -n packaging/easymesh/*.sh
+          bash -n packaging/easymesh/build-debian13-arm64-ubus-stack.sh packaging/easymesh/build-amxb-ubus-debian13-arm64.sh
+          python3 -m py_compile scripts/cunit_management_ssh_probe.py
+          git diff --check

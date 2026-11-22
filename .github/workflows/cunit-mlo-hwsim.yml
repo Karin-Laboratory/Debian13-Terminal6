@@ -1,0 +1,89 @@
+name: C-unit MLO hwsim isolated-VM experiment
+
+on:
+  push:
+    branches:
+      - codex/cunit-mlo-radio-map-20261115
+      - codex/cunit-mlo-actions-replay-20261116
+      - integration/cunit-wifi-mesh-mlo-20261116
+    paths:
+      - scripts/cunit_mlo_hwsim_runner.py
+      - scripts/cunit_mlo_hwsim_stage4.py
+      - scripts/hwsim/test_cunit_mlo.py
+      - scripts/hwsim/prepare_mlo_ci_startup.py
+      - tests/test_cunit_mlo_hwsim_runner.py
+      - tests/test_cunit_mlo_stage4.py
+      - .github/workflows/cunit-mlo-hwsim.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hwsim:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host-only Python regression
+        run: |
+          python3 -m compileall -q scripts tests
+          python3 -m unittest tests.test_cunit_mlo_hwsim_runner tests.test_cunit_mlo_stage4 -v
+      - name: Prepare isolated VM dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            git gcc make pkg-config libssl-dev libnl-3-dev libnl-genl-3-dev \
+            libnl-route-3-dev libsqlite3-dev libpcap-dev libdbus-1-dev \
+            libcurl4-openssl-dev libxml2-dev libreadline-dev binutils-dev libiberty-dev \
+            python3 python3-pip python3-venv python3-setuptools \
+            python3-pycryptodome \
+            iw iproute2 iputils-ping kmod
+          git clone --no-checkout https://chromium.googlesource.com/chromiumos/third_party/hostap /tmp/cunit-hostap
+          git -C /tmp/cunit-hostap checkout f1e9b5086718ad567dc40e3d5a1456534d51749f
+          git -C /tmp/cunit-hostap apply "$GITHUB_WORKSPACE/patches/hostap/0001-hwsim-use-MLO-STATUS-without-mac80211-debugfs.patch"
+          python3 scripts/hwsim/prepare_mlo_ci_startup.py --hostap-tree /tmp/cunit-hostap
+      - name: Inspect hwsim capability and driver sandbox
+        run: |
+          sudo python3 scripts/cunit_mlo_hwsim_runner.py probe --hostap-tree /tmp/cunit-hostap | tee /tmp/cunit-hwsim-preflight.json
+          sudo modinfo -p mac80211_hwsim | grep -E '^(mlo|multi_radio|channels):'
+      - name: Build upstream hostap test binaries
+        working-directory: /tmp/cunit-hostap/tests/hwsim
+        run: ./build.sh
+      - name: Execute segmented upstream MLD association and recovery tests
+        run: |
+          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_stage4.py \
+            --hostap-tree /tmp/cunit-hostap \
+            --output-dir /tmp/cunit-hwsim-smoke \
+            --tests eht_mld_owe_two_links eht_mld_link_removal eht_mld_disassociate
+      - name: Attempt virtual 5GHz/6GHz 160MHz MLD association and bidirectional IP
+        run: |
+          sudo env CUNIT_MLO_ISOLATED_VM=YES python3 scripts/cunit_mlo_hwsim_stage4.py \
+            --hostap-tree /tmp/cunit-hostap \
+            --output-dir /tmp/cunit-hwsim-wide \
+            --sim-country CA --tests cunit_mlo_5g160_6g160
+      - name: Copy only readable SANITIZED evidence out of root-private output
+        if: always()
+        run: |
+          set -eu
+          dest="$RUNNER_TEMP/cunit-mlo-sanitized"
+          install -d -m 0700 "$dest"
+          for entry in \
+            "cunit-hwsim-preflight.json:preflight.json" \
+            "cunit-hwsim-smoke/kernel.json:smoke-kernel.json" \
+            "cunit-hwsim-wide/kernel.json:wide-kernel.json" \
+            "cunit-hwsim-smoke/summary.json:smoke-summary.json" \
+            "cunit-hwsim-wide/summary.json:wide-summary.json"; do
+            source_path="/tmp/${entry%%:*}"
+            safe_name="${entry#*:}"
+            if sudo test -f "$source_path"; then
+              sudo install -m 0644 "$source_path" "$dest/$safe_name"
+            fi
+          done
+      - name: Upload SANITIZED summary only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cunit-mlo-host-summary
+          path: ${{ runner.temp }}/cunit-mlo-sanitized/
+          if-no-files-found: ignore

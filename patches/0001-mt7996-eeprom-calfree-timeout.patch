@@ -1,0 +1,206 @@
+--- a/drivers/net/wireless/mediatek/mt76/mt7996/mt7996.h
++++ b/drivers/net/wireless/mediatek/mt76/mt7996/mt7996.h
+@@ -81,6 +81,9 @@
+ 
+ #define MT7996_EEPROM_SIZE		7680
+ #define MT7996_EEPROM_BLOCK_SIZE	16
++#define MT7996_EFUSE_BASE_OFFS_ADIE0	0x400
++#define MT7996_EFUSE_BASE_OFFS_ADIE1	0x1e00
++#define MT7996_EFUSE_BASE_OFFS_ADIE2	0x1200
+ #define MT7996_TOKEN_SIZE		16384
+ #define MT7996_HW_TOKEN_SIZE		8192
+ 
+--- a/drivers/net/wireless/mediatek/mt76/mt7996/eeprom.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7996/eeprom.c
+@@ -160,6 +160,10 @@
+ 	dev_warn(dev->mt76.dev, "eeprom load fail, use default bin\n");
+ 	memcpy(eeprom, fw->data, MT7996_EEPROM_SIZE);
+ 	dev->flash_mode = true;
++	dev_info(dev->mt76.dev,
++		 "using fallback EEPROM %s (%zu bytes), FEM=%u, variant=%u\n",
++		 mt7996_eeprom_name(dev), fw->size, dev->var.fem,
++		 dev->var.type);
+ 
+ out:
+ 	release_firmware(fw);
+--- a/drivers/net/wireless/mediatek/mt76/mt7996/mcu.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7996/mcu.c
+@@ -259,7 +259,7 @@
+ 		mdev->mcu.timeout = 2 * HZ;
+ 		return;
+ 	case MCU_UNI_CMD_EFUSE_CTRL:
+-		mdev->mcu.timeout = 20 * HZ;
++		mdev->mcu.timeout = 30 * HZ;
+ 		return;
+ 	default:
+ 		break;
+@@ -3837,6 +3837,116 @@
+ 				 &req, sizeof(req), true);
+ }
+ 
++static int mt7996_mcu_get_cal_free_data(struct mt7996_dev *dev)
++{
++#define MT_EE_7977BN_OFFSET	(0x1200 - 0x500)
++	struct cal_free_data {
++		u16 adie_offs;
++		u16 eep_offs;
++	};
++	static const struct cal_free_data cal_7975[] = {
++		{ 0x5cd, 0x451 }, { 0x5cf, 0x453 }, { 0x5d1, 0x455 },
++		{ 0x5d3, 0x457 }, { 0x6c0, 0x44c }, { 0x6c1, 0x44d },
++		{ 0x6c2, 0x44e }, { 0x6c3, 0x44f }, { 0x7a1, 0xba1 },
++		{ 0x7a6, 0xba6 }, { 0x7a8, 0xba8 }, { 0x7aa, 0xbaa },
++	};
++	static const struct cal_free_data cal_7976[] = {
++		{ 0x4c, 0x44c }, { 0x4d, 0x44d }, { 0x4e, 0x44e },
++		{ 0x4f, 0x44f }, { 0x50, 0x450 }, { 0x51, 0x451 },
++		{ 0x53, 0x453 }, { 0x55, 0x455 }, { 0x57, 0x457 },
++		{ 0x59, 0x459 }, { 0x70, 0x470 }, { 0x71, 0x471 },
++		{ 0x790, 0xb90 }, { 0x791, 0xb91 }, { 0x794, 0xb94 },
++		{ 0x795, 0xb95 }, { 0x7a6, 0xba6 }, { 0x7a8, 0xba8 },
++		{ 0x7aa, 0xbaa },
++	};
++	static const struct cal_free_data cal_7977[] = {
++		{ 0x4c, 0x124c }, { 0x4d, 0x124d }, { 0x4e, 0x124e },
++		{ 0x4f, 0x124f }, { 0x50, 0x1250 }, { 0x51, 0x1251 },
++		{ 0x53, 0x1253 }, { 0x55, 0x1255 }, { 0x57, 0x1257 },
++		{ 0x59, 0x1259 }, { 0x69, 0x1269 }, { 0x6a, 0x126a },
++		{ 0x7a, 0x127a }, { 0x7b, 0x127b }, { 0x7c, 0x127c },
++		{ 0x7d, 0x127d }, { 0x7e, 0x127e },
++	};
++	const struct cal_free_data *cal_arr[__MT_MAX_BAND] = {};
++	u16 cal_arr_len[__MT_MAX_BAND] = {};
++	u8 *eeprom = (u8 *)dev->mt76.eeprom.data;
++	int band, i, ret, merged = 0;
++
++#define CAL_ARR(_band, _adie) do {				\
++		cal_arr[_band] = cal_##_adie;			\
++		cal_arr_len[_band] = ARRAY_SIZE(cal_##_adie);	\
++	} while (0)
++
++	switch (mt76_chip(&dev->mt76)) {
++	case MT7996_DEVICE_ID:
++		if (dev->var.fem == MT7996_FEM_INT &&
++		    dev->var.type != MT7996_VAR_TYPE_233)
++			CAL_ARR(MT_BAND0, 7975);
++		else
++			CAL_ARR(MT_BAND0, 7976);
++		if (dev->var.type == MT7996_VAR_TYPE_444)
++			CAL_ARR(MT_BAND1, 7977);
++		CAL_ARR(MT_BAND2, 7977);
++		break;
++	case MT7990_DEVICE_ID:
++		CAL_ARR(MT_BAND0, 7976);
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	for (band = 0; band < __MT_MAX_BAND; band++) {
++		const struct cal_free_data *cal;
++		u16 prev_block_idx = U16_MAX;
++		u16 adie_base;
++		u8 buf[MT7996_EEPROM_BLOCK_SIZE];
++
++		if (!cal_arr_len[band])
++			continue;
++
++		if (band == MT_BAND0)
++			adie_base = MT7996_EFUSE_BASE_OFFS_ADIE0;
++		else if (band == MT_BAND1)
++			adie_base = MT7996_EFUSE_BASE_OFFS_ADIE1;
++		else
++			adie_base = MT7996_EFUSE_BASE_OFFS_ADIE2;
++
++		cal = cal_arr[band];
++		for (i = 0; i < cal_arr_len[band]; i++) {
++			u16 adie_offset = cal[i].adie_offs + adie_base;
++			u16 eep_offset = cal[i].eep_offs;
++			u16 block_idx = adie_offset / MT7996_EEPROM_BLOCK_SIZE;
++			u16 offset = adie_offset % MT7996_EEPROM_BLOCK_SIZE;
++
++			if (band == MT_BAND1 &&
++			    dev->var.type == MT7996_VAR_TYPE_444)
++				eep_offset -= MT_EE_7977BN_OFFSET;
++
++			if (prev_block_idx != block_idx) {
++				memset(buf, 0, sizeof(buf));
++				ret = mt7996_mcu_get_eeprom(dev, adie_offset, buf,
++							    sizeof(buf));
++				if (ret) {
++					if (ret != -EINVAL)
++						return ret;
++					prev_block_idx = U16_MAX;
++					continue;
++				}
++			}
++
++			eeprom[eep_offset] = buf[offset];
++			merged++;
++			prev_block_idx = block_idx;
++		}
++	}
++
++	dev_info(dev->mt76.dev,
++		 "merged %d OTP calibration-free bytes into EEPROM buffer\n",
++		 merged);
++
++	return 0;
++}
++
+ static int mt7996_mcu_set_eeprom_flash(struct mt7996_dev *dev)
+ {
+ #define MAX_PAGE_IDX_MASK	GENMASK(7, 5)
+@@ -3849,11 +3959,15 @@
+ 	u16 eeprom_size = MT7996_EEPROM_SIZE;
+ 	u8 total = DIV_ROUND_UP(eeprom_size, PER_PAGE_SIZE);
+ 	u8 *eep = (u8 *)dev->mt76.eeprom.data;
+-	int eep_len, i;
++	int ret, eep_len, i;
++
++	ret = mt7996_mcu_get_cal_free_data(dev);
++	if (ret)
++		return ret;
+ 
+ 	for (i = 0; i < total; i++, eep += eep_len) {
+ 		struct sk_buff *skb;
+-		int ret, msg_len;
++		int msg_len;
+ 
+ 		if (i == total - 1 && !!(eeprom_size % PER_PAGE_SIZE))
+ 			eep_len = eeprom_size % PER_PAGE_SIZE;
+@@ -3875,9 +3989,14 @@
+ 
+ 		ret = mt76_mcu_skb_send_msg(&dev->mt76, skb,
+ 					    MCU_WM_UNI_CMD(EFUSE_CTRL), true);
+-		if (ret)
++		if (ret) {
++			dev_err(dev->mt76.dev,
++				"EEPROM buffer upload page %u/%u failed: %d\n",
++				i, total, ret);
+ 			return ret;
++		}
+ 	}
++	dev_info(dev->mt76.dev, "uploaded all %u EEPROM buffer pages\n", total);
+ 
+ 	return 0;
+ }
+--- a/drivers/net/wireless/mediatek/mt76/mt7996/init.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7996/init.c
+@@ -766,8 +766,15 @@
+ {
+ 	struct mt7996_dev *dev = container_of(work, struct mt7996_dev,
+ 				 init_work);
++	int ret;
+ 
+-	mt7996_mcu_set_eeprom(dev);
++	ret = mt7996_mcu_set_eeprom(dev);
++	if (ret) {
++		dev_err(dev->mt76.dev,
++			"EEPROM upload to firmware failed; skipping MAC init: %d\n",
++			ret);
++		return;
++	}
+ 	mt7996_mac_init(dev);
+ 	mt7996_txbf_init(dev);
+ }

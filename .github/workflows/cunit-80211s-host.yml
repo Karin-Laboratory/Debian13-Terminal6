@@ -1,0 +1,28 @@
+name: C-unit 802.11s host checks
+
+on:
+  push:
+    branches:
+      - codex/cunit-80211s-mesh-20261115
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Python syntax
+        run: python3 -m compileall -q scripts/replay_80211s_kernel_source.py scripts/verify_80211s_config.py tests
+      - name: Mesh unit tests
+        run: python3 -m unittest discover -s tests -p 'test_80211s*.py' -v
+      - name: Shell syntax
+        run: |
+          bash -n scripts/run_80211s_hwsim_smoke.sh
+          bash -n scripts/run_80211s_hwsim_3node.sh
+      - name: Verify no trailing-space diff errors
+        run: git diff --check HEAD^ HEAD
