@@ -6,6 +6,7 @@
 
 ## 成果物
 
+- [CICINEYA HD08 USB-HDMIアダプター：USB識別・UDisplay Windowsドライバ解析・Linux OSS調査（2026-11-23）](CICINEYA-HD08-USB-DISPLAY-RESEARCH-20261123.ja.md)
 - [総合インベントリ・ドライバ/API対応表](CUNIT-INVENTORY-API-20261114.ja.md)
 - [CPU・ストレージ・Ethernet・周辺機能の詳細](CUNIT-DEVICE-DETAILS-20261114.ja.md)
 - [Wi-Fi・Bluetooth・GNSS・WWAN](CUNIT-RADIOS-20261114.ja.md)
