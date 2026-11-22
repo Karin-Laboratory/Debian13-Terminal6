@@ -15,7 +15,10 @@ class LoaderSourceTests(unittest.TestCase):
         self.assertNotIn("DEBIAN13_T6_SWITCH_ROOT_P44", data)
         self.assertIn("PARTNAME=$wanted", data)
         self.assertIn("P26_UNAVAILABLE_RAM_RESCUE", data)
-        self.assertIn('dropbear -E -B -r "$SSHKEY" -p "$IP:22"', data)
+        self.assertIn('dropbear -E -s -r "$SSHKEY" -p "$IP:22"', data)
+        self.assertIn("TERMINAL6_LOADER_SSH_BLOCKED_NO_P26_UART_ONLY", data)
+        self.assertIn("TERMINAL6_LOADER_SSH_BLOCKED_NO_AUTHORIZED_KEYS_UART_ONLY", data)
+        self.assertNotIn("dropbear -E -B", data)
         self.assertNotIn("0.0.0.0:22", data)
 
     def test_boot_manager_gate_and_one_shot(self):
