@@ -23,7 +23,12 @@ class TestG4Observability(unittest.TestCase):
                 self.assertIn("TERMINAL6_LOADER_SSH_FAILED", s)
             else:
                 self.assertIn("TERMINAL6_LOADER_" + marker, s)
-        self.assertIn('if dropbear -E -B', s)
+        self.assertIn('elif dropbear -E -s -r "$SSHKEY"', s)
+        self.assertIn("TERMINAL6_LOADER_SSH_BLOCKED_NO_P26_UART_ONLY", s)
+        self.assertIn("TERMINAL6_LOADER_SSH_BLOCKED_NO_AUTHORIZED_KEYS_UART_ONLY", s)
+        self.assertNotIn("dropbear -E -B", s)
+        self.assertNotIn("ip -d link", s)
+        self.assertIn("ip link show dev lan2", s)
         self.assertNotIn('dropbear -E -B -r "$SSHKEY" -p "$IP:22" || echo', s)
 
 if __name__ == "__main__":
