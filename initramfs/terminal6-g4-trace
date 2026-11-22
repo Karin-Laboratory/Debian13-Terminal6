@@ -1,0 +1,74 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Bounded read-mostly tracefs diagnostic for Terminal 6 G4 LAN2 <-> eth1.
+# Execute from UART rescue while raspi4 sends three ARPs/pings.
+# No partition writes, boot control, IP/qdisc, switch register or device resets.
+set -eu
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+echo TERMINAL6_G4_TRACE_V1_BEGIN
+root=/sys/kernel/tracing
+mkdir -p "$root" || :
+if [ ! -f "$root/tracing_on" ]; then
+  mount -t tracefs tracefs "$root" 2>/dev/null || :
+fi
+if [ ! -f "$root/tracing_on" ]; then
+  echo TERMINAL6_G4_TRACEFS_UNAVAILABLE
+  echo TERMINAL6_G4_TRACE_V1_END
+  exit 0
+fi
+echo 0 > "$root/tracing_on" || :
+# Avoid runaway printk and permanent debug state; restore on exit.
+cleanup() {
+  echo 0 > "$root/tracing_on" 2>/dev/null || :
+  for ev in net/net_dev_queue net/net_dev_start_xmit net/net_dev_xmit net/netif_receive_skb skb/kfree_skb; do
+    [ ! -f "$root/events/$ev/enable" ] || echo 0 > "$root/events/$ev/enable" 2>/dev/null || :
+  done
+}
+trap cleanup EXIT HUP INT TERM
+for ev in net/net_dev_queue net/net_dev_start_xmit net/net_dev_xmit net/netif_receive_skb skb/kfree_skb; do
+  [ ! -f "$root/events/$ev/enable" ] || echo 0 > "$root/events/$ev/enable" || :
+done
+# Trace ring stays in RAM, at most 128 KiB per CPU.
+echo 128 > "$root/buffer_size_kb" 2>/dev/null || :
+: > "$root/trace" 2>/dev/null || :
+enabled=0
+for ev in net/net_dev_queue net/net_dev_start_xmit net/net_dev_xmit net/netif_receive_skb skb/kfree_skb; do
+  if [ -f "$root/events/$ev/enable" ] && echo 1 > "$root/events/$ev/enable" 2>/dev/null; then
+    echo "TERMINAL6_G4_TRACE_EVENT_ENABLED:$ev"
+    enabled=$((enabled+1))
+  else
+    echo "TERMINAL6_G4_TRACE_EVENT_UNAVAILABLE:$ev"
+  fi
+done
+if [ "$enabled" -eq 0 ]; then
+  echo TERMINAL6_G4_TRACE_NO_NET_EVENTS
+  echo TERMINAL6_G4_TRACE_V1_END
+  exit 0
+fi
+echo TERMINAL6_G4_TRACE_BASELINE
+for d in lan2 eth1; do
+  if [ -d "/sys/class/net/$d/statistics" ]; then
+    for n in rx_packets tx_packets rx_dropped tx_dropped rx_errors tx_errors; do
+      v="$(cat "/sys/class/net/$d/statistics/$n" 2>/dev/null || echo unavailable)"
+      echo "TERMINAL6_G4_TRACE_BEFORE:$d:$n:$v"
+    done
+  fi
+done
+echo 1 > "$root/tracing_on"
+echo TERMINAL6_G4_TRACE_TRIGGER_PING_FROM_RASPI4_NOW_15_SECONDS
+sleep 15
+echo 0 > "$root/tracing_on"
+echo TERMINAL6_G4_TRACE_CAPTURE_BEGIN
+# Limit UART flood. Prefer final 120 trace lines; ring buffer already bounded.
+/bin/busybox tail -n 120 "$root/trace" || :
+echo TERMINAL6_G4_TRACE_CAPTURE_END
+for d in lan2 eth1; do
+  if [ -d "/sys/class/net/$d/statistics" ]; then
+    for n in rx_packets tx_packets rx_dropped tx_dropped rx_errors tx_errors; do
+      v="$(cat "/sys/class/net/$d/statistics/$n" 2>/dev/null || echo unavailable)"
+      echo "TERMINAL6_G4_TRACE_AFTER:$d:$n:$v"
+    done
+  fi
+done
+echo TERMINAL6_G4_TRACE_V1_END
