@@ -87,14 +87,19 @@ if [ -d /sys/class/net/lan2 ]; then
     value="$(cat "/sys/class/net/lan2/statistics/$counter" 2>/dev/null || echo unavailable)"
     echo "TERMINAL6_LOADER_LAN2_${counter}:$value"
   done
-  ip -d link show dev lan2 2>&1 || :
+  ip link show dev lan2 2>&1 || :
   ip -4 addr show dev lan2 2>&1 || :
   ip -4 route show 2>&1 || :
   if ip -4 addr show dev lan2 | grep -Fq "inet $CIDR"; then
-    # -B permits blank-password SSH for firstboot or P26 loss; PHY isolation
-    # is an explicit owner requirement, not something this init can prove.
-    if dropbear -E -B -r "$SSHKEY" -p "$IP:22"; then
-      echo TERMINAL6_LOADER_ISOLATED_SSH_STARTED
+    # Charter 1.4: P25 rescue is NEVER an unauthenticated firstboot service.
+    # Empty/missing P26 must retain UART rescue, not expose root SSH.
+    # A P26-backed authorized_keys is required before binding the listener.
+    if ! mountpoint -q /config; then
+      echo TERMINAL6_LOADER_SSH_BLOCKED_NO_P26_UART_ONLY
+    elif [ ! -s /root/.ssh/authorized_keys ]; then
+      echo TERMINAL6_LOADER_SSH_BLOCKED_NO_AUTHORIZED_KEYS_UART_ONLY
+    elif dropbear -E -s -r "$SSHKEY" -p "$IP:22"; then
+      echo TERMINAL6_LOADER_AUTHENTICATED_RESCUE_SSH_DAEMON_STARTED
     else
       echo TERMINAL6_LOADER_SSH_FAILED
     fi
