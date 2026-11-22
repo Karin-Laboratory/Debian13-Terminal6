@@ -2,7 +2,7 @@
 
 対象は所有者のAir Terminal 6、MT6990、Debian 13 arm64、Linux `6.18.63-debian-t6-proto2`。実機SSHで列挙・既知APIの読み取りを実施した。これは調査サイクルの報告であり、全機能対応・安定稼働・公開ソースだけでの再製造を保証しない。
 
-**最優先の未解決問題はeMMCの書き込みI/Oエラー。** パッケージ導入中にCQE recoveryとext4警告、管理接続断・再起動を観測した。復旧時の小さいファイル書き込みでも再発した。管理SSHとインターネット接続は復帰しているが、rootfsの永続整合性は未確認。
+**2026-11-14の初回調査時点では、eMMC書き込みI/Oエラーが最優先の未解決問題だった。** パッケージ導入中にCQE recoveryとext4警告、管理接続断・再起動を観測し、小さいファイル書き込みでも再発した。その後、2026-11-19のKVM成功版P25/P44復元記録ではDebian起動・P44 ext4・SSH・KVM guestが成功している。2026-11-20の短時間KVM通信試験後にも新規eMMC/ext4エラーは見つからなかったが、これは長期安定性や全データ整合性を証明しない。最新の試験範囲は[隔離KVMホスト・ゲスト通信記録](../virtualization/CUNIT-KVM-ISOLATED-HOST-GUEST-NET-20261120.ja.md)を参照。
 
 ## 成果物
 
@@ -17,6 +17,7 @@
 - [追加: ESP32-C3 UART/AT制御の実測](CUNIT-ESP32-C3-20261114.ja.md)
 - [証拠抜粋](evidence/CUNIT-API-EXCERPTS-20261114.txt)、[DT棚卸しJSON](evidence/CUNIT-DT-INVENTORY-20261114.json)、[Kconfig抜粋](evidence/CUNIT-KCONFIG-20261114.txt)、[ツール版](evidence/CUNIT-TOOLS-20261114.txt)
 - [読み取り専用収集スクリプト](../../scripts/collect-terminal6-hardware.py)、[既知API確認](../../scripts/probe-terminal6-readonly.sh)、[公開用DTメタデータ抽出](../../scripts/export-terminal6-dt.py)
+- [追加: KVM OpenWrt guestの隔離ホスト・ゲスト通信実測](../virtualization/CUNIT-KVM-ISOLATED-HOST-GUEST-NET-20261120.ja.md)
 
 追加調査でESP32-C3-MINI-1のESP-AT応答を確認した。Linux HCIは無効のままだが、外付けBLE制御へのUART経路は存在する。また、eMMCのDT単独no-CQE候補を開発VMで検証したが、実機への投入はしていない。
 
