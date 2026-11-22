@@ -1,0 +1,27 @@
+name: C-unit KVM configuration checks
+
+on:
+  push:
+    branches:
+      - codex/cunit-kvm-qemu-20261116
+    paths:
+      - configs/cunit-kvm.fragment
+      - scripts/check_arm64_kvm_config.py
+      - tests/test_check_arm64_kvm_config.py
+      - .github/workflows/cunit-kvm-config.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  config-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate KVM config fragment and fail-closed parser
+        run: |
+          python3 -m py_compile scripts/check_arm64_kvm_config.py tests/test_check_arm64_kvm_config.py
+          python3 -m unittest discover -s tests -p 'test_check_arm64_kvm_config.py' -v
+          grep -qx 'CONFIG_VIRTUALIZATION=y' configs/cunit-kvm.fragment
+          grep -qx 'CONFIG_KVM=y' configs/cunit-kvm.fragment
