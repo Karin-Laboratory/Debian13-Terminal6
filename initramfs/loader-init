@@ -68,13 +68,43 @@ while [ "$i" -lt 20 ] && [ ! -d /sys/class/net/lan2 ]; do
   i=$((i+1)); sleep 1
 done
 if [ -d /sys/class/net/lan2 ]; then
-  ip link set lan2 up || :
-  ip addr add "$CIDR" dev lan2 || :
-  if ip -4 addr show dev lan2 | grep -q "$IP"; then
-    # -B permits blank-password SSH for firstboot or P26 loss; PHY isolation
-    # is an explicit owner requirement, not something this init can prove.
-    dropbear -E -B -r "$SSHKEY" -p "$IP:22" || echo TERMINAL6_LOADER_SSH_FAILED
-    echo TERMINAL6_LOADER_ISOLATED_SSH_STARTED
+  # DSA netdev presence does not imply PHY carrier or a working wire.
+  # Bound the diagnostics; never block UART rescue while waiting for link.
+  ip link set lan2 up || echo TERMINAL6_LOADER_LAN2_LINK_SET_FAILED
+  ip addr add "$CIDR" dev lan2 || echo TERMINAL6_LOADER_LAN2_ADDRESS_ADD_FAILED
+  i=0
+  while [ "$i" -lt 5 ]; do
+    carrier="$(cat /sys/class/net/lan2/carrier 2>/dev/null || echo unknown)"
+    [ "$carrier" != 0 ] && break
+    i=$((i+1)); sleep 1
+  done
+  echo "TERMINAL6_LOADER_LAN2_CARRIER:$carrier"
+  for attr in operstate speed duplex address; do
+    value="$(cat "/sys/class/net/lan2/$attr" 2>/dev/null || echo unavailable)"
+    echo "TERMINAL6_LOADER_LAN2_${attr}:$value"
+  done
+  for counter in rx_packets tx_packets rx_errors tx_errors rx_dropped tx_dropped; do
+    value="$(cat "/sys/class/net/lan2/statistics/$counter" 2>/dev/null || echo unavailable)"
+    echo "TERMINAL6_LOADER_LAN2_${counter}:$value"
+  done
+  ip link show dev lan2 2>&1 || :
+  ip -4 addr show dev lan2 2>&1 || :
+  ip -4 route show 2>&1 || :
+  if ip -4 addr show dev lan2 | grep -Fq "inet $CIDR"; then
+    # Charter 1.4: P25 rescue is NEVER an unauthenticated firstboot service.
+    # Empty/missing P26 must retain UART rescue, not expose root SSH.
+    # A P26-backed authorized_keys is required before binding the listener.
+    if ! mountpoint -q /config; then
+      echo TERMINAL6_LOADER_SSH_BLOCKED_NO_P26_UART_ONLY
+    elif [ ! -s /root/.ssh/authorized_keys ]; then
+      echo TERMINAL6_LOADER_SSH_BLOCKED_NO_AUTHORIZED_KEYS_UART_ONLY
+    elif dropbear -E -s -r "$SSHKEY" -p "$IP:22"; then
+      echo TERMINAL6_LOADER_AUTHENTICATED_RESCUE_SSH_DAEMON_STARTED
+    else
+      echo TERMINAL6_LOADER_SSH_FAILED
+    fi
+  else
+    echo TERMINAL6_LOADER_LAN2_ADDRESS_MISSING
   fi
 else
   echo TERMINAL6_LOADER_LAN2_UNAVAILABLE_UART_ONLY
