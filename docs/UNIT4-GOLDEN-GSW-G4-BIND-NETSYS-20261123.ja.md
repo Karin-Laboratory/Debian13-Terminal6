@@ -59,3 +59,10 @@
 次の実機試験は4号機のみ、別途**新しいunsigned SHAに対する署名承認**と有限boot_a試験の所有者承認が必要。ブートとP26の回帰を先に確認してから、platform device→MAC netdev→GSW/MDIO→DSA→lan2→ARP/ICMPを個別判定する。最初のFAILで停止し純正Bへ戻す。C号機は保管継続。
 
 **状態：`G4_FAIL_DIAGNOSTIC_EVIDENCE_CAPTURED` → `UNSIGNED_NETSYS_CHILD_ENUM_DIAGNOSTIC_PRE_SIGN_PASS`。G4修復完了とは異なる。**
+
+
+### 完全なlegacy compatible一致の確認（追加監査）
+
+[追加のSHA固定Linuxソース監査 #45086071102](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/45086071102) **SUCCESS**。保存済みLinuxソースの`drivers/net`、`drivers/soc`、`drivers/platform`のC/Hファイルに、**完全なOF文字列`"mediatek,mt753x"`を宣言するドライバソースは見つからなかった**（一致0件）。単にソース中に汎用の`mt753x`識別子があることと、legacy `/gsw@0`を扱うplatformドライバが存在・bindすることは異なる。
+
+したがって、**このLinuxイメージではGoldenのvendor swconfig風GSW設定をそのまま流用しても期待するbindはできない可能性が高い**。これを解決せずにNETSYS parentだけを直しても、LAN2はG4 PASSにならないかもしれない。現存するC号機基準機や純正slot Bを実測改変して調べることはせず、過去に保存した署名済みC基準kernel、モジュール、および旧vendorソース/DTBとの差を**オフライン**で比較するのが次の根本修正候補となる。
