@@ -53,10 +53,20 @@ Archived Linux `pcs-mtk-lynxi.c`は`mediatek,mt6990-sgmiisys`を検出した場�
 - `tools/stage_c4_cpu5_sgmii1_fdt.py`: 旧vendor PHY1/PLL/PCS1実物ノードを再利用し、`power-domains=21`とPHY consumer配線、標準MDIO31 MT7531 CPU5/port1 LAN2を作成。bind不能なlegacy`/gsw@0`は無効化し、重複MMIOノードを作らない。NETSYS 2/2/simple-bus、他ノード・値は維持。
 - `tools/verify_c4_cpu5_sgmii1_fdt.py`: 別実装によるsemantic FDT node/prop whitelist、正しいphandle、MAC1/CPU5/port1、PHY1/PLL/SCPSYSの実物アドレス保全を検証。
 - [FDT stage CI #45145053702](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/45145053702) **SUCCESS**、2回同一生成・独立検証PASS。**standalone DTB table SHA256 `0fe55616ea5894ece79f7b38f8b06804de4e22b52fcb54625c1b597518b06c0f`**。
-- 完全なP25へは**レビュー済みの非破壊PHY resetパッチをLinuxソースへ適用してImageを再コンパイルする必要**がある。未署名P25は製造/検証CIの完了時だけSHAを確定する。
+- **更新（同日）：** レビュー済み非破壊PHY resetパッチを保存済みLinux 6.18.63ソースへ適用し、ARM64 Imageのコンパイルと新しい未署名P25製造を完了した。完成したSHAと非公開保存先は末尾の「署名直前ビルド」参照。
 
 ## 厳密な残ゲート
 
 **DTB stage PASS ≠ コンパイル済みImage PASS ≠ LK G1 PASS ≠ Ethernet MAC/MDIO DSA bind ≠ 双方向TCP/ICMP PASS。** 特に新カーネルは旧G1〜G3起動成功のバイトを保持できず、実機への自動PASS継承は禁止。
 
 同時に、P26がext4としてマウントできずRAM rescueとなる問題は**独立したG3条件**であり、ネットワーク修復と混同しない。4号機は最後に確認されたstock slot B、現在の`boot_a`には旧試験版が残る。C号機は完成済みDebian基準機として保管。**今回の作業はソース・非公開Actionsのみで、署名、実機接続、書込み、slot切替、再起動をしない**。
+
+## 署名直前ビルドの確定（2026-11-23追記）
+
+- **未署名P25製造：PASS。署名：未実施。実機：未試験。**
+- 完成P25：**32MiB（33,554,432 bytes）**、SHA256 **`4977a6bb94ad7dd15a82d09355a16e3417e9a560fa596a42a18cd88c98c68aa3`**。
+- [非公開GitHub Actions #45145678051](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/actions/runs/45145678051) **SUCCESS**。レビュー済み非破壊PHY resetパッチを実際のLinux 6.18.63ソースに適用し、古い実機起動版由来の内蔵CPIOを維持したARM64 Imageを再コンパイル。新Image SHA256 `e9953eaded3ce1bfb7275af0f087843b3d4c10f82c6b73827c1cc88cc1179723`。
+- FDT SHA256 `0fe55616ea5894ece79f7b38f8b06804de4e22b52fcb54625c1b597518b06c0f`。NETSYS `simple-bus`、MAC1/SGMII1/PHY1、MT7531 MDIO31 CPU port5 → user port1 (`lan2`)を維持。
+- 2回のP25製造同一、別実装 verifier PASS、boot-v2外部ramdisk 0、署名tailゼロ、非公開Draft Releaseへの保存と**7資産のasset-ID全量再取得・byte比較/SHA再照合PASS**。
+- 非公開Draft Release **455214519**、未署名P25 asset **782342403**、[非公開Draft PR #202](https://github.com/Karin-Laboratory/SBAT6A-Offline-Archive/pull/202)。署名が必要な場合はこの**未署名SHA全文への独立した所有者許可**を待つ。
+- 新Imageなので、前回の G1/G2/G3 PASS を新候補へ継承しない。**G1–G5実機結果は依然NOT_TESTED**。4号機とC号機への接続・書込・slot変更・再起動は行っていない。P26のext4/P26利用不可問題は別件として扱う。
