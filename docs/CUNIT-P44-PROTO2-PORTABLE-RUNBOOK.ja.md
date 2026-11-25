@@ -1,6 +1,6 @@
 # Terminal 6 Debian 13: proto2 P44 owner-neutral candidate
 
-**Status (2026-11-21): PRIVATE P44 CANDIDATE ZIP MANUFACTURED, INDEPENDENT READBACK PASS. HARDWARE NOT TESTED; NO PUBLIC BINARY RIGHTS CLEARED.**
+**Current branch: source candidate; no device acceptance or public binary distribution.** The retained November 21 package listed below is historical, not produced from this branch's current revision or SSH policy.
 
 **Temporary C-unit test sequencing (owner instruction, until BOTH ① loader and ② standalone Debian are complete):** [①/② alternating hardware acceptance policy, owner-private](https://github.com/Karin-Laboratory/Chappie-Memory/blob/main/terminal6/SoftBank-Air6-%E4%BA%8C%E7%B3%BB%E7%B5%B1%E4%BA%A4%E4%BA%92%E5%AE%9F%E6%A9%9F%E8%A9%A6%E9%A8%93%E3%81%AE%E6%9A%AB%E5%AE%9A%E9%81%8B%E7%94%A8%E6%96%B9%E9%87%9D-20261121.md). Hardware tests are exclusive and serial on the C-unit; development/CI can be parallel. On failure, record the first failing gate, exact artifact SHA and UART evidence, restore a known-safe state, and return the defect to the correct workstream. Switch to the other stream only when its candidate is ready and individually authorized. This is not a permanent policy or permission to sign, flash, change slots, reboot or alter P44. Do not confuse proto2 P25/P44 with the separate minimal-loader P25.\n\nGoverning source: design charter v1.4 in docs/architecture/P25-FOUNDATION-POLICY.ja.md. Method B only: manually install using existing Linux commands after a separate, SHA-exact owner authorization. No dedicated installer. No device writes or RF actions are authorized by this source change.
 
@@ -37,20 +37,11 @@ It checks the actual rootfs_data PARTNAME and reads THIS DEVICE's rootfs_a and r
 
 Other board variants may have different P26/stock formats. Missing files, invalid chip ID, preloaded modules, failed mount or missing calibration must cause Wi-Fi-only FAIL, not shared/default calibration fallback. No radio AP/STA or RF transmission is started. The Ethernet management and SSH units are independent. The shell service does not establish that OTP or all 8 MCU page ACKs succeeded; verify those separately on authorized hardware.
 
-## Firstboot without a distributed login key or password
+## Current branch SSH status: no remote root enrollment
 
-The P44 builder incorporates the firstboot code from PR #25. The archive contains no shared user authorized_keys, host private key, root password hash, machine ID, unit serial, MAC or EEPROM/OTP data. At first boot it generates a unique SSH host key.
+The current candidate is an offline, fail-closed baseline for LAN validation, not a finished first-boot SSH experience. It provides neither a shared password nor unauthenticated root SSH. The packaged policy requires public-key authentication and denies remote root, password, keyboard-interactive and empty-password authentication. No owner credential is included. On a new image, a TCP or host-key check is not a successful SSH login, and root login rejection is expected.
 
-On a physically isolated PC-to-LAN2 cable ONLY, it temporarily accepts root with no password or user public key at 192.168.1.1:22 using Dropbear -B. ANY other peer on that same link can log in as root. Hardware cannot prove the cable's isolation. NEVER connect this firstboot network to the home LAN/WAN or bridge it through Wi-Fi.
-
-Owner setup:
-1. Verify the SSH host key out of band (UART), then ssh root@192.168.1.1.
-2. Run passwd root, or register your own root/.ssh/authorized_keys with directory 0700 and file 0600.
-3. Run terminal6-p44-firstboot verify-start and from a SECOND authenticated connection to TCP/2223 prove the new password/key. Record the explicit verification marker only from that second session.
-4. Run terminal6-p44-firstboot finalize. The service permanently disables firstboot Dropbear, locks the empty root password in key-only mode and enables normal authenticated OpenSSH TCP/22. In rootfs, normal ssh.service is additionally gated by the firstboot-complete marker and disallows empty passwords.
-5. Verify passwordless login fails and authorized login works after a separately approved restart. This runtime handshake is NOT_TESTED on this candidate.
-
-If P44 is empty or broken, P25 does not provide an unauthenticated rescue service. Use UART or individually authenticated rescue only.
+`terminal6-p44-firstboot check` inspects effective OpenSSH policy only. It does not enroll a user, change credentials or start a service. Do not follow older first-boot setup instructions for this branch. See [the separate Gate 1 acceptance design](hardware/P44-GATE1-ACCEPTANCE.ja.md) for the planned physically activated setup and mandatory password registration before a root shell; that workflow is not implemented here.
 
 ## Non-device manufacture and retained candidate receipt
 
@@ -85,7 +76,7 @@ Before initial install, use charter v1.4 Method B and independently prove P44 is
 - Three Wi-Fi success modules, same-kernel framework, complete private modules.tar: **SHA / vermagic / packaging PASS**; full kernel internal ABI remains a hardware gate.
 - Owner-neutral Debian13 ARM64 rootfs manufactured and scanned for credentials/calibration: **CI PASS**.
 - New private P44-install.zip: **MANUFACTURE / INTERNAL SHA / INDEPENDENT PRIVATE RELEASE READBACK PASS**, CI #44859746336.
-- New firstboot no-password SSH connection, credential switch and reboot persistence: **NOT_TESTED** on device.
+- Current fail-closed SSH policy: source and build checks are separate from device testing. Password enrollment and reboot persistence: **NOT IMPLEMENTED / NOT TESTED**.
 - New P44 Wi-Fi PHY, OTP 46 bytes, EEPROM 8/8 ACK and 2.4/5/6 GHz RF: **NOT_TESTED** on device.
 - Unit-independent stock filename/board layouts, signed P25 and OEM redistributability: **BLOCKED / NOT_TESTED**.
 - P25 writes, P44 writes, slot control, reboot and RF in this workflow: **NOT PERFORMED**.

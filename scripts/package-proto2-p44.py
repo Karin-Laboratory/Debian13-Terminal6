@@ -89,6 +89,20 @@ def verify_modules_tar(path: Path):
 
 
 
+def _unique_rootfs_members(archive):
+    """Yield canonical POSIX member names with no conflicting archive entries."""
+    seen = set()
+    for member in archive:
+        raw = member.name
+        if raw.startswith("/") or ".." in raw.split("/"):
+            raise ValueError("unsafe path in rootfs tar")
+        name = posixpath.normpath(raw)
+        if name in seen:
+            raise ValueError("duplicate canonical path in rootfs tar: " + name)
+        seen.add(name)
+        yield name, member
+
+
 def _rootfs_resolve(entries, path):
     """Resolve symlinks within the rootfs, including intermediate /sbin and /lib."""
     original = path.lstrip("/")
@@ -133,10 +147,7 @@ def verify_bootable_proto2_rootfs(path: Path):
     contains the same files or that the P25 switch_root handoff succeeds.
     """
     with tarfile.open(path, "r:gz") as archive:
-        entries = {
-            member.name.removeprefix("./").rstrip("/"): member
-            for member in archive
-        }
+        entries = dict(_unique_rootfs_members(archive))
         resolved, init = _rootfs_resolve(entries, "/sbin/init")
         if init is None or not init.isfile() or not (init.mode & 0o111):
             raise ValueError("P44_INIT_MISSING_OR_NOT_EXECUTABLE")
@@ -176,9 +187,9 @@ def verify_bootable_proto2_rootfs(path: Path):
 def verify_owner_neutral_rootfs(path: Path):
     """Check the actual tar archive, not merely builder source code."""
     required = {
-        "etc/systemd/system/terminal6-firstboot.service",
-        "etc/systemd/system/terminal6-authcheck.service",
-        "etc/ssh/sshd_config.d/60-terminal6-secure.conf",
+        "etc/shadow",
+        "etc/systemd/system/ssh.socket",
+        "etc/ssh/sshd_config.d/00-terminal6-secure.conf",
         "etc/systemd/system/ssh.service.d/10-terminal6-provisioned.conf",
         "etc/modprobe.d/terminal6-proto2-wifi.conf",
         "usr/local/sbin/terminal6-proto2-wifi-start",
@@ -186,10 +197,13 @@ def verify_owner_neutral_rootfs(path: Path):
     }
     found = set()
     with tarfile.open(path, "r:gz") as tar:
-        for entry in tar:
-            name = entry.name.removeprefix("./")
-            if name.startswith("/") or ".." in name.split("/"):
-                raise ValueError("unsafe path in rootfs tar")
+        for name, entry in _unique_rootfs_members(tar):
+            if name.rsplit("/", 1)[-1] in {"terminal6-firstboot.service", "terminal6-authcheck.service"}:
+                raise ValueError("legacy bootstrap listener in rootfs")
+            if name.startswith("etc/systemd/system/") and ".wants/" in name and name.rsplit("/", 1)[-1] in {"ssh.service", "sshd.service", "ssh.socket"}:
+                raise ValueError("SSH enabled before provisioning")
+            if name == "etc/systemd/system/ssh.socket" and (not entry.issym() or entry.linkname != "/dev/null"):
+                raise ValueError("SSH socket is not masked")
             if name.startswith("root/.ssh/") or name.startswith("etc/dropbear/dropbear_"):
                 raise ValueError("owner credential or host key in rootfs")
             if name.startswith("etc/ssh/ssh_host_"):
@@ -209,8 +223,8 @@ def verify_owner_neutral_rootfs(path: Path):
                     raise ValueError("unreadable root shadow")
                 roots = [line for line in stream.read().decode().splitlines()
                          if line.startswith("root:")]
-                if len(roots) != 1 or roots[0].split(":")[1] != "":
-                    raise ValueError("root must have no preset password")
+                if len(roots) != 1 or roots[0].split(":")[1] not in {"!", "!!", "*", "!*"}:
+                    raise ValueError("root must be locked without a preset password")
             if name in required:
                 found.add(name)
     missing = required - found

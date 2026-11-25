@@ -182,15 +182,18 @@ class Proto2SourceTests(unittest.TestCase):
         bridge = read("network/p44/10-terminal6-br-lan.netdev")
         bridge_network = read("network/p44/10-terminal6-br-lan.network")
         ports = read("network/p44/10-terminal6-ports.network")
-        for token in ("passwd -d root", "PermitEmptyPasswords no", "192.168.1.1:22",
-                      "-F -E -B -j -k", "terminal6-proto2-wifi.service",
-                      "blacklist mt7996e", "ssh.socket",
-                      "ConditionPathExists=/var/lib/terminal6/firstboot-complete"):
+        for token in ("passwd -l root", "PermitEmptyPasswords no", "ListenAddress 192.168.1.1",
+                      "PermitRootLogin no", "PasswordAuthentication no", "AuthenticationMethods publickey",
+                      "disable ssh.service ssh.socket", "mask ssh.socket", "sshd-policy.txt",
+                      "terminal6-proto2-wifi.service", "blacklist mt7996e"):
             self.assertIn(token, rootfs)
-        for token in ("verify-start", "firstboot-auth-verified", "firstboot-complete",
-                      "systemctl stop terminal6-firstboot.service",
-                      "systemctl start ssh.service"):
-            self.assertIn(token, first)
+        for token in ("passwd -d root", "dropbear-bin", "terminal6-authcheck.service",
+                      "terminal6-firstboot.service", "PasswordAuthentication yes"):
+            self.assertNotIn(token, rootfs)
+        self.assertIn("sshd -T -C", first)
+        self.assertIn("permitrootlogin no", first)
+        self.assertIn("listenaddress 192.168.1.1:22", first)
+        self.assertNotIn("systemctl start", first)
         self.assertNotIn('install -m 0600 "$auth"', rootfs)
         self.assertNotIn("terminal6-public-management", rootfs)
         self.assertIn('install -m 0644 "$root"/network/p44/*', builder)
@@ -201,7 +204,6 @@ class Proto2SourceTests(unittest.TestCase):
         self.assertIn("Name=lan2 lan3", ports)
         self.assertIn("Bridge=br-lan", ports)
         self.assertNotIn("Address=", ports)
-        self.assertIn("PermitEmptyPasswords=no", rootfs)
         self.assertIn("ConditionPathExists=/var/lib/terminal6/firstboot-complete", rootfs)
 
     @staticmethod
@@ -246,6 +248,21 @@ class Proto2SourceTests(unittest.TestCase):
                 entry.mode = 0o755
                 entry.size = 4
                 archive.addfile(entry, io.BytesIO(b"ELF!"))
+
+    def test_rootfs_validators_reject_conflicting_member_names(self):
+        module = packager()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "duplicate.tar.gz"
+            with tarfile.open(path, "w:gz") as archive:
+                for name in ("./usr", "././usr"):
+                    item = tarfile.TarInfo(name)
+                    item.type = tarfile.DIRTYPE
+                    archive.addfile(item)
+            for validator in (module.verify_owner_neutral_rootfs,
+                              module.verify_bootable_proto2_rootfs):
+                with self.subTest(validator=validator.__name__):
+                    with self.assertRaisesRegex(ValueError, "duplicate canonical path"):
+                        validator(path)
 
     def test_p44_init_archive_merged_usr_and_interpreter(self):
         module = packager()
@@ -301,6 +318,42 @@ class Proto2SourceTests(unittest.TestCase):
                 file.addfile(entry, io.BytesIO(blob))
             with self.assertRaisesRegex(ValueError, "preserve merged-/usr"):
                 module.verify_modules_tar(path)
+
+class LanLinkObservationTests(unittest.TestCase):
+    def observe(self, cpu, jack):
+        spec = importlib.util.spec_from_file_location(
+            "proto2_lan_observe", ROOT / "scripts/proto2-lan-link-observation.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.observe(*cpu, *jack)
+
+    def test_external_100_and_1000_never_become_datapath_pass(self):
+        for rate in (100, 1000):
+            with self.subTest(rate=rate):
+                result = self.observe((1, 2500, "full"), (1, rate, "full"))
+                self.assertEqual(result, {
+                    "cpu_link": "fixed-link-observed",
+                    "external_link": "negotiated-link-observed",
+                    "external_speed_mbps": rate, "datapath": "not-tested",
+                })
+
+    def test_external_speed_does_not_mask_wrong_cpu_link(self):
+        result = self.observe((1, 1000, "full"), (1, 100, "full"))
+        self.assertEqual(result["cpu_link"], "unexpected-fixed-link")
+        self.assertEqual(result["external_link"], "negotiated-link-observed")
+        self.assertEqual(result["datapath"], "not-tested")
+
+    def test_down_unknown_or_half_duplex_not_counted_as_link_observation(self):
+        for jack, expected in (
+            ((0, -1, "unknown"), "no-carrier"),
+            ((-1, -1, "unknown"), "unknown-carrier"),
+            ((1, 100, "half"), "outside-test-matrix"),
+        ):
+            with self.subTest(jack=jack):
+                result = self.observe((1, 2500, "full"), jack)
+                self.assertEqual(result["external_link"], expected)
+                self.assertEqual(result["datapath"], "not-tested")
+
 
 if __name__ == "__main__":
     unittest.main()
