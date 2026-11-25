@@ -89,6 +89,20 @@ def verify_modules_tar(path: Path):
 
 
 
+def _unique_rootfs_members(archive):
+    """Yield canonical POSIX member names with no conflicting archive entries."""
+    seen = set()
+    for member in archive:
+        raw = member.name
+        if raw.startswith("/") or ".." in raw.split("/"):
+            raise ValueError("unsafe path in rootfs tar")
+        name = posixpath.normpath(raw)
+        if name in seen:
+            raise ValueError("duplicate canonical path in rootfs tar: " + name)
+        seen.add(name)
+        yield name, member
+
+
 def _rootfs_resolve(entries, path):
     """Resolve symlinks within the rootfs, including intermediate /sbin and /lib."""
     original = path.lstrip("/")
@@ -133,10 +147,7 @@ def verify_bootable_proto2_rootfs(path: Path):
     contains the same files or that the P25 switch_root handoff succeeds.
     """
     with tarfile.open(path, "r:gz") as archive:
-        entries = {
-            member.name.removeprefix("./").rstrip("/"): member
-            for member in archive
-        }
+        entries = dict(_unique_rootfs_members(archive))
         resolved, init = _rootfs_resolve(entries, "/sbin/init")
         if init is None or not init.isfile() or not (init.mode & 0o111):
             raise ValueError("P44_INIT_MISSING_OR_NOT_EXECUTABLE")
@@ -186,10 +197,7 @@ def verify_owner_neutral_rootfs(path: Path):
     }
     found = set()
     with tarfile.open(path, "r:gz") as tar:
-        for entry in tar:
-            name = entry.name.removeprefix("./")
-            if name.startswith("/") or ".." in name.split("/"):
-                raise ValueError("unsafe path in rootfs tar")
+        for name, entry in _unique_rootfs_members(tar):
             if name.rsplit("/", 1)[-1] in {"terminal6-firstboot.service", "terminal6-authcheck.service"}:
                 raise ValueError("legacy bootstrap listener in rootfs")
             if name.startswith("etc/systemd/system/") and ".wants/" in name and name.rsplit("/", 1)[-1] in {"ssh.service", "sshd.service", "ssh.socket"}:
