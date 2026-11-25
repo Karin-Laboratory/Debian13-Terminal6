@@ -24,16 +24,7 @@ cat > "$out/etc/fstab" <<'FSTAB'
 PARTLABEL=rootfs_data  /  ext4  defaults,noatime  0  1
 FSTAB
 mkdir -p "$out/etc/systemd/network" "$out/etc/ssh/sshd_config.d"
-cat > "$out/etc/systemd/network/10-terminal6-lan2.network" <<'NET'
-[Match]
-Name=lan2
-
-[Network]
-Address=192.168.1.1/24
-DHCP=no
-IPv6AcceptRA=no
-LinkLocalAddressing=no
-NET
+install -m 0644 "$root"/network/p44/* "$out/etc/systemd/network/"
 ln -sfn ../run/systemd/resolve/stub-resolv.conf "$out/etc/resolv.conf"
 cat > "$out/etc/ssh/sshd_config.d/60-terminal6-secure.conf" <<'SSH'
 PasswordAuthentication yes
@@ -214,6 +205,6 @@ NO_SIGNING_OR_BOOT_PROOF
 NO_PRESET_SSH_HOST_KEY; FIRSTBOOT_ROOT_BLANK_PASSWORD_ISOLATED_EXCEPTION
 FIRSTBOOT_DROPBEAR_TCP22_DISABLED_AFTER_P44_AUTHENTICATED_SECOND_SESSION
 NO_EMPTY_PASSWORD_ON_NORMAL_OPENSSH
-NETWORK_STATIC_192_168_1_1_ON_LAN2_REQUIRES_HARDWARE_PROOF
+NETWORK_STATIC_192_168_1_1_ON_BR_LAN_REQUIRES_HARDWARE_PROOF
 STATUS
 echo PUBLIC_P44_ROOTFS_ARCHIVE_BUILT_NOT_DEVICE_BOOT_VALIDATED

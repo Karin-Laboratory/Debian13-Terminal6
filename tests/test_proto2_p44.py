@@ -178,6 +178,10 @@ class Proto2SourceTests(unittest.TestCase):
     def test_firstboot_owner_neutral(self):
         rootfs = read("scripts/build-proto2-p44-rootfs.sh")
         first = read("scripts/p44-firstboot.sh")
+        builder = read("scripts/build-proto2-p44-rootfs.sh")
+        bridge = read("network/p44/10-terminal6-br-lan.netdev")
+        bridge_network = read("network/p44/10-terminal6-br-lan.network")
+        ports = read("network/p44/10-terminal6-ports.network")
         for token in ("passwd -d root", "PermitEmptyPasswords no", "192.168.1.1:22",
                       "-F -E -B -j -k", "terminal6-proto2-wifi.service",
                       "blacklist mt7996e", "ssh.socket",
@@ -189,6 +193,16 @@ class Proto2SourceTests(unittest.TestCase):
             self.assertIn(token, first)
         self.assertNotIn('install -m 0600 "$auth"', rootfs)
         self.assertNotIn("terminal6-public-management", rootfs)
+        self.assertIn('install -m 0644 "$root"/network/p44/*', builder)
+        self.assertIn("Name=br-lan", bridge)
+        self.assertIn("Kind=bridge", bridge)
+        self.assertIn("Name=br-lan", bridge_network)
+        self.assertIn("Address=192.168.1.1/24", bridge_network)
+        self.assertIn("Name=lan2 lan3", ports)
+        self.assertIn("Bridge=br-lan", ports)
+        self.assertNotIn("Address=", ports)
+        self.assertIn("PermitEmptyPasswords=no", rootfs)
+        self.assertIn("ConditionPathExists=/var/lib/terminal6/firstboot-complete", rootfs)
 
     @staticmethod
     def _synthetic_arm64_init():

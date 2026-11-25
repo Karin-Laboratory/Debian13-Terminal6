@@ -1,0 +1,8 @@
+[Match]
+Name=lan2 lan3
+
+[Network]
+Bridge=br-lan
+DHCP=no
+IPv6AcceptRA=no
+LinkLocalAddressing=no

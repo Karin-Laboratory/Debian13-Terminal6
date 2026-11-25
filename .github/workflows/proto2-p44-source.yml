@@ -1,5 +1,7 @@
 name: proto2 P44 source safety gates
 on:
+  push:
+    branches: [dot/cu25-p44-dual-lan-20261125]
   pull_request:
     paths:
       - 'scripts/build-proto2-p44-rootfs.sh'
