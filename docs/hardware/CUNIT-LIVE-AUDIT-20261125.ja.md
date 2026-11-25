@@ -33,7 +33,7 @@
 | 疎通 | raspi3 eth0を`192.168.1.50/24`に設定し、明示経路でARP/ping試験。ARP解決せず、ping不達 | FAIL |
 | 管理service | `terminal6-management.service` failed、ExecStart `/run/terminal6/start-management.sh` | FAIL |
 
-起動スクリプトはchecksum確認後、`test23_netsys_fixedlink.ko`、`test23_mdio_switch.ko`、`test24_path_probe.ko`をロードし、eth1/lan2をup、lan2のcarrier/speed/duplexを確認する。続いてpath-probeの`space=3`, `reg=0x20`値を調べ、`0x31120009`以外なら制御された`phy_init`手順を一度実行し、再読出しで同値を要求する。今回のjournalには各moduleのSHAチェック成功がありserviceがstatus 1で終了した。今回のUART観測ではprobe valueは`0x00000000`、`writes=N`、`lan2`のRXは増えていたがTXは0。サービスの二重実行ガードが存在するため再試行していない。
+起動スクリプトはchecksum確認後、`test23_netsys_fixedlink.ko`、`test23_mdio_switch.ko`、`test24_path_probe.ko`をロードし、eth1/lan2をup、lan2のcarrier/speed/duplexを確認する。続いてpath-probeの`space=3`, `reg=0x20`値を調べ、`0x31120009`以外なら制御された`phy_init`手順を一度実行し、再読出しで同値を要求する。今回のjournalには各moduleのSHAチェック成功がありserviceがstatus 1で終了した。probe valueは`0x00000000`、初期module parameterは`writes=N`、`lan2`のRXは増えていたがTXは0。スクリプト全文を照合すると、期待値不一致時は一時的に`writes=Y`として`phy_init=1`を実行する分岐があり、journalにも`phy_init` initcallがある。したがって起動時serviceが既存のwrite-enabled初期化経路を呼んだことは確認済みであり、「起動時にもMMIO書込みがなかった」とは言えない。監査者は失敗後に初期化を再実行していない。実際のregister base/addressと書込み内容はout-of-tree module source不在のため未確定。
 
 前回のDebian起動ログでは同系scriptの初期値`0x31120008`が記録されている。別の過去実装のPCSソース`drivers/net/pcs/pcs-mtk-lynxi.c`にはMT6990 2500BASE-X設定として`regmap_write(...SGMII_MODE, 0x31120009)`とPHY reset/power sequenceがある。したがって`0x31120009`はLinux PCS実装側の設定値だが、今回のprobeの読取レジスタ`space=3, reg=0x20`と同一レジスタ/同一アドレス体系かは公開資料だけでは証明できない。`0x00000000`単独でハード故障とは判定しない。
 
@@ -57,7 +57,7 @@ firmware探索先は純正Bの読み取り専用root、形式が確認できた�
 | 機能 | 観測 | 判定 |
 |---|---|---|
 | USB | USB1/USB2 root hub。外付けdeviceなし | PARTIAL |
-| Bluetooth / GNSS | `/sys/class/bluetooth`, `/sys/class/gnss`, `/dev/gnss*`なし | NOT_SUPPORTED in current runtime evidence; hardware unsupportedとは断定しない |
+| Bluetooth / GNSS | `/sys/class/bluetooth`, `/sys/class/gnss`, `/dev/gnss*`なし | Linux HCI/GNSS APIはこの起動でNOT_PRESENT。物理機能の非対応は示さない |
 | I2C / SPI | sysfs adapter/device一覧空 | PARTIAL |
 | Thermal | 13 thermal zone、SoC max約64.9°C | PARTIAL |
 | KVM | `/dev/kvm`あり | PARTIAL; このbootでguestを起動していない |
@@ -69,15 +69,17 @@ firmware探索先は純正Bの読み取り専用root、形式が確認できた�
 
 | ID | 優先 | 問題と根拠 | 次期変更 | 受入 |
 |---|---:|---|---|---|
-| C4-LAN-01 | P0 | management scriptの一度きりprobeは今回値0で停止、LAN2 TX=0 | probe-only out-of-tree modulesを退役。PCS/DSA/DTによる標準初期化を優先。実験値をDTS/driver設定と照合 | cold bootでlan2 ARP、双方向ping、TCP/SSH、各段RX/TX増加 |
-| C4-WIFI-01 | P1 | PCI列挙・aliasあり、firmware sourceなしでmoduleロード前に停止 | P44製造時に4つのfirmware basename、source provenance、SHA、所有者private fallbackを検証。`firmware_request`名のCI検査を追加 | 起動時firmware load、driver bind、`iw phy`。RF送信は別承認 |
-| C4-ROOT-01 | P0 | cmdline初期root `mmcblk0p26`、実root P44 `mmcblk1p44` | root選択はPARTNAME/PARTUUID一意解決を維持し、block index固定を禁止 | host列挙順を変えたinitramfs testで同一PARTUUIDをmount |
-| C4-QEMU-01 | P2 | `/dev/kvm`あり、QEMU executableなし | P44 package manifestにQEMU必要パッケージ/依存を明記 | guest boot、隔離virtio-net疎通 |
+| CU25-LAN-01 | P0 | probe値0、LAN2 ingress counter増、eth1/br-lan RX=0。起動時write-enabled `phy_init`呼出あり。exact register mapping UNKNOWN | custom module source/build identityを回収後、標準PCS/phylink/DSA/DT経路をreview | isolated ARP、bidirectional ICMP/TCP/SSH、層別counter delta |
+| CU25-WIFI-01 | P1 | PCI列挙/alias/moduleあり、4 firmware不足でscriptがmodule前停止 | P44 manifest/CIで4要求名・provenance・SHAまたはprivate seed gateを必須化 | firmware load、driver bind、`iw phy`; RF送信は別承認 |
+| CU25-ROOT-01 | P0 | bootargs candidate `mmcblk0p26`, mounted root P44 `mmcblk1p44` | PARTNAME/PARTUUID一意解決し、block index固定を禁止 | block enumeration variation fixtureで同一UUIDをmount |
+| CU25-QEMU-01 | P2 | `/dev/kvm`あり、QEMU実行物なし | P44 package manifestへQEMU依存を追加 | isolated guest boot/virtio network |
 
 ## 証拠・制約
 
-- UARTで取得した生出力は今回のセッションログに存在するが、独立した生UARTファイルとしては未保存。このため公開表の値を超える詳細は引用しない。
-- 稼働DTBのハッシュは取得したが、DTS化・過去成功版との差分は未実施。
+第二段階の追加解析、source照合、全機能反映台帳は[追補資料](CUNIT-LIVE-AUDIT-FOLLOWUP-20261125.ja.md)に記録した。
+
+- UART wireの生バイト列は未保存。追補時に読み取り専用コマンド応答をプロンプト境界で保存したprivate tool-level transcriptがあり、SHA-256は追補資料とprivate manifestに記録した。これはraw UART captureではない。
+- 稼働DTBはprivateでDTS化し、保全済みKVM成功版DTBと限定的に比較した。主要機能ノードに実質差分は見つからなかったが、完全正規化比較や他成功版との比較は未実施。
 - dmesg error検索、eMMC debugfs、sysfs、systemd journal、PCI modalias/module alias、Wi-Fi scriptを確認した。
 - 有線LAN再初期化、MMIO追加書込み、モジュール再ロード、RF送信、再起動、ブート書込みは行っていない。
-- 公開main/PRへのcommit/pushはこのファイル作成時点では未実施。
+- 公開記録の追記状態は追補資料のGitHub commitで確認する。
