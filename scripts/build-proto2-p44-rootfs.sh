@@ -44,6 +44,13 @@ mkdir -p "$out/etc/systemd/system" "$out/var/lib/terminal6" "$out/run/sshd"
 chroot "$out" /usr/bin/passwd -l root >/dev/null
 chroot "$out" /usr/bin/ssh-keygen -A
 chroot "$out" /usr/local/sbin/terminal6-p44-firstboot check > "$dest/p44-sshd-policy.txt"
+# Parse the isolated onboarding policy with the target sshd. These fixtures
+# are removed before packaging. No account, unit, or listener is created.
+install -m 0600 "$root/tests/fixtures/p44-bootstrap-sshd.conf" "$out/run/t6-bootstrap-ci.conf"
+install -m 0700 "$root/tests/fixtures/p44-bootstrap-sshd-check.sh" "$out/run/t6-bootstrap-ci.sh"
+chroot "$out" /bin/sh /run/t6-bootstrap-ci.sh /run/t6-bootstrap-ci.conf \
+  | tee "$dest/p44-bootstrap-sshd-policy.txt"
+rm -f -- "$out/run/t6-bootstrap-ci.conf" "$out/run/t6-bootstrap-ci.sh"
 test ! -e "$out/var/lib/terminal6/firstboot-complete"
 # Debian's openssh-server can generate host keys during bootstrap; scrub
 # these so every actual device creates its *own* keys after boot.
@@ -166,6 +173,7 @@ NO_RAW_PARTITION_WRITE
 NO_SIGNING_OR_BOOT_PROOF
 ROOT_PASSWORD_LOCKED_NO_PRESET_SSH_HOST_KEY
 P44_EFFECTIVE_SSHD_POLICY_CHECKED
+P44_BOOTSTRAP_POLICY_OFFLINE_ONLY_NO_RUNTIME_ACCEPTANCE
 SSH_DISABLED_PENDING_PROVISIONING_TEMP_PASSWORD_NOT_IMPLEMENTED_DO_NOT_INSTALL
 NETWORK_STATIC_192_168_1_1_ON_BR_LAN_REQUIRES_HARDWARE_PROOF
 STATUS
