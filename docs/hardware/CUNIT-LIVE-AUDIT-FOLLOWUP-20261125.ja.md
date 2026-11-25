@@ -6,7 +6,7 @@
 
 ## 結論
 
-この起動ではDebianとP44、eMMCの限定スナップショット、UART、USB root hub、PCIe列挙、KVM APIが確認できた。一方、管理LANの障害点は「外部LAN2のlink」より後、スイッチからCPU側MACへ渡る経路に絞られた。LAN2の受信カウンタは増えたが、送信・CPU側`eth1`受信・`br-lan`受信は増えていない。起動時の既存管理サービスは期待したPCS probe値を得られず失敗した。なお、そのサービスの既存スクリプトには条件成立時に`phy_init`をwrite-enableで呼ぶ分岐があり、保存journalにも`phy_init` initcallが記録されている。したがって「起動中にMMIO初期化が一切なかった」とは言えない。本監査ではその初期化を再実行していない。
+この起動ではDebianとP44、eMMCの限定スナップショット、UART、USB root hub、PCIe列挙、KVM APIが確認できた。一方、管理LANの障害点は「外部LAN2のlink」より後、スイッチからCPU側MACへ渡る経路に絞られた。LAN2の受信カウンタは増えたが、送信・CPU側`eth1`受信・`br-lan`受信は増えていない。起動時の既存管理サービスは失敗した。サービススクリプトには条件成立時に`phy_init`を書込み許可付きで呼ぶ分岐があるが、保存journalからその分岐が実際に実行されたとは確認できない。journalの一般的な`phy_init` initcall行は、このmodule parameter呼出しの証拠ではない。本監査ではその初期化を実行していない。
 
 Wi-Fiについては、ドライバと依存モジュールのファイルは揃うが、起動サービスが必要な4 firmwareを確保できず、モジュール挿入より前に停止する。よって現在のPCI driver未bindを別個のprobe不具合とはまだ認定できない。I2C、SPI、PWM、RTC、GNSSも、実行中ノードの`compatible`と利用カーネルのdriver match tableが合わない、または必要な専用実装がないという具体的なビルド側不足が確認できた。次期ビルドではsource/DTS/firmware供給条件を先に整え、安易なcompatible置換や未知のハードウェア操作を避ける。
 
@@ -65,9 +65,9 @@ private保全先は `work/hardware/private/cunit-live-audit-20261125/` 以下（
 
 ## LAN根本原因の追加分析
 
-### 既存startup serviceの実行内容
+### 既存startup serviceの定義と実行証拠
 
-privateの`/run/terminal6/start-management.sh`はchecksumと一度だけ実行guardの後、以下の順で処理する。
+privateの`/run/terminal6/start-management.sh`はchecksumと一度だけ実行guardの後、次の処理を定義している。
 
 1. `test23_netsys_fixedlink.ko mac_id=1`でNETSYSを作成。
 2. `test23_mdio_switch.ko mac_id=1 cpu_port=5`でMDIO/MT7531/DSA treeを作成。
@@ -75,7 +75,7 @@ privateの`/run/terminal6/start-management.sh`はchecksumと一度だけ実行gu
 4. `eth1`と`lan2`をupしcarrier/speed/duplexを確認。
 5. `space=3`, `reg=0x20`を読み、期待値`0x31120009`以外なら`writes=Y`, `phy_init=1`, `writes=N`を実行し、再読出し値を要求。
 
-private journalに`phy_init` initcall call/returnが記録され、保存scriptには上記write-enabled branchがある。従って起動時serviceが制御された既存`phy_init`経路を呼んだことは確認済みであり、「起動中にMMIO初期化が一切なかった」とは言えない。監査者はこの経路を診断中に再実行していない。out-of-tree moduleのC sourceが見つからず、`space=3`の実アドレスspace/base/index、`reg=0x20`とkernel PCS `SGMII_MODE`の一致、実際のregister write内容は証明できない。
+private journalには3本のmodule checksum成功、module load、および管理serviceの終了status=1が記録されている。しかし、scriptが出す`DEBIAN13_T6_SGMII1_BEFORE`、`phy_init`の適用ログ、再読出し値はjournalに見当たらず、どの条件分岐まで実行されたかは確認できない。別のkernel `phy_init` initcall記録からcustom module parameterの実行を推定してはならない。したがって、この起動でMMIO writeが実行されたかはUNKNOWNであり、監査者は再実行していない。module source照合後、`space=3`は`maps[1]`を選び、そのDT pathは`/sgmiisys@11305000`、`reg=0x20`はそのregmapのoffset 0x20と特定できた。これはsource上のmappingであり、実機のwrite実行記録ではない。
 
 ### ネットワーク層の到達点
 
@@ -88,7 +88,7 @@ private journalに`phy_init` initcall call/returnが記録され、保存script�
 | MT7531 | MDIO addr31 CREV raw `0x75310001`、PHY 0..4 bind、DSA tree logs | MDIO・tree setupの一部PASS、CPU forwardingは未PASS |
 | in-tree PCS source candidate | `drivers/net/pcs/pcs-mtk-lynxi.c`: `SGMSYS_SGMII_MODE=0x20`（約55行）; MT6990 path writes `0x31120009`（約199–221行）とreset/power sequence | candidate sourceの事実。ただしrunning Image provenanceと`space=3`が同じregmapかは未確認 |
 
-`test23_netsys_fixedlink.ko`, `test23_mdio_switch.ko`, `test24_path_probe.ko`はprivate build binaryがある（それぞれ78,560/55,464/71,984 bytes）が、対応source `.c`と再現build commandはworkspace内で見つからない。binary strings/parameter namesだけではMMIO access contractを復元できない。
+`test23_netsys_fixedlink.ko`, `test23_mdio_switch.ko`, `test24_path_probe.ko`はprivate build binaryがある（それぞれ78,560/55,464/71,984 bytes）。今回、対応sourceと固定製造runを回収し、実機の`/run`配置物とのhash照合を完了した（下記追補）。
 
 ### 次期LAN実装
 
@@ -220,4 +220,30 @@ DT nodeの存在は物理実装や動作の証拠ではない。過去の成功�
 - [GNSS MT6990移植進捗](https://github.com/Karin-Laboratory/Debian13-Terminal6/blob/codex/cunit-debian-gnss-port-20261120/docs/hardware/CUNIT-GNSS-MT6990-PORT-20261120.ja.md)
 - [C号機ESP32 BLE実測](https://github.com/Karin-Laboratory/Debian13-Terminal6/blob/codex/cunit-esp32-ble-20261114/docs/hardware/CUNIT-ESP32-BLE-20261114.ja.md)
 - [OpenWrt Stage10 status](https://github.com/Karin-Laboratory/openwrt-terminal-6/blob/main/docs/STATUS.md)
+
+## LANモジュール由来と追加観測の追補（2026-11-25）
+
+### 3本の管理モジュールの由来
+
+非公開の11/25採取束に含まれる`/run/terminal6`ファイル一覧・SHA一覧を、製造run #43157680253のinitramfs内`MODULE-SHA256SUMS`および3つの`.ko`実物と照合した。3本ともステージ済みファイルのSHA-256が製造manifest・展開した製造物と一致する。journalには各ファイルの`sha256sum -c`成功後の`insmod`/kernel initcallがあり、同じ起動の`lsmod`にも3モジュールが現れる。したがって**この起動でロードされたモジュールの由来は、保存された起動記録の範囲で3本ともMATCH**である。実行中カーネル内の再配置済みメモリを直接ハッシュしたわけではない。
+
+| モジュール | 由来判定 | 製造物と`/run`ファイルのvermagic | build ID |
+|---|---|---|---|
+| `test23_netsys_fixedlink` | MATCH | `6.18.63-debian-t6-proto2 SMP mod_unload aarch64` | `ac703ea9898088e1506c95653cb8885fc7a490ea` |
+| `test23_mdio_switch` | MATCH | `6.18.63-debian-t6-proto2 SMP mod_unload aarch64` | `6cccecb3b8122d8d89e29f3de1d1c8a5d19140c5` |
+| `test24_path_probe` | MATCH | `6.18.63-debian-t6-proto2 SMP mod_unload aarch64` | `6cdfdacde01ac356daf07d8ba82dfbb36e9f1a89` |
+
+製造runが固定したソースcommitと、回収した旧source snapshotは3ファイルともGit blob IDが一致した。`test24_path_probe.c`のread-only source reviewでは、`space=3`は`maps[1]`、すなわち`/sgmiisys@11305000`を選択し、`reg=0x20`は同regmapのoffset `0x20`を読む。`phy_init id=1`はこのmapと`/sgmiiphy@11E60000`を選び、複数のregmap更新を含む。ただし、保存journalにはserviceのmodule checksum/load後にserviceがstatus=1で終了したことはあるが、`DEBIAN13_T6_SGMII1_BEFORE`、parameterの適用ログ、再読出し値はない。別のkernel initcall名`phy_init`をcustom parameter呼出しと混同せず、**このbootで該当write branchが実行されたかはUNKNOWN**とする。実機で再実行していない。
+
+この詳細の根拠となる個別モジュールSHA-256、source blob ID、build run/artifact、private captureのhashは非公開の監査記録へ保存した。公開PRにはraw journal、個体識別情報、privateイメージを含めていない。
+
+### パケット経路の到達点と次の切り分け
+
+既存snapshotは`lan2`のRXカウンタ増加を示す一方、同じsnapshotではCPU側`eth1`と`br-lan`のRX増加を示していない。しかし、対向ARP要求とカウンタ差分を同一の短時間窓で採取した記録ではなく、ARP frame単位の到達は証明されていない。現時点で肯定できる最終地点は**LAN2側RXカウンタまで**で、switch CPU port、NETSYS/MAC、bridgeへの到達地点は未確認である。PCS値ゼロ単独を根因としない。
+
+今回の追加パケット観測は`NOT_TESTED`。現在の物理隔離状態と既存raspi3 SSHセッションの排他所有をこの実行環境から確認できず、既存セッションには触れなかった。UARTデバイスもこのホストでは検出されず、UARTを開いていない。LAN3はLAN2の結果を流用せず`NOT_TESTED`とする。
+
+次期切り分けでは、読み取り専用で、対向ARP送信の時刻と`lan2`、`eth1`、`br-lan`各RX/TXカウンタの同一窓前後差を対応させる。LAN3は物理ポート・配線を個別に確認した別試験とする。コード変更が必要と判明した場合は、まず`drivers/net/pcs/pcs-mtk-lynxi.c`のSGMII SYS1/PCS mode・reset経路、`drivers/net/ethernet/mediatek/mtk_eth_soc.c`のMAC1/PCS結合、MT7530 DSAのCPU port/VLAN経路を、実機DT graphと対比して一層ずつ検証する。証拠が増える前に`test24`の未知レジスタ値を書き換えない。
+
+配布用P44の`lan2`/`lan3`を`br-lan`へ割り当てる修正（commit `bbb7c4a630619c5e4e5e8e43111ef6b2506a1851`、CI #45544269984）はソース試験・rootfs buildの結果であり、この実機でのLAN復旧は未実証である。
 
