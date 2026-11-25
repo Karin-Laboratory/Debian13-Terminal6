@@ -182,15 +182,18 @@ class Proto2SourceTests(unittest.TestCase):
         bridge = read("network/p44/10-terminal6-br-lan.netdev")
         bridge_network = read("network/p44/10-terminal6-br-lan.network")
         ports = read("network/p44/10-terminal6-ports.network")
-        for token in ("passwd -d root", "PermitEmptyPasswords no", "192.168.1.1:22",
-                      "-F -E -B -j -k", "terminal6-proto2-wifi.service",
-                      "blacklist mt7996e", "ssh.socket",
-                      "ConditionPathExists=/var/lib/terminal6/firstboot-complete"):
+        for token in ("passwd -l root", "PermitEmptyPasswords no", "ListenAddress 192.168.1.1",
+                      "PermitRootLogin no", "PasswordAuthentication no", "AuthenticationMethods publickey",
+                      "disable ssh.service ssh.socket", "mask ssh.socket", "sshd-policy.txt",
+                      "terminal6-proto2-wifi.service", "blacklist mt7996e"):
             self.assertIn(token, rootfs)
-        for token in ("verify-start", "firstboot-auth-verified", "firstboot-complete",
-                      "systemctl stop terminal6-firstboot.service",
-                      "systemctl start ssh.service"):
-            self.assertIn(token, first)
+        for token in ("passwd -d root", "dropbear-bin", "terminal6-authcheck.service",
+                      "terminal6-firstboot.service", "PasswordAuthentication yes"):
+            self.assertNotIn(token, rootfs)
+        self.assertIn("sshd -T -C", first)
+        self.assertIn("permitrootlogin no", first)
+        self.assertIn("listenaddress 192.168.1.1:22", first)
+        self.assertNotIn("systemctl start", first)
         self.assertNotIn('install -m 0600 "$auth"', rootfs)
         self.assertNotIn("terminal6-public-management", rootfs)
         self.assertIn('install -m 0644 "$root"/network/p44/*', builder)
@@ -201,7 +204,6 @@ class Proto2SourceTests(unittest.TestCase):
         self.assertIn("Name=lan2 lan3", ports)
         self.assertIn("Bridge=br-lan", ports)
         self.assertNotIn("Address=", ports)
-        self.assertIn("PermitEmptyPasswords=no", rootfs)
         self.assertIn("ConditionPathExists=/var/lib/terminal6/firstboot-complete", rootfs)
 
     @staticmethod
