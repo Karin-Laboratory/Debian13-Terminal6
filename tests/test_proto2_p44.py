@@ -304,5 +304,41 @@ class Proto2SourceTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "preserve merged-/usr"):
                 module.verify_modules_tar(path)
 
+class LanLinkObservationTests(unittest.TestCase):
+    def observe(self, cpu, jack):
+        spec = importlib.util.spec_from_file_location(
+            "proto2_lan_observe", ROOT / "scripts/proto2-lan-link-observation.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.observe(*cpu, *jack)
+
+    def test_external_100_and_1000_never_become_datapath_pass(self):
+        for rate in (100, 1000):
+            with self.subTest(rate=rate):
+                result = self.observe((1, 2500, "full"), (1, rate, "full"))
+                self.assertEqual(result, {
+                    "cpu_link": "fixed-link-observed",
+                    "external_link": "negotiated-link-observed",
+                    "external_speed_mbps": rate, "datapath": "not-tested",
+                })
+
+    def test_external_speed_does_not_mask_wrong_cpu_link(self):
+        result = self.observe((1, 1000, "full"), (1, 100, "full"))
+        self.assertEqual(result["cpu_link"], "unexpected-fixed-link")
+        self.assertEqual(result["external_link"], "negotiated-link-observed")
+        self.assertEqual(result["datapath"], "not-tested")
+
+    def test_down_unknown_or_half_duplex_not_counted_as_link_observation(self):
+        for jack, expected in (
+            ((0, -1, "unknown"), "no-carrier"),
+            ((-1, -1, "unknown"), "unknown-carrier"),
+            ((1, 100, "half"), "outside-test-matrix"),
+        ):
+            with self.subTest(jack=jack):
+                result = self.observe((1, 2500, "full"), jack)
+                self.assertEqual(result["external_link"], expected)
+                self.assertEqual(result["datapath"], "not-tested")
+
+
 if __name__ == "__main__":
     unittest.main()
