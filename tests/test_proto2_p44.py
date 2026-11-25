@@ -249,6 +249,21 @@ class Proto2SourceTests(unittest.TestCase):
                 entry.size = 4
                 archive.addfile(entry, io.BytesIO(b"ELF!"))
 
+    def test_rootfs_validators_reject_conflicting_member_names(self):
+        module = packager()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "duplicate.tar.gz"
+            with tarfile.open(path, "w:gz") as archive:
+                for name in ("./usr", "././usr"):
+                    item = tarfile.TarInfo(name)
+                    item.type = tarfile.DIRTYPE
+                    archive.addfile(item)
+            for validator in (module.verify_owner_neutral_rootfs,
+                              module.verify_bootable_proto2_rootfs):
+                with self.subTest(validator=validator.__name__):
+                    with self.assertRaisesRegex(ValueError, "duplicate canonical path"):
+                        validator(path)
+
     def test_p44_init_archive_merged_usr_and_interpreter(self):
         module = packager()
         with tempfile.TemporaryDirectory() as temp:
