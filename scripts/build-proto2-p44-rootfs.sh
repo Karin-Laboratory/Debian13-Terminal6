@@ -50,7 +50,11 @@ install -m 0600 "$root/tests/fixtures/p44-bootstrap-sshd.conf" "$out/run/t6-boot
 install -m 0700 "$root/tests/fixtures/p44-bootstrap-sshd-check.sh" "$out/run/t6-bootstrap-ci.sh"
 chroot "$out" /bin/sh /run/t6-bootstrap-ci.sh /run/t6-bootstrap-ci.conf \
   | tee "$dest/p44-bootstrap-sshd-policy.txt"
-rm -f -- "$out/run/t6-bootstrap-ci.conf" "$out/run/t6-bootstrap-ci.sh"
+install -m 0600 "$root/scripts/p44-bootstrap-preflight.py" "$out/run/t6-bootstrap-preflight-ci.py"
+install -m 0600 "$root/tests/fixtures/test-p44-bootstrap-preflight.py" "$out/run/t6-bootstrap-preflight-tests.py"
+chroot "$out" /usr/bin/python3 -B /run/t6-bootstrap-preflight-tests.py /run/t6-bootstrap-preflight-ci.py
+rm -f -- "$out/run/t6-bootstrap-ci.conf" "$out/run/t6-bootstrap-ci.sh" \
+  "$out/run/t6-bootstrap-preflight-ci.py" "$out/run/t6-bootstrap-preflight-tests.py"
 test ! -e "$out/var/lib/terminal6/firstboot-complete"
 # Debian's openssh-server can generate host keys during bootstrap; scrub
 # these so every actual device creates its *own* keys after boot.
