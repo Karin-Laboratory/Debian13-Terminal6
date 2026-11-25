@@ -181,7 +181,30 @@ grep -q '^systemd ' "$dest/p44-init-version.txt" || {
   echo "P44_INIT_CHROOT_WRONG_OUTPUT" >&2
   exit 1
 }
+# P25 switch_root launches /sbin/init, not the canonical systemd ELF path.
+# Exercise precisely that guest-rooted symlink/ELF-interpreter entrypoint too.
+# /sbin/init invokes systemd in init-compatibility mode and does NOT
+# support the canonical systemd ELF's --version flag. Its expected rejection
+# proves the PATH resolved and execution reached systemd's argument parser;
+# /usr/lib/systemd/systemd --version above separately checks ELF+DSO ABI.
+# Never execute plain /sbin/init outside PID 1: no simulated real boot.
+set +e
+chroot "$out" /sbin/init --version > "$dest/p44-switchroot-init-version.txt" 2>&1
+init_probe_rc=$?
+set -e
+if [ "$init_probe_rc" -eq 1 ] &&
+   grep -Fq "unrecognized option '--version'" "$dest/p44-switchroot-init-version.txt"; then
+  echo "P44_INIT_EXACT_SYMLINK_EXEC_REACHED_SYSTEMD_OPTION_PARSER"
+elif [ "$init_probe_rc" -eq 0 ] &&
+     grep -q '^systemd ' "$dest/p44-switchroot-init-version.txt"; then
+  echo "P44_INIT_EXACT_SYMLINK_EXEC_ACCEPTED_VERSION"
+else
+  echo "P44_INIT_EXACT_SWITCH_ROOT_ENTRYPOINT_EXEC_FAILED" >&2
+  sed -n '1,12p' "$dest/p44-switchroot-init-version.txt" >&2
+  exit 1
+fi
 echo "P44_INIT_NATIVE_ARM64_CHROOT_EXEC_PASS"
+echo "P44_INIT_SWITCHROOT_ENTRYPOINT_CHROOT_PASS_NOT_PID1_PROOF"
 
 # Do not ship builder machine identity or dbus machine identifier.
 : > "$out/etc/machine-id"

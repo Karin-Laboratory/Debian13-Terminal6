@@ -257,6 +257,8 @@ class Proto2SourceTests(unittest.TestCase):
         rootfs = read("scripts/build-proto2-p44-rootfs.sh")
         self.assertIn('chroot "$out" /usr/lib/systemd/systemd --version', rootfs)
         self.assertIn("P44_INIT_NATIVE_ARM64_CHROOT_EXEC_PASS", rootfs)
+        self.assertIn('chroot "$out" /sbin/init --version', rootfs)
+        self.assertIn("P44_INIT_SWITCHROOT_ENTRYPOINT_CHROOT_PASS_NOT_PID1_PROOF", rootfs)
 
     def test_wrong_p25_rejected_without_zip(self):
         module = packager()

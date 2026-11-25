@@ -1,0 +1,45 @@
+name: proto2 P44 mounted PID1 non-mutating audit tests
+on:
+  push:
+    branches: [codex/pr41-p44-pid1-handoff-audit-20261122]
+    paths:
+      - .github/workflows/proto2-p44-pid1-audit.yml
+      - scripts/audit-proto2-p44-pid1.py
+      - scripts/build-proto2-p44-rootfs.sh
+      - tests/test_proto2_pid1_audit.py
+      - tests/test_proto2_p44.py
+permissions:
+  contents: read
+jobs:
+  synthetic-negative:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Syntax and root-scoped path resolution tests
+        run: |
+          set -euo pipefail
+          bash -n scripts/build-proto2-p44-rootfs.sh
+          python3 -m py_compile scripts/audit-proto2-p44-pid1.py tests/test_proto2_pid1_audit.py
+          python3 -m unittest discover -s tests -p 'test_proto2_pid1_audit.py' -v
+          python3 -m unittest discover -s tests -p 'test_proto2_p44.py' -v
+          echo 'P44_PID1_READONLY_AND_NEGATIVE_SOURCE_TESTS_PASS'
+  native-arm64-boot-path:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - name: Native Debian ARM64 P44 package + exact /sbin/init compatibility gate
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq debootstrap
+          sudo bash scripts/build-proto2-p44-rootfs.sh "$RUNNER_TEMP/proto2-rootfs"
+          # Builder intentionally creates a root-owned 0700 private directory.
+          sudo test -s "$RUNNER_TEMP/proto2-rootfs/p44-init-version.txt"
+          sudo test -s "$RUNNER_TEMP/proto2-rootfs/p44-switchroot-init-version.txt"
+          sudo grep -q '^systemd ' "$RUNNER_TEMP/proto2-rootfs/p44-init-version.txt"
+          echo 'P44_PID1_NATIVE_ARM64_CANONICAL_AND_EXACT_SBIN_ENTRYPOINT_PASS'
+          echo 'THIS_IS_NOT_PID1_BOOT_NOT_DEVICE_P44_INSPECTION'
